@@ -42,3 +42,9 @@ next-env.d.ts
 
 data/*.db
 
+.env
+.env.local
+node_modules
+.next
+
+
