@@ -1,7 +1,7 @@
 export async function POST(req: Request) {
   const body = await req.json();
 
-  // RESPONDER INMEDIATO A META (obligatorio <3s)
+  // RESPONDER INMEDIATO A META
   setTimeout(async () => {
     try {
       const change = body?.entry?.[0]?.changes?.[0];
@@ -26,11 +26,15 @@ export async function POST(req: Request) {
         reply = "Gracias 🙌\nAhora decime tu nombre y apellido.";
       }
 
-      // Preparar timeout más largo (15s) y headers para conexiones lentas
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log("⏰ Abort manual por timeout de 8s");
+      }, 8000);  // Bajado a 8s para que se loguee antes del corte de Netlify
 
-      console.log("⏳ Iniciando fetch a Meta...");
+      console.log("⏳ Iniciando fetch a Meta... (versión v21.0)");
+
+      const startTime = Date.now();
 
       const response = await fetch(
         `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
@@ -39,7 +43,7 @@ export async function POST(req: Request) {
           headers: {
             Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
             "Content-Type": "application/json",
-            "Connection": "keep-alive",  // Intenta mantener conexión
+            "Connection": "keep-alive",
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
@@ -51,9 +55,10 @@ export async function POST(req: Request) {
         }
       );
 
-      clearTimeout(timeoutId);
+      const duration = Date.now() - startTime;
+      console.log(`📡 Fetch completado en ${duration}ms, status:`, response.status);
 
-      console.log("📡 Fetch completado, status:", response.status);
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -65,9 +70,9 @@ export async function POST(req: Request) {
 
     } catch (err: any) {
       if (err.name === "AbortError") {
-        console.error("❌ Fetch abortado por timeout (15s)");
+        console.error("❌ Fetch abortado por timeout (8s)");
       } else {
-        console.error("❌ Error procesando/enviando mensaje:", err.message || err);
+        console.error("❌ Error en fetch/procesamiento:", err.message || err, err.stack);
       }
     }
   }, 0);
