@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
       const value = change.value;
       const message = value?.messages?.[0];
-      if (!message || message.type !== "text") return; // Solo procesamos mensajes de texto por ahora
+      if (!message || message.type !== "text") return;
 
       const from = message.from;
       const text = message.text?.body?.toLowerCase().trim() || "";
@@ -23,21 +23,23 @@ export async function POST(req: Request) {
       } else if (text.includes("turno")) {
         reply = "Perfecto 👍\nDecime tu DNI para continuar.";
       } else if (/^\d{7,8}$/.test(text)) {
-        // Opcional: podés agregar lógica de DNI aquí
         reply = "Gracias 🙌\nAhora decime tu nombre y apellido.";
       }
 
-      // Preparar timeout para fetch
+      // Preparar timeout más largo (15s) y headers para conexiones lentas
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos max
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      console.log("⏳ Iniciando fetch a Meta...");
 
       const response = await fetch(
-        `https://graph.facebook.com/v23.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+        `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
             "Content-Type": "application/json",
+            "Connection": "keep-alive",  // Intenta mantener conexión
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
@@ -51,18 +53,19 @@ export async function POST(req: Request) {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("❌ Error de Meta:", response.status, errorData);
-        return;
-      }
+      console.log("📡 Fetch completado, status:", response.status);
 
       const data = await response.json();
-      console.log("✅ Respuesta enviada exitosamente:", JSON.stringify(data, null, 2));
+
+      if (!response.ok) {
+        console.error("❌ Meta rechazó:", response.status, data);
+      } else {
+        console.log("✅ Respuesta enviada exitosamente:", JSON.stringify(data, null, 2));
+      }
 
     } catch (err: any) {
       if (err.name === "AbortError") {
-        console.error("❌ Fetch abortado por timeout (10s)");
+        console.error("❌ Fetch abortado por timeout (15s)");
       } else {
         console.error("❌ Error procesando/enviando mensaje:", err.message || err);
       }
