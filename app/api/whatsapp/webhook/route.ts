@@ -69,24 +69,25 @@ async function processMessage(body: any) {
     /* ================= RESPUESTA A WHATSAPP ================= */
 
     const response = await fetch(
-      `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: from,
-          type: "text",
-          text: { body: reply },
-        }),
-      }
-    );
+  `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: from,
+      type: "text",
+      text: { body: reply },
+    }),
+  }
+);
 
-    const data = await response.json();
-    console.log("📤 Enviado a WhatsApp:", data);
+const data = await response.json();
+console.log("📤 RESPUESTA META:", JSON.stringify(data, null, 2));
+
 
   } catch (err) {
     console.error("❌ Error procesando mensaje:", err);
