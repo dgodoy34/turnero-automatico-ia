@@ -1,16 +1,14 @@
 export async function POST(req: Request) {
   const body = await req.json();
 
-  // RESPONDER INMEDIATO A META
-  queueMicrotask(async () => {
+  // RESPONDER A META INMEDIATAMENTE
+  setTimeout(async () => {
     try {
       const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
       if (!message) return;
 
       const from = message.from;
       const text = message.text?.body?.toLowerCase() || "";
-
-      console.log("📩 Mensaje:", text, "De:", from);
 
       let reply = "No entendí el mensaje 🤔";
 
@@ -34,12 +32,13 @@ export async function POST(req: Request) {
         }),
       });
 
-      console.log("✅ Respuesta enviada");
+      console.log("✅ RESPUESTA ENVIADA A WHATSAPP");
     } catch (err) {
-      console.error("❌ Error enviando mensaje", err);
+      console.error("❌ Error enviando mensaje:", err);
     }
-  });
+  }, 0);
 
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
+
 
