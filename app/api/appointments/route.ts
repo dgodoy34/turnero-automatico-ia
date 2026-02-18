@@ -1,27 +1,17 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabaseClient";
 
 export async function GET() {
   try {
-    const appointments = db
-      .prepare(
-        `
-        SELECT 
-          a.id,
-          a.client_dni,
-          a.date,
-          a.time,
-          a.service,
-          a.notes,
-          a.status,
-          a.created_at
-        FROM appointments a
-        ORDER BY a.date DESC, a.time DESC
-      `
-      )
-      .all();
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("*")
+      .order("date", { ascending: false })
+      .order("time", { ascending: false });
 
-    return NextResponse.json({ success: true, appointments });
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, appointments: data ?? [] });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message },
@@ -42,22 +32,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validamos que exista el cliente
-    const client = db
-      .prepare(`SELECT dni FROM clients WHERE dni = ?`)
-      .get(client_dni);
+    // Validar que exista cliente
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("dni")
+      .eq("dni", client_dni)
+      .single();
 
-    if (!client) {
+    if (clientError || !client) {
       return NextResponse.json(
         { success: false, error: "Cliente no encontrado (DNI inválido)" },
         { status: 404 }
       );
     }
 
-    db.prepare(`
-      INSERT INTO appointments (client_dni, date, time, service, notes)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(client_dni, date, time, service, notes ?? null);
+    const { error } = await supabase.from("appointments").insert([
+      {
+        client_dni,
+        date,
+        time,
+        service,
+        notes: notes ?? null,
+        status: "pendiente",
+      },
+    ]);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -80,10 +80,12 @@ export async function PUT(req: Request) {
       );
     }
 
-    db.prepare(`UPDATE appointments SET status = ? WHERE id = ?`).run(
-      status,
-      id
-    );
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -106,7 +108,12 @@ export async function DELETE(req: Request) {
       );
     }
 
-    db.prepare(`DELETE FROM appointments WHERE id = ?`).run(id);
+    const { error } = await supabase
+      .from("appointments")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

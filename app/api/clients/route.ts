@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabaseClient";
 
 export async function GET() {
   try {
-    const clients = db.prepare(`
-      SELECT dni, name, phone, email, created_at
-      FROM clients
-      ORDER BY created_at DESC
-    `).all();
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    return NextResponse.json({ success: true, clients });
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, clients: data ?? [] });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message },
@@ -25,28 +26,27 @@ export async function POST(req: Request) {
 
     if (!dni || !name || !phone) {
       return NextResponse.json(
-        { success: false, error: "dni, name y phone son obligatorios" },
+        { success: false, error: "Faltan datos obligatorios (dni/name/phone)" },
         { status: 400 }
       );
     }
 
-    const exists = db
-      .prepare(`SELECT dni FROM clients WHERE dni = ?`)
-      .get(dni);
+    const { data, error } = await supabase
+      .from("clients")
+      .insert([
+        {
+          dni: String(dni),
+          name: String(name),
+          phone: String(phone),
+          email: email ? String(email) : null,
+        },
+      ])
+      .select()
+      .single();
 
-    if (exists) {
-      return NextResponse.json(
-        { success: false, error: "Ese DNI ya existe" },
-        { status: 409 }
-      );
-    }
+    if (error) throw error;
 
-    db.prepare(`
-      INSERT INTO clients (dni, name, phone, email)
-      VALUES (?, ?, ?, ?)
-    `).run(dni, name, phone, email ?? null);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, client: data });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message },
