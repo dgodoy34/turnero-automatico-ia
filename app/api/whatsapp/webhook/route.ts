@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       if (text.includes("turno"))
         reply = "Perfecto 👍\nDecime tu DNI para continuar.";
 
-      await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      await fetch(`https://graph.facebook.com/v25.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
