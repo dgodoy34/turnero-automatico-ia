@@ -26,13 +26,21 @@ export async function POST(req: Request) {
         reply = "Gracias 🙌\nAhora decime tu nombre y apellido.";
       }
 
+      // 🔎 PRUEBA DE INTERNET
+      try {
+        const googleTest = await fetch("https://www.google.com");
+        console.log("🌎 GOOGLE OK:", googleTest.status);
+      } catch (e) {
+        console.error("🌎 GOOGLE FAIL:", e);
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
         console.log("⏰ Abort manual por timeout de 8s");
-      }, 8000);  // Bajado a 8s para que se loguee antes del corte de Netlify
+      }, 8000);
 
-      console.log("⏳ Iniciando fetch a Meta... (versión v21.0)");
+      console.log("⏳ Iniciando fetch a Meta...");
 
       const startTime = Date.now();
 
@@ -43,7 +51,6 @@ export async function POST(req: Request) {
           headers: {
             Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
             "Content-Type": "application/json",
-            "Connection": "keep-alive",
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
@@ -56,23 +63,23 @@ export async function POST(req: Request) {
       );
 
       const duration = Date.now() - startTime;
-      console.log(`📡 Fetch completado en ${duration}ms, status:`, response.status);
+      console.log(`📡 Meta respondió en ${duration}ms - Status:`, response.status);
 
       clearTimeout(timeoutId);
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("❌ Meta rechazó:", response.status, data);
+        console.error("❌ Meta rechazó:", data);
       } else {
-        console.log("✅ Respuesta enviada exitosamente:", JSON.stringify(data, null, 2));
+        console.log("✅ Respuesta enviada:", data);
       }
 
     } catch (err: any) {
       if (err.name === "AbortError") {
         console.error("❌ Fetch abortado por timeout (8s)");
       } else {
-        console.error("❌ Error en fetch/procesamiento:", err.message || err, err.stack);
+        console.error("❌ Error general:", err.message || err);
       }
     }
   }, 0);
