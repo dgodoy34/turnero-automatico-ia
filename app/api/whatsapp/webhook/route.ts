@@ -10,6 +10,8 @@ export async function POST(req: Request) {
 
     const from = message.from;
     const text = message.text?.body?.toLowerCase().trim() || "";
+    console.log("PHONE ID:", process.env.WHATSAPP_PHONE_NUMBER_ID);
+console.log("TOKEN OK:", !!process.env.WHATSAPP_TOKEN);
 
     console.log("📩 Mensaje recibido:", text, "De:", from);
 
