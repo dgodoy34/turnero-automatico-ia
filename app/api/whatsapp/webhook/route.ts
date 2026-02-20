@@ -1,3 +1,6 @@
+import { supabase } from "@/lib/supabaseClient";
+import { getSession, setSession, clearSession } from "@/lib/sessionStore";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -9,21 +12,63 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
 
     const from = message.from;
-    const text = message.text?.body?.toLowerCase().trim() || "";
-    console.log("PHONE ID:", process.env.WHATSAPP_PHONE_NUMBER_ID);
-console.log("TOKEN OK:", !!process.env.WHATSAPP_TOKEN);
+    const text = message.text?.body?.trim() || "";
 
-    console.log("📩 Mensaje recibido:", text, "De:", from);
+    console.log("📩 Mensaje:", text, "De:", from);
 
+    // =========================
+    // BUSCAR CLIENTE EN BD
+    // =========================
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("telefono", from)
+      .single();
+
+    let session = getSession(from);
     let reply = "No entendí el mensaje 🤔";
 
-    if (text.includes("hola"))
-      reply = "¡Hola! 👋 Soy el asistente automático.\nEscribí *turno* para sacar un turno.";
-    else if (text.includes("turno"))
-      reply = "Perfecto 👍\nDecime tu DNI para continuar.";
-    else if (/^\d{7,8}$/.test(text))
-      reply = "Gracias 🙌\nAhora decime tu nombre y apellido.";
+    // =========================
+    // CLIENTE YA EXISTE
+    // =========================
+    if (cliente && !session) {
+      reply = `Hola ${cliente.nombre} 👋\n¿Querés sacar otro turno? Escribí *turno*`;
+    }
 
+    // =========================
+    // FLUJO NUEVO
+    // =========================
+    if (text.toLowerCase() === "hola") {
+      reply = "¡Hola! 👋\nEscribí *turno* para sacar un turno.";
+    }
+
+    else if (text.toLowerCase() === "turno") {
+      setSession(from, { step: "dni" });
+      reply = "Perfecto 👍\nDecime tu DNI";
+    }
+
+    else if (session?.step === "dni" && /^\d{7,8}$/.test(text)) {
+      setSession(from, { step: "nombre", dni: text });
+      reply = "Gracias 🙌\nAhora decime tu nombre y apellido";
+    }
+
+    else if (session?.step === "nombre") {
+
+      // GUARDAR CLIENTE
+      await supabase.from("clientes").insert({
+        telefono: from,
+        nombre: text,
+        dni: session.dni
+      });
+
+      clearSession(from);
+
+      reply = `Perfecto ${text} ✅\nTu turno fue registrado.\nEn breve te confirmamos horario.`;
+    }
+
+    // =========================
+    // ENVIAR RESPUESTA A META
+    // =========================
     console.log("⏳ Enviando respuesta a Meta...");
 
     const response = await fetch(
@@ -48,8 +93,8 @@ console.log("TOKEN OK:", !!process.env.WHATSAPP_TOKEN);
 
     return new Response("EVENT_RECEIVED", { status: 200 });
 
-  } catch (err: any) {
-    console.error("❌ ERROR GENERAL:", err);
+  } catch (err) {
+    console.error("❌ ERROR:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
 }
