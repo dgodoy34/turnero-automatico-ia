@@ -1,5 +1,12 @@
 import { supabase } from "@/lib/supabaseClient";
-import { getSession, setSession, clearSession } from "@/lib/sessionStore";
+
+type Session = {
+  step: "inicio" | "esperando_dni" | "esperando_nombre" | "confirmado";
+  dni?: string;
+  nombre?: string;
+};
+
+const sesiones: Record<string, Session> = {};
 
 export async function POST(req: Request) {
   try {
@@ -16,61 +23,66 @@ export async function POST(req: Request) {
 
     console.log("📩 Mensaje:", text, "De:", from);
 
-    // =========================
-    // BUSCAR CLIENTE EN BD
-    // =========================
-    const { data: cliente } = await supabase
-      .from("clientes")
-      .select("*")
-      .eq("telefono", from)
-      .single();
+    if (!sesiones[from]) sesiones[from] = { step: "inicio" };
+    const session = sesiones[from];
 
-    let session = getSession(from);
     let reply = "No entendí el mensaje 🤔";
 
-    // =========================
-    // CLIENTE YA EXISTE
-    // =========================
-    if (cliente && !session) {
-      reply = `Hola ${cliente.nombre} 👋\n¿Querés sacar otro turno? Escribí *turno*`;
-    }
-
-    // =========================
-    // FLUJO NUEVO
-    // =========================
-    if (text.toLowerCase() === "hola") {
+    // ========================
+    // PASO 1 — INICIO
+    // ========================
+    if (session.step === "inicio") {
       reply = "¡Hola! 👋\nEscribí *turno* para sacar un turno.";
+      session.step = "esperando_dni";
     }
 
-    else if (text.toLowerCase() === "turno") {
-      setSession(from, { step: "dni" });
-      reply = "Perfecto 👍\nDecime tu DNI";
+    // ========================
+    // PASO 2 — PEDIR DNI
+    // ========================
+    else if (session.step === "esperando_dni") {
+      if (!/^\d{7,8}$/.test(text)) {
+        reply = "Por favor ingresá un DNI válido (7 u 8 números)";
+      } else {
+        session.dni = text;
+
+        // 🔎 BUSCAR CLIENTE
+        const { data: cliente } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("dni", text)
+          .single();
+
+        if (cliente) {
+          session.nombre = cliente.name;
+          session.step = "confirmado";
+          reply = `Hola ${cliente.name} 😄\nTu turno será procesado.`;
+        } else {
+          session.step = "esperando_nombre";
+          reply = "No estás registrado.\nDecime tu nombre y apellido.";
+        }
+      }
     }
 
-    else if (session?.step === "dni" && /^\d{7,8}$/.test(text)) {
-      setSession(from, { step: "nombre", dni: text });
-      reply = "Gracias 🙌\nAhora decime tu nombre y apellido";
-    }
+    // ========================
+    // PASO 3 — REGISTRAR CLIENTE
+    // ========================
+    else if (session.step === "esperando_nombre") {
+      session.nombre = text;
 
-    else if (session?.step === "nombre") {
-
-      // GUARDAR CLIENTE
-      await supabase.from("clientes").insert({
-        telefono: from,
-        nombre: text,
-        dni: session.dni
+      await supabase.from("clients").insert({
+        dni: session.dni,
+        name: session.nombre,
+        phone: from,
       });
 
-      clearSession(from);
+      session.step = "confirmado";
 
-      reply = `Perfecto ${text} ✅\nTu turno fue registrado.\nEn breve te confirmamos horario.`;
+      reply = `Perfecto ${session.nombre} ✅\nTu turno fue registrado.`;
     }
 
-    // =========================
-    // ENVIAR RESPUESTA A META
-    // =========================
-    console.log("⏳ Enviando respuesta a Meta...");
-
+    // ========================
+    // RESPUESTA A META
+    // ========================
     const response = await fetch(
       `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
@@ -88,11 +100,9 @@ export async function POST(req: Request) {
       }
     );
 
-    const data = await response.text();
-    console.log("📡 Meta respondió:", response.status, data);
+    console.log("📡 Meta:", response.status, await response.text());
 
     return new Response("EVENT_RECEIVED", { status: 200 });
-
   } catch (err) {
     console.error("❌ ERROR:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
