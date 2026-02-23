@@ -16,28 +16,11 @@ export async function createReservation({
   people,
   notes,
 }: CreateReservationParams) {
-  // 1️⃣ Verificar si ya tiene reserva confirmada mismo día y hora
-  const { data: existing } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("client_dni", dni)
-    .eq("date", date)
-    .eq("time", time)
-    .eq("status", "confirmada")
-    .maybeSingle();
 
-  if (existing) {
-    return {
-      success: false,
-      message: "Ya tenés una reserva confirmada en ese horario.",
-      existingReservation: existing,
-    };
-  }
-
-  // 2️⃣ Generar código seguro
+  // 🔹 Generar código seguro
   const reservationCode = await generateReservationCode(date);
 
-  // 3️⃣ Insertar reserva
+  // 🔹 Insertar reserva (sin validación de conflicto)
   const { data, error } = await supabase
     .from("reservations")
     .insert({
