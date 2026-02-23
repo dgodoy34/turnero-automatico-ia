@@ -74,56 +74,53 @@ export async function POST(req: Request) {
     // =========================
     // 4️⃣ CLIENTE IDENTIFICADO
     // =========================
-    else if (session.state === "IDLE") {
+   else if (session.state === "IDLE") {
 
   const lower = text.toLowerCase();
 
-  // 🔥 Detectar afirmación simple
-  if (lower === "si" || lower === "sí") {
-    reply = "Perfecto 👍 ¿Para qué fecha querés venir?";
-    await setState(from, "ASK_DATE");
-  }
-
+  // 🔐 Siempre validar DNI primero
+  if (!/^\d{7,8}$/.test(text)) {
+    reply = "Para continuar necesito tu DNI (7 u 8 números) 😊";
+    await setState(from, "WAITING_DNI");
+  } 
   else {
-    const ai = await interpretMessage(text);
-    console.log("🧠 AI:", ai);
+    // Es un DNI válido
+    await setDNI(from, text);
 
-    if (ai.intent === "create_reservation") {
-      await setTemp(from, {
-        ...(session.temp_data || {}),
-        date: ai.date,
-        time: ai.time,
-        people: ai.people,
-      });
+    const { data: cliente } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("dni", text)
+      .maybeSingle();
 
-      if (!ai.date) {
-        reply = "¿Para qué fecha querés venir?";
-        await setState(from, "ASK_DATE");
-      } 
-      else if (!ai.time) {
-        reply = "¿A qué hora?";
-        await setState(from, "ASK_TIME");
-      } 
-      else if (!ai.people) {
-        reply = "¿Para cuántas personas?";
-        await setState(from, "ASK_PEOPLE");
-      } 
-      else {
-        reply = `Confirmo:\n📅 ${ai.date}\n⏰ ${ai.time}\n👥 ${ai.people}\n¿Confirmamos? (si/no)`;
-        await setState(from, "CONFIRM_RESERVATION");
+    if (cliente) {
+
+      // Ver si tiene reservas activas
+      const { data: reservas } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("client_dni", text)
+        .eq("status", "confirmada");
+
+      if (reservas && reservas.length > 0) {
+        reply =
+          `Hola ${cliente.name} 😊\n` +
+          `Tenés ${reservas.length} reserva(s) activa(s).\n` +
+          `¿Querés hacer una nueva reserva o consultar una existente?`;
+      } else {
+        reply =
+          `Hola ${cliente.name} 😊\n` +
+          `No tenés reservas activas.\n` +
+          `¿Querés hacer una nueva reserva?`;
       }
-    }
 
-    else if (ai.intent === "menu") {
-      reply = "Tenemos milanesa napolitana, asado criollo, locro los domingos y flan casero 😋";
-    }
-
-    else if (ai.intent === "greeting") {
-      reply = "¡Hola! 😄 ¿Querés hacer una reserva o consultar una existente?";
-    }
-
+      await setState(from, "AUTHENTICATED");
+    } 
     else {
-      reply = "No entendí bien 🤔 ¿Querés hacer una reserva?";
+      reply =
+        "No estás registrado.\n" +
+        "Decime tu nombre completo para registrarte.";
+      await setState(from, "REGISTER_NAME");
     }
   }
 }
@@ -177,11 +174,18 @@ export async function POST(req: Request) {
     // 8️⃣ CONFIRMAR RESERVA
     // =========================
     else if (session.state === "CONFIRM_RESERVATION") {
+
+ console.log("🔥 Entró a confirmación");
+
   const lower = text.toLowerCase();
 
   if (lower === "si" || lower === "sí") {
 
+    console.log("🔥 Usuario confirmó");
+
     const temp = session.temp_data;
+
+    console.log("🔥 Temp:", temp);
 
     const result = await createReservation({
       dni: session.dni,
@@ -190,6 +194,8 @@ export async function POST(req: Request) {
       people: temp.people,
       notes: temp.notes || "",
     });
+
+     console.log("🔥 Resultado createReservation:", result);
 
     if (!result.success) {
       reply = "Ya tenés una reserva confirmada en ese horario.\n¿Querés modificarla?";
