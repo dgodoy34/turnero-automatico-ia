@@ -1,12 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
-
-type Session = {
-  step: "inicio" | "esperando_dni" | "esperando_nombre" | "confirmado";
-  dni?: string;
-  nombre?: string;
-};
-
-const sesiones: Record<string, Session> = {};
+import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
+import { generateReservationCode } from "@/lib/reservationCode";
+import { interpretMessage } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
@@ -19,33 +14,33 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
 
     const from = message.from;
-    const text = message.text?.body?.trim() || "";
+    const text = message.text.body.trim();
 
-    console.log("📩 Mensaje:", text, "De:", from);
+    console.log("📩", text, "De:", from);
 
-    if (!sesiones[from]) sesiones[from] = { step: "inicio" };
-    const session = sesiones[from];
+    const session = await getSession(from);
 
     let reply = "No entendí el mensaje 🤔";
 
-    // ========================
-    // PASO 1 — INICIO
-    // ========================
-    if (session.step === "inicio") {
-      reply = "¡Hola! 👋\nEscribí *turno* para sacar un turno.";
-      session.step = "esperando_dni";
+    // =========================
+    // 1️⃣ NUEVO USUARIO
+    // =========================
+    if (session.state === "NEW_USER") {
+      reply =
+        "¡Hola! 👋 Soy el asistente de El Rincón Criollo.\nPara comenzar necesito tu DNI.";
+
+      await setState(from, "WAITING_DNI");
     }
 
-    // ========================
-    // PASO 2 — PEDIR DNI
-    // ========================
-    else if (session.step === "esperando_dni") {
+    // =========================
+    // 2️⃣ ESPERANDO DNI
+    // =========================
+    else if (session.state === "WAITING_DNI") {
       if (!/^\d{7,8}$/.test(text)) {
-        reply = "Por favor ingresá un DNI válido (7 u 8 números)";
+        reply = "Por favor ingresá un DNI válido (7 u 8 números).";
       } else {
-        session.dni = text;
+        await setDNI(from, text);
 
-        // 🔎 BUSCAR CLIENTE
         const { data: cliente } = await supabase
           .from("clients")
           .select("*")
@@ -53,37 +48,151 @@ export async function POST(req: Request) {
           .single();
 
         if (cliente) {
-          session.nombre = cliente.name;
-          session.step = "confirmado";
-          reply = `Hola ${cliente.name} 😄\nTu turno será procesado.`;
+          reply = `Hola ${cliente.name} 😄 ¿Querés hacer una reserva o consultar una existente?`;
+          await setState(from, "IDLE");
         } else {
-          session.step = "esperando_nombre";
-          reply = "No estás registrado.\nDecime tu nombre y apellido.";
+          reply = "No estás registrado. Decime tu nombre completo.";
+          await setState(from, "REGISTER_NAME");
         }
       }
     }
 
-    // ========================
-    // PASO 3 — REGISTRAR CLIENTE
-    // ========================
-    else if (session.step === "esperando_nombre") {
-      session.nombre = text;
+    // =========================
+    // 3️⃣ REGISTRAR NOMBRE
+    // =========================
+    else if (session.state === "REGISTER_NAME") {
+      const dni = session.dni;
 
       await supabase.from("clients").insert({
-        dni: session.dni,
-        name: session.nombre,
+        dni,
+        name: text,
         phone: from,
       });
 
-      session.step = "confirmado";
+      reply = `Perfecto ${text} 🎉 Ya estás registrado.\n¿Querés hacer una reserva?`;
 
-      reply = `Perfecto ${session.nombre} ✅\nTu turno fue registrado.`;
+      await setState(from, "IDLE");
     }
 
-    // ========================
+    // =========================
+    // 4️⃣ CLIENTE IDENTIFICADO
+    // =========================
+    else if (session.state === "IDLE") {
+
+  const ai = await interpretMessage(text);
+  console.log("🧠 AI:", ai);
+
+  if (ai.intent === "create_reservation") {
+    await setTemp(from, {
+      date: ai.date,
+      time: ai.time,
+      people: ai.people
+    });
+
+    if (!ai.date) {
+      reply = "¿Para qué fecha querés venir?";
+      await setState(from, "ASK_DATE");
+    } 
+    else if (!ai.time) {
+      reply = "¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    } 
+    else if (!ai.people) {
+      reply = "¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    } 
+    else {
+      reply = `Confirmo:\n📅 ${ai.date}\n⏰ ${ai.time}\n👥 ${ai.people}\n¿Confirmamos? (si/no)`;
+      await setState(from, "CONFIRM_RESERVATION");
+    }
+  }
+
+  else if (ai.intent === "menu") {
+    reply = "Tenemos milanesa napolitana, asado criollo, locro los domingos y flan casero 😋";
+  }
+
+  else if (ai.intent === "greeting") {
+    reply = "¡Hola! 😄 ¿Querés hacer una reserva o consultar una existente?";
+  }
+
+  else {
+    reply = "No entendí bien 🤔 ¿Querés hacer una reserva?";
+  }
+}
+
+    // =========================
+    // 5️⃣ PEDIR FECHA
+    // =========================
+    else if (session.state === "ASK_DATE") {
+      await setTemp(from, { date: text });
+
+      reply = "Perfecto 👍 ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    }
+
+    // =========================
+    // 6️⃣ PEDIR HORA
+    // =========================
+    else if (session.state === "ASK_TIME") {
+      const temp = { ...(session.temp_data || {}), time: text };
+
+      await setTemp(from, temp);
+
+      reply = "¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    }
+
+    // =========================
+    // 7️⃣ PEDIR PERSONAS
+    // =========================
+    else if (session.state === "ASK_PEOPLE") {
+      const temp = {
+        ...(session.temp_data || {}),
+        people: text,
+      };
+
+      await setTemp(from, temp);
+
+      reply =
+        `Confirmo:\n📅 ${temp.date}\n⏰ ${temp.time}\n👥 ${temp.people}\n¿Confirmamos? (si/no)`;
+
+      await setState(from, "CONFIRM_RESERVATION");
+    }
+
+    // =========================
+    // 8️⃣ CONFIRMAR RESERVA
+    // =========================
+    else if (session.state === "CONFIRM_RESERVATION") {
+      if (text.toLowerCase() === "si") {
+        const temp = session.temp_data;
+
+       const reservationCode = await generateReservationCode(temp.date);
+
+        await supabase.from("appointments").insert({
+          reservation_code: reservationCode,
+          client_dni: session.dni,
+          date: temp.date,
+          time: temp.time,
+          service: "Mesa",
+          notes: "",
+          status: "confirmed",
+        });
+
+        reply =
+          `🎉 Reserva confirmada!\nCódigo: ${reservationCode}\nGuardalo para futuras consultas.`;
+
+        await setState(from, "IDLE");
+        await setTemp(from, {});
+      } else {
+        reply = "Reserva cancelada. ¿Querés intentar nuevamente?";
+        await setState(from, "IDLE");
+      }
+    }
+
+    // =========================
     // RESPUESTA A META
-    // ========================
-    const response = await fetch(
+    // =========================
+    await fetch(
       `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
@@ -99,8 +208,6 @@ export async function POST(req: Request) {
         }),
       }
     );
-
-    console.log("📡 Meta:", response.status, await response.text());
 
     return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
