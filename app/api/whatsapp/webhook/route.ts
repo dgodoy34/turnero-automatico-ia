@@ -75,47 +75,58 @@ export async function POST(req: Request) {
     // 4️⃣ CLIENTE IDENTIFICADO
     // =========================
     else if (session.state === "IDLE") {
-      const ai = await interpretMessage(text);
-      console.log("🧠 AI:", ai);
 
-      if (ai.intent === "create_reservation") {
-        await setTemp(from, {
-          ...(session.temp_data || {}),
-          date: ai.date,
-          time: ai.time,
-          people: ai.people,
-        });
+  const lower = text.toLowerCase();
 
-        if (!ai.date) {
-          reply = "¿Para qué fecha querés venir?";
-          await setState(from, "ASK_DATE");
-        } else if (!ai.time) {
-          reply = "¿A qué hora?";
-          await setState(from, "ASK_TIME");
-        } else if (!ai.people) {
-          reply = "¿Para cuántas personas?";
-          await setState(from, "ASK_PEOPLE");
-        } else {
-          reply = `Confirmo:\n📅 ${ai.date}\n⏰ ${ai.time}\n👥 ${ai.people}\n¿Confirmamos? (si/no)`;
-          await setState(from, "CONFIRM_RESERVATION");
-        }
-      }
+  // 🔥 Detectar afirmación simple
+  if (lower === "si" || lower === "sí") {
+    reply = "Perfecto 👍 ¿Para qué fecha querés venir?";
+    await setState(from, "ASK_DATE");
+  }
 
-      else if (ai.intent === "menu") {
-        reply =
-          "Tenemos milanesa napolitana, asado criollo, locro los domingos y flan casero 😋";
-      }
+  else {
+    const ai = await interpretMessage(text);
+    console.log("🧠 AI:", ai);
 
-      else if (ai.intent === "greeting") {
-        reply =
-          "¡Hola! 😄 ¿Querés hacer una reserva o consultar una existente?";
-      }
+    if (ai.intent === "create_reservation") {
+      await setTemp(from, {
+        ...(session.temp_data || {}),
+        date: ai.date,
+        time: ai.time,
+        people: ai.people,
+      });
 
+      if (!ai.date) {
+        reply = "¿Para qué fecha querés venir?";
+        await setState(from, "ASK_DATE");
+      } 
+      else if (!ai.time) {
+        reply = "¿A qué hora?";
+        await setState(from, "ASK_TIME");
+      } 
+      else if (!ai.people) {
+        reply = "¿Para cuántas personas?";
+        await setState(from, "ASK_PEOPLE");
+      } 
       else {
-        reply = "No entendí bien 🤔 ¿Querés hacer una reserva?";
+        reply = `Confirmo:\n📅 ${ai.date}\n⏰ ${ai.time}\n👥 ${ai.people}\n¿Confirmamos? (si/no)`;
+        await setState(from, "CONFIRM_RESERVATION");
       }
     }
 
+    else if (ai.intent === "menu") {
+      reply = "Tenemos milanesa napolitana, asado criollo, locro los domingos y flan casero 😋";
+    }
+
+    else if (ai.intent === "greeting") {
+      reply = "¡Hola! 😄 ¿Querés hacer una reserva o consultar una existente?";
+    }
+
+    else {
+      reply = "No entendí bien 🤔 ¿Querés hacer una reserva?";
+    }
+  }
+}
     // =========================
     // 5️⃣ PEDIR FECHA
     // =========================
@@ -181,10 +192,13 @@ export async function POST(req: Request) {
           reply =
             "Ya tenés una reserva confirmada en ese horario.\n¿Querés modificarla?";
         } else {
-          reply =
-            `🎉 Reserva confirmada!\n` +
-            `Código: ${result.reservation.reservation_code}\n\n` +
-            `Guardalo para futuras consultas.`;
+         reply =
+  `🎉 ¡Reserva confirmada!\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people} personas\n\n` +
+  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+  `Te esperamos 😊\nSi necesitás modificarla, solo decime.`;
 
           await setTemp(from, {});
           await setState(from, "IDLE");
