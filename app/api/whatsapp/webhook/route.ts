@@ -177,38 +177,47 @@ export async function POST(req: Request) {
     // 8️⃣ CONFIRMAR RESERVA
     // =========================
     else if (session.state === "CONFIRM_RESERVATION") {
-      if (text.toLowerCase() === "si") {
-        const temp = session.temp_data;
+  const lower = text.toLowerCase();
 
-        const result = await createReservation({
-          dni: session.dni,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-          notes: temp.notes || "",
-        });
+  if (lower === "si" || lower === "sí") {
 
-        if (!result.success) {
-          reply =
-            "Ya tenés una reserva confirmada en ese horario.\n¿Querés modificarla?";
-        } else {
-         reply =
-  `🎉 ¡Reserva confirmada!\n\n` +
-  `📅 ${temp.date}\n` +
-  `⏰ ${temp.time}\n` +
-  `👥 ${temp.people} personas\n\n` +
-  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-  `Te esperamos 😊\nSi necesitás modificarla, solo decime.`;
+    const temp = session.temp_data;
 
-          await setTemp(from, {});
-          await setState(from, "IDLE");
-        }
-      } else {
-        reply = "Reserva cancelada. ¿Querés intentar nuevamente?";
-        await setState(from, "IDLE");
-      }
+    const result = await createReservation({
+      dni: session.dni,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+      notes: temp.notes || "",
+    });
+
+    if (!result.success) {
+      reply = "Ya tenés una reserva confirmada en ese horario.\n¿Querés modificarla?";
+    } else {
+      reply =
+        `🎉 ¡Reserva confirmada!\n\n` +
+        `📅 ${temp.date}\n` +
+        `⏰ ${temp.time}\n` +
+        `👥 ${temp.people} personas\n\n` +
+        `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+        `Te esperamos 😊`;
+
+      await setTemp(from, {});
+      await setState(from, "IDLE");
     }
 
+  } else if (lower === "no") {
+
+    reply = "Perfecto 👍 Cancelamos esta solicitud. ¿Querés intentar nuevamente?";
+    await setTemp(from, {});
+    await setState(from, "IDLE");
+
+  } else {
+
+    // 🔥 Si escribe otra cosa, no cancelar automáticamente
+    reply = "Solo necesito que me confirmes con 'si' o 'no' 😊";
+  }
+}
     // =========================
     // RESPUESTA A META
     // =========================
