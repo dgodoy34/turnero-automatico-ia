@@ -24,10 +24,10 @@ export async function generateReservationCode(date: string) {
 
     // 🔹 Contar SOLO reservas confirmadas ese día
     const { count, error } = await supabase
-      .from("reservations")
+      .from("appointments")
       .select("id", { count: "exact", head: true })
       .eq("date", dayKey)
-      .eq("status", "confirmada");
+      .eq("status", "confirmado");
 
     if (error) {
       console.error("Error counting reservations:", error);
