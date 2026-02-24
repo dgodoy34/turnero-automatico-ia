@@ -19,6 +19,24 @@ export async function createReservation({
 
   try {
 
+    // 🔎 Verificar si ya existe misma reserva para ese DNI
+    const { data: existing } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("client_dni", dni)
+      .eq("date", date)
+      .eq("time", time)
+      .eq("status", "Confirmado")
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        success: false,
+        existingReservation: existing,
+      };
+    }
+
+    // 🏷 Generar código
     const reservationCode = await generateReservationCode(date);
 
     const { data, error } = await supabase
@@ -36,7 +54,7 @@ export async function createReservation({
       .single();
 
     if (error) {
-      console.error("Insert error:", error);
+      console.error(error);
       return { success: false };
     }
 

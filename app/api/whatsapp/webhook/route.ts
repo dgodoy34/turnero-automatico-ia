@@ -184,9 +184,24 @@ else if (session.state === "CONFIRM_RESERVATION") {
       notes: "",
     });
 
-    if (!result.success) {
-      reply = "Hubo un problema creando la reserva. Intentemos nuevamente.";
+    if (!result.success && result.existingReservation) {
+
+      reply =
+        `⚠️ Ya tenés una reserva confirmada:\n\n` +
+        `📅 ${result.existingReservation.date}\n` +
+        `⏰ ${result.existingReservation.time}\n\n` +
+        `¿Querés modificarla? (si/no)`;
+
+      await setState(from, "MODIFY_RESERVATION");
+
+    } else if (!result.success) {
+
+      reply = "Hubo un problema creando la reserva.";
+
+      await setState(from, "IDLE");
+
     } else {
+
       reply =
         `🎉 ¡Reserva confirmada!\n\n` +
         `📅 ${temp.date}\n` +
@@ -194,10 +209,10 @@ else if (session.state === "CONFIRM_RESERVATION") {
         `👥 ${temp.people} personas\n\n` +
         `🔐 Código: ${result.reservation.reservation_code}\n\n` +
         `Te esperamos 😊`;
-    }
 
-    await setTemp(from, {});
-    await setState(from, "IDLE");
+      await setTemp(from, {});
+      await setState(from, "IDLE");
+    }
 
   } else if (lower === "no") {
 
