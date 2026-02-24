@@ -224,6 +224,62 @@ else if (session.state === "CONFIRM_RESERVATION") {
     reply = "Solo necesito que confirmes con 'si' o 'no' 😊";
   }
 }
+
+// =========================
+// MODIFICAR RESERVA
+// =========================
+else if (session.state === "MODIFY_RESERVATION") {
+
+  if (lower === "si" || lower === "sí") {
+
+    reply = "Perfecto 👍 Decime el código de la reserva que querés modificar.";
+
+    await setState(from, "ASK_MODIFY_CODE");
+
+  } else if (lower === "no") {
+
+    reply = "Perfecto 👍 La dejamos como está.";
+    await setState(from, "IDLE");
+
+  } else {
+
+    reply = "Respondeme 'si' o 'no' 😊";
+  }
+}
+
+// =========================
+// PEDIR CÓDIGO PARA MODIFICAR
+// =========================
+else if (session.state === "ASK_MODIFY_CODE") {
+
+  const code = text.trim();
+
+  const { data: reservation } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("reservation_code", code)
+    .eq("client_dni", session.dni)
+    .maybeSingle();
+
+  if (!reservation) {
+
+    reply = "No encontré una reserva con ese código. Verificalo por favor.";
+
+  } else {
+
+    reply =
+      `Encontré esta reserva:\n\n` +
+      `📅 ${reservation.date}\n` +
+      `⏰ ${reservation.time}\n\n` +
+      `¿Qué querés modificar?\n` +
+      `1️⃣ Fecha\n` +
+      `2️⃣ Hora\n` +
+      `3️⃣ Personas`;
+
+    await setTemp(from, { reservation_id: reservation.id });
+    await setState(from, "CHOOSE_MODIFICATION");
+  }
+}
     // =========================
     // RESPUESTA A META
     // =========================
