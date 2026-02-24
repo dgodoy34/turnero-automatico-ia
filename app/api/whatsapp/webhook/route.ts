@@ -60,13 +60,20 @@ export async function POST(req: Request) {
           .eq("dni", text)
           .maybeSingle();
 
-        if (cliente) {
-          reply = `Hola ${cliente.name} 😊 ¿Qué querés hacer?`;
-          await setState(from, "IDLE");
-        } else {
-          reply = "No estás registrado. Decime tu nombre completo.";
-          await setState(from, "REGISTER_NAME");
-        }
+       if (cliente) {
+
+  if (!cliente.email) {
+    reply = `Hola ${cliente.name} 😊 Antes de continuar necesito tu email para enviarte la confirmación de la reserva.`;
+    await setState(from, "ASK_EMAIL");
+  } else {
+    reply =
+      `Hola ${cliente.name} 😊\n\n` +
+      `¿Qué querés hacer?\n` +
+      `1️⃣ Hacer una reserva\n` +
+      `2️⃣ Modificar una reserva existente`;
+    await setState(from, "IDLE");
+  }
+}
       }
     }
 
@@ -84,6 +91,29 @@ export async function POST(req: Request) {
       reply = `Perfecto ${text} 🎉 Ya estás registrado. ¿Qué querés hacer?`;
       await setState(from, "IDLE");
     }
+
+  else if (session.state === "ASK_EMAIL") {
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(text)) {
+    reply = "Ese email no parece válido 🤔 ¿Podés escribirlo nuevamente?";
+  } else {
+
+    await supabase
+      .from("clients")
+      .update({ email: text })
+      .eq("dni", session.dni);
+
+    reply =
+      `Perfecto 👍 Ya tengo tu email.\n\n` +
+      `¿Qué querés hacer?\n` +
+      `1️⃣ Hacer una reserva\n` +
+      `2️⃣ Modificar una reserva existente`;
+
+    await setState(from, "IDLE");
+  }
+}
 
     // =========================
     // ESTADO LIBRE → IA
@@ -188,42 +218,6 @@ export async function POST(req: Request) {
       await setState(from, "CONFIRM_RESERVATION");
     }
 
-    // =========================
-    // CONFIRMAR RESERVA
-    // =========================
-    else if (session.state === "CONFIRM_RESERVATION") {
-
-      if (lower === "si" || lower === "sí") {
-
-        const temp = session.temp_data;
-
-        const result = await createReservation({
-          dni: session.dni,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-          notes: "",
-        });
-
-        if (!result.success) {
-          reply = "Ya tenés una reserva confirmada en ese horario.";
-        } else {
-          reply =
-            `🎉 ¡Reserva confirmada!\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people} personas\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}`;
-
-          await setTemp(from, {});
-          await setState(from, "IDLE");
-        }
-
-      } else {
-        reply = "Cancelamos esta solicitud.";
-        await setState(from, "IDLE");
-      }
-    }
 
     // =========================
     // RESPUESTA A META

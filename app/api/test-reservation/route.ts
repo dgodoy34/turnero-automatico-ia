@@ -8,7 +8,7 @@ export async function GET() {
       date: "2026-03-15",
       time: "20:00",
       people: 2,
-      notes: "Mesa en terraza"
+      restaurantId: "1",
     });
 
     return NextResponse.json({

@@ -6,7 +6,6 @@ type CreateReservationParams = {
   date: string;
   time: string;
   people: number;
-  notes?: string;
 };
 
 export async function createReservation({
@@ -14,57 +13,53 @@ export async function createReservation({
   date,
   time,
   people,
-  notes,
 }: CreateReservationParams) {
 
-  try {
+  // Capacidad máxima fija (FASE 1)
+  const MAX_CAPACITY = 60;
 
-    // 🔎 Verificar si ya existe misma reserva para ese DNI
-    const { data: existing } = await supabase
-      .from("appointments")
-      .select("*")
-      .eq("client_dni", dni)
-      .eq("date", date)
-      .eq("time", time)
-      .eq("status", "Confirmado")
-      .maybeSingle();
+  // Verificar ocupación actual en ese horario
+  const { data: existing } = await supabase
+    .from("appointments")
+    .select("people")
+    .eq("date", date)
+    .eq("time", time)
+    .eq("status", "confirmed");
 
-    if (existing) {
-      return {
-        success: false,
-        existingReservation: existing,
-      };
-    }
+  const totalPeople =
+    existing?.reduce((sum, r) => sum + (r.people || 0), 0) || 0;
 
-    // 🏷 Generar código
-    const reservationCode = await generateReservationCode(date);
-
-    const { data, error } = await supabase
-      .from("appointments")
-      .insert({
-        client_dni: dni,
-        date,
-        time,
-        service: "Mesa",
-        notes: notes ?? null,
-        status: "Confirmado",
-        reservation_code: reservationCode,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error(error);
-      return { success: false };
-    }
-
+  if (totalPeople + people > MAX_CAPACITY) {
     return {
-      success: true,
-      reservation: data,
+      success: false,
+      message: "Capacidad máxima alcanzada para ese horario.",
     };
-
-  } catch (err) {
-    console.error("createReservation crash:", err);
-    return { success: false };
   }
+
+ const reservationCode = await generateReservationCode(date);
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .insert({
+      client_dni: dni,
+      date,
+      time,
+      people,
+      status: "confirmed",
+      reservation_code: reservationCode,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return {
+      success: false,
+      message: "Error creando reserva",
+    };
+  }
+
+  return {
+    success: true,
+    reservation: data,
+  };
 }
