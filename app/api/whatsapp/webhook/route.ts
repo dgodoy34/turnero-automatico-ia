@@ -170,48 +170,45 @@ export async function POST(req: Request) {
     // =========================
     // CONFIRMAR RESERVA
     // =========================
-    else if (session.state === "CONFIRM_RESERVATION") {
+else if (session.state === "CONFIRM_RESERVATION") {
 
-      if (lower === "si" || lower === "sí") {
+  if (lower === "si" || lower === "sí") {
 
-        const temp = session.temp_data;
+    const temp = session.temp_data;
 
-        const result = await createReservation({
-          dni: session.dni,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-          notes: "",
-        });
+    const result = await createReservation({
+      dni: session.dni,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+      notes: "",
+    });
 
-        if (!result.success) {
-          reply =
-            "Ya tenés una reserva confirmada en ese horario.\n" +
-            "¿Querés modificarla?";
-        } else {
-          reply =
-            `🎉 ¡Reserva confirmada!\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people} personas\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-            `Te esperamos 😊`;
-
-          await setTemp(from, {});
-          await setState(from, "IDLE");
-        }
-
-      } else if (lower === "no") {
-
-        reply = "Perfecto 👍 Cancelamos esta solicitud.";
-        await setTemp(from, {});
-        await setState(from, "IDLE");
-
-      } else {
-        reply = "Solo necesito que confirmes con 'si' o 'no' 😊";
-      }
+    if (!result.success) {
+      reply = "Hubo un problema creando la reserva. Intentemos nuevamente.";
+    } else {
+      reply =
+        `🎉 ¡Reserva confirmada!\n\n` +
+        `📅 ${temp.date}\n` +
+        `⏰ ${temp.time}\n` +
+        `👥 ${temp.people} personas\n\n` +
+        `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+        `Te esperamos 😊`;
     }
 
+    await setTemp(from, {});
+    await setState(from, "IDLE");
+
+  } else if (lower === "no") {
+
+    reply = "Perfecto 👍 Cancelamos esta solicitud.";
+    await setTemp(from, {});
+    await setState(from, "IDLE");
+
+  } else {
+    reply = "Solo necesito que confirmes con 'si' o 'no' 😊";
+  }
+}
     // =========================
     // RESPUESTA A META
     // =========================

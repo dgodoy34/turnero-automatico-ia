@@ -17,31 +17,36 @@ export async function createReservation({
   notes,
 }: CreateReservationParams) {
 
-  // 🔹 Generar código seguro
-  const reservationCode = await generateReservationCode(date);
+  try {
 
-  // 🔹 Insertar reserva (sin validación de conflicto)
-  const { data, error } = await supabase
-    .from("reservations")
-    .insert({
-      reservation_code: reservationCode,
-      client_dni: dni,
-      date,
-      time,
-      people,
-      notes,
-      status: "confirmada",
-    })
-    .select()
-    .single();
+    const reservationCode = await generateReservationCode(date);
 
-  if (error) {
-    console.error(error);
-    throw new Error("Error creando la reserva");
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert({
+        client_dni: dni,
+        date,
+        time,
+        service: "Mesa",
+        notes: notes ?? null,
+        status: "Confirmado",
+        reservation_code: reservationCode,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Insert error:", error);
+      return { success: false };
+    }
+
+    return {
+      success: true,
+      reservation: data,
+    };
+
+  } catch (err) {
+    console.error("createReservation crash:", err);
+    return { success: false };
   }
-
-  return {
-    success: true,
-    reservation: data,
-  };
 }
