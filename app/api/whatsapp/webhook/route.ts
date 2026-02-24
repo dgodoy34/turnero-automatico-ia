@@ -90,40 +90,34 @@ export async function POST(req: Request) {
     // =========================
     else if (session.state === "IDLE") {
 
-      const ai = await interpretMessage(text);
+  const ai = await interpretMessage(text);
 
-      switch (ai.intent) {
+  switch (ai.intent) {
 
-        case "create_reservation":
-          await setTemp(from, {
-            date: ai.date,
-            time: ai.time,
-            people: ai.people
-          });
+    case "greeting":
+      reply =
+        `¿Qué querés hacer?\n\n` +
+        `1️⃣ Hacer una reserva\n` +
+        `2️⃣ Modificar una reserva existente`;
+      break;
 
-          reply = "📅 ¿Para qué fecha querés venir?";
-          await setState(from, "ASK_DATE");
-          break;
+    case "create_reservation":
+      reply = "📅 ¿Para qué fecha querés venir?";
+      await setState(from, "ASK_DATE");
+      break;
 
-        case "modify_reservation":
-          reply = "Pasame el código de reserva que querés modificar.";
-          await setState(from, "ASK_MODIFY_CODE");
-          break;
+    case "modify_reservation":
+      reply = "🔐 Pasame el código de reserva que querés modificar.";
+      await setState(from, "ASK_MODIFY_CODE");
+      break;
 
-        case "consult_reservation":
-          reply = "Pasame el código de reserva.";
-          await setState(from, "ASK_CODE");
-          break;
-
-        case "menu":
-          reply = "Tenemos milanesa napolitana, asado criollo y flan casero 😋";
-          break;
-
-        default:
-          reply = "¿Querés hacer una reserva o modificar una existente?";
-      }
-    }
-
+    default:
+      reply =
+        `No entendí bien 🤔\n\n` +
+        `1️⃣ Hacer una reserva\n` +
+        `2️⃣ Modificar una reserva existente`;
+  }
+}
     // =========================
     // PEDIR FECHA
     // =========================
