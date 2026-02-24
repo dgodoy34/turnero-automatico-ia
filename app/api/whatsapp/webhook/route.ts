@@ -90,32 +90,45 @@ export async function POST(req: Request) {
     // =========================
     else if (session.state === "IDLE") {
 
-  const ai = await interpretMessage(text);
+  // 👇 Primero detectar opción numérica
+  if (lower === "1") {
+    reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
+    await setState(from, "ASK_DATE");
+  }
 
-  switch (ai.intent) {
+  else if (lower === "2") {
+    reply = "🔐 Pasame el código de reserva que querés modificar.";
+    await setState(from, "ASK_MODIFY_CODE");
+  }
 
-    case "greeting":
+  else {
+
+    // 👇 Si no es número, usar IA
+    const ai = await interpretMessage(text);
+
+    if (ai.intent === "create_reservation") {
+      reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
+      await setState(from, "ASK_DATE");
+    }
+
+    else if (ai.intent === "modify_reservation") {
+      reply = "🔐 Pasame el código de reserva que querés modificar.";
+      await setState(from, "ASK_MODIFY_CODE");
+    }
+
+    else if (ai.intent === "greeting") {
       reply =
         `¿Qué querés hacer?\n\n` +
         `1️⃣ Hacer una reserva\n` +
         `2️⃣ Modificar una reserva existente`;
-      break;
+    }
 
-    case "create_reservation":
-      reply = "📅 ¿Para qué fecha querés venir?";
-      await setState(from, "ASK_DATE");
-      break;
-
-    case "modify_reservation":
-      reply = "🔐 Pasame el código de reserva que querés modificar.";
-      await setState(from, "ASK_MODIFY_CODE");
-      break;
-
-    default:
+    else {
       reply =
         `No entendí bien 🤔\n\n` +
         `1️⃣ Hacer una reserva\n` +
         `2️⃣ Modificar una reserva existente`;
+    }
   }
 }
     // =========================
