@@ -41,13 +41,14 @@ export async function createReservation({
   const { data, error } = await supabase
     .from("appointments")
     .insert({
-      client_dni: dni,
-      date,
-      time,
-      people,
-      status: "confirmed",
-      reservation_code: reservationCode,
-    })
+  client_dni: dni,
+  date,
+  time,
+  people,
+  service: "reserva_mesa",
+  status: "confirmed",
+  reservation_code: reservationCode,
+})
     .select()
     .single();
 
