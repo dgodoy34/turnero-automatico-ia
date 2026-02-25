@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
-import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 
 function formatDateToISO(input: string) {

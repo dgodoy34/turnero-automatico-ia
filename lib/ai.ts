@@ -42,15 +42,13 @@ Mensaje del cliente:
 `
   });
 
-  try {
-    return JSON.parse(response.output_text);
-  } catch (error) {
-    console.error("Error parseando IA:", response.output_text);
-    return {
-      intent: "unknown",
-      date: null,
-      time: null,
-      people: null
-    };
-  }
+  const raw = response.output_text.trim();
+
+// Limpiar posibles bloques ```json
+const cleaned = raw
+  .replace(/```json/g, "")
+  .replace(/```/g, "")
+  .trim();
+
+return JSON.parse(cleaned);
 }
