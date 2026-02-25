@@ -18,23 +18,22 @@ export async function createReservation({
   // Capacidad máxima fija (FASE 1)
   const MAX_CAPACITY = 60;
 
-  // Verificar ocupación actual en ese horario
-  const { data: existing } = await supabase
-    .from("appointments")
-    .select("people")
-    .eq("date", date)
-    .eq("time", time)
-    .eq("status", "confirmed");
+  // 🔎 Verificar si ya existe reserva en mismo horario
+const { data: existing } = await supabase
+  .from("appointments")
+  .select("*")
+  .eq("client_dni", dni)
+  .eq("date", date)
+  .eq("time", time)
+  .eq("status", "confirmed")
+  .maybeSingle();
 
-  const totalPeople =
-    existing?.reduce((sum, r) => sum + (r.people || 0), 0) || 0;
-
-  if (totalPeople + people > MAX_CAPACITY) {
-    return {
-      success: false,
-      message: "Capacidad máxima alcanzada para ese horario.",
-    };
-  }
+if (existing) {
+  return {
+    success: false,
+    message: "Ya tenés una reserva confirmada en ese horario.",
+  };
+}
 
  const reservationCode = await generateReservationCode(date);
 
