@@ -200,44 +200,104 @@ export async function POST(req: Request) {
       await setState(from, "CONFIRM_RESERVATION");
     }
 
-    // =========================
-    // CONFIRMAR RESERVA 🔥
-    // =========================
-    else if (session.state === "CONFIRM_RESERVATION") {
+   // =========================
+// CONFIRMAR RESERVA 🔥
+// =========================
+else if (session.state === "CONFIRM_RESERVATION") {
 
-      if (lower === "si" || lower === "sí") {
+  if (lower === "si" || lower === "sí") {
 
-        const temp = session.temp_data;
+    const temp = session.temp_data;
 
-        const result = await createReservation({
-          dni: session.dni,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-        });
+    const result = await createReservation({
+      dni: session.dni,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+    });
 
-        if (!result.success) {
-  reply = result.message || "No se pudo crear la reserva.";
-  await setState(from, "MENU");   // 🔥 IMPORTANTE
-  await setTemp(from, {});        // 🔥 limpiar datos
-} else {
-          reply =
-            `🎉 ¡Reserva confirmada!\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}`;
+    // 🔴 Si ya existe reserva
+    if (!result.success) {
 
-          await setState(from, "MENU");
-          await setTemp(from, {});
-        }
+      reply =
+        `${result.message}\n\n` +
+        `¿Querés modificarla o cancelarla?\n\n` +
+        `1️⃣ Modificar\n` +
+        `2️⃣ Cancelar`;
 
-      } else {
-        reply = "Reserva cancelada 👍";
-        await setState(from, "MENU");
-      }
-    }
+      await setState(from, "EXISTING_CONFLICT");
+      return;
 
+    } 
+
+    // 🟢 Reserva creada correctamente
+    reply =
+      `🎉 ¡Reserva confirmada!\n\n` +
+      `📅 ${temp.date}\n` +
+      `⏰ ${temp.time}\n` +
+      `👥 ${temp.people}\n\n` +
+      `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+      `¿Querés hacer otra reserva?\n\n` +
+      `1️⃣ Sí, otra reserva\n` +
+      `2️⃣ Finalizar`;
+
+    await setTemp(from, {});
+    await setState(from, "POST_CONFIRM");
+  } 
+
+  else {
+    reply = "Reserva cancelada 👍";
+    await setTemp(from, {});
+    await setState(from, "MENU");
+  }
+}
+
+
+// =========================
+// DESPUÉS DE CONFIRMAR
+// =========================
+else if (session.state === "POST_CONFIRM") {
+
+  if (lower === "1") {
+    reply = "📅 ¿Para qué fecha querés venir?";
+    await setState(from, "ASK_DATE");
+  }
+
+  else {
+    reply = "Gracias por elegirnos 🙌 ¡Te esperamos!";
+    await setState(from, "MENU");
+  }
+}
+
+
+// =========================
+// CONFLICTO DE RESERVA EXISTENTE
+// =========================
+else if (session.state === "EXISTING_CONFLICT") {
+
+  if (lower === "1") {
+    reply = "📅 Decime la nueva fecha.";
+    await setState(from, "ASK_DATE");
+  }
+
+  else if (lower === "2") {
+
+    await supabase
+      .from("appointments")
+      .update({ status: "cancelled" })
+      .eq("client_dni", session.dni)
+      .eq("date", session.temp_data?.date)
+      .eq("time", session.temp_data?.time);
+
+    reply = "Reserva cancelada 👍";
+    await setTemp(from, {});
+    await setState(from, "MENU");
+  }
+
+  else {
+    reply = "1️⃣ Modificar\n2️⃣ Cancelar";
+  }
+}
     // =========================
     // RESPUESTA A META
     // =========================

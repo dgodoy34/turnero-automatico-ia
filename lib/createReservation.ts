@@ -30,9 +30,10 @@ const { data: existing } = await supabase
 
 if (existing) {
   return {
-    success: false,
-    message: "Ya tenés una reserva confirmada en ese horario.",
-  };
+  success: false,
+  message: "Ya tenés una reserva confirmada en ese horario.",
+  existingReservation: existing,
+};
 }
 
  const reservationCode = await generateReservationCode(date);
