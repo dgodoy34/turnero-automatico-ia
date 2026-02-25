@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
+import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 
 function formatDateToISO(input: string) {
@@ -30,7 +31,6 @@ function formatDateToISO(input: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
     const change = body?.entry?.[0]?.changes?.[0];
     const message = change?.value?.messages?.[0];
 
@@ -45,33 +45,36 @@ export async function POST(req: Request) {
     let reply = "No entendí el mensaje 🤔";
 
     // =========================
-    // SI NO TIENE DNI → PEDIR
+    // NO TIENE DNI
     // =========================
     if (!session.dni) {
+
       if (!/^\d{7,8}$/.test(text)) {
         reply = "👋 Hola, para comenzar necesito tu DNI (7 u 8 números).";
       } else {
+
         await setDNI(from, text);
 
-        const { data: cliente } = await supabase
+        const { data: client } = await supabase
           .from("clients")
           .select("*")
           .eq("dni", text)
           .maybeSingle();
 
-       if (cliente) {
+        if (!client) {
+          reply = "No estás registrado. Decime tu nombre completo.";
+          await setState(from, "REGISTER_NAME");
+        } else if (!client.email) {
+          reply = `Hola ${client.name} 😊 Antes de continuar necesito tu email.`;
+          await setState(from, "ASK_EMAIL");
+        } else {
+          reply =
+            `Hola ${client.name} 😊\n\n` +
+            `1️⃣ Hacer una reserva\n` +
+            `2️⃣ Modificar una reserva existente`;
 
-  if (!cliente.email) {
-    reply = `Hola ${cliente.name} 😊 Antes de continuar necesito tu email para enviarte la confirmación de la reserva.`;
-    await setState(from, "ASK_EMAIL");
-  } else {
-    reply =
-     reply =
-  `Hola ${cliente.name} 😊\n\n` +
-  `1️⃣ Hacer una reserva\n` +
-  `2️⃣ Modificar una reserva existente`;
-  }
-}
+          await setState(from, "MENU");
+        }
       }
     }
 
@@ -86,83 +89,63 @@ export async function POST(req: Request) {
         phone: from,
       });
 
-     reply =
-  `Perfecto ${text} 🎉 Ya estás registrado.\n\n` +
-  `1️⃣ Hacer una reserva\n` +
-  `2️⃣ Modificar una reserva existente`;
-
-await setState(from, "MENU");
+      reply = "Perfecto 🎉 Ahora necesito tu email.";
+      await setState(from, "ASK_EMAIL");
     }
-
-  else if (session.state === "ASK_EMAIL") {
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  if (!emailRegex.test(text)) {
-    reply = "Ese email no parece válido 🤔 ¿Podés escribirlo nuevamente?";
-  } else {
-
-    await supabase
-      .from("clients")
-      .update({ email: text })
-      .eq("dni", session.dni);
-
-    reply =
-      `Perfecto 👍 Ya tengo tu email.\n\n` +
-      `¿Qué querés hacer?\n` +
-      `1️⃣ Hacer una reserva\n` +
-      `2️⃣ Modificar una reserva existente`;
-
-    await setState(from, "IDLE");
-  }
-}
 
     // =========================
-    // ESTADO LIBRE → IA
+    // PEDIR EMAIL
     // =========================
-    else if (session.state === "IDLE") {
+    else if (session.state === "ASK_EMAIL") {
 
-  // 👇 Primero detectar opción numérica
-  if (lower === "1") {
-    reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
-    await setState(from, "ASK_DATE");
-  }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  else if (lower === "2") {
-    reply = "🔐 Pasame el código de reserva que querés modificar.";
-    await setState(from, "ASK_MODIFY_CODE");
-  }
+      if (!emailRegex.test(text)) {
+        reply = "Ese email no parece válido 🤔";
+      } else {
 
-  else {
+        await supabase
+          .from("clients")
+          .update({ email: text })
+          .eq("dni", session.dni);
 
-    // 👇 Si no es número, usar IA
-    const ai = await interpretMessage(text);
+        reply =
+          `Perfecto 👍\n\n` +
+          `1️⃣ Hacer una reserva\n` +
+          `2️⃣ Modificar una reserva existente`;
 
-    if (ai.intent === "create_reservation") {
-      reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
-      await setState(from, "ASK_DATE");
+        await setState(from, "MENU");
+      }
     }
 
-    else if (ai.intent === "modify_reservation") {
-      reply = "🔐 Pasame el código de reserva que querés modificar.";
-      await setState(from, "ASK_MODIFY_CODE");
+    // =========================
+    // MENU
+    // =========================
+    else if (session.state === "MENU") {
+
+      if (lower === "1") {
+        reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
+        await setState(from, "ASK_DATE");
+      }
+
+      else if (lower === "2") {
+        reply = "🔐 Pasame el código de reserva.";
+      }
+
+      else {
+        const ai = await interpretMessage(text);
+
+        if (ai.intent === "create_reservation") {
+          reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
+          await setState(from, "ASK_DATE");
+        } else {
+          reply =
+            `1️⃣ Hacer una reserva\n` +
+            `2️⃣ Modificar una reserva existente`;
+        }
+      }
     }
 
-    else if (ai.intent === "greeting") {
-      reply =
-        `¿Qué querés hacer?\n\n` +
-        `1️⃣ Hacer una reserva\n` +
-        `2️⃣ Modificar una reserva existente`;
-    }
-
-    else {
-      reply =
-        `No entendí bien 🤔\n\n` +
-        `1️⃣ Hacer una reserva\n` +
-        `2️⃣ Modificar una reserva existente`;
-    }
-  }
-}
     // =========================
     // PEDIR FECHA
     // =========================
@@ -170,10 +153,7 @@ await setState(from, "MENU");
 
       const formattedDate = formatDateToISO(text);
 
-      await setTemp(from, {
-        ...(session.temp_data || {}),
-        date: formattedDate,
-      });
+      await setTemp(from, { date: formattedDate });
 
       reply = "⏰ ¿A qué hora?";
       await setState(from, "ASK_TIME");
@@ -185,7 +165,7 @@ await setState(from, "MENU");
     else if (session.state === "ASK_TIME") {
 
       await setTemp(from, {
-        ...(session.temp_data || {}),
+        ...session.temp_data,
         time: text,
       });
 
@@ -201,12 +181,12 @@ await setState(from, "MENU");
       const people = parseInt(text);
 
       await setTemp(from, {
-        ...(session.temp_data || {}),
+        ...session.temp_data,
         people,
       });
 
       const temp = {
-        ...(session.temp_data || {}),
+        ...session.temp_data,
         people,
       };
 
@@ -220,6 +200,41 @@ await setState(from, "MENU");
       await setState(from, "CONFIRM_RESERVATION");
     }
 
+    // =========================
+    // CONFIRMAR RESERVA 🔥
+    // =========================
+    else if (session.state === "CONFIRM_RESERVATION") {
+
+      if (lower === "si" || lower === "sí") {
+
+        const temp = session.temp_data;
+
+        const result = await createReservation({
+          dni: session.dni,
+          date: temp.date,
+          time: temp.time,
+          people: temp.people,
+        });
+
+        if (!result.success) {
+          reply = result.message || "No se pudo crear la reserva.";
+        } else {
+          reply =
+            `🎉 ¡Reserva confirmada!\n\n` +
+            `📅 ${temp.date}\n` +
+            `⏰ ${temp.time}\n` +
+            `👥 ${temp.people}\n\n` +
+            `🔐 Código: ${result.reservation.reservation_code}`;
+
+          await setState(from, "MENU");
+          await setTemp(from, {});
+        }
+
+      } else {
+        reply = "Reserva cancelada 👍";
+        await setState(from, "MENU");
+      }
+    }
 
     // =========================
     // RESPUESTA A META
