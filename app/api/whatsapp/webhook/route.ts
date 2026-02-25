@@ -66,11 +66,10 @@ export async function POST(req: Request) {
     await setState(from, "ASK_EMAIL");
   } else {
     reply =
-      `Hola ${cliente.name} 😊\n\n` +
-      `¿Qué querés hacer?\n` +
-      `1️⃣ Hacer una reserva\n` +
-      `2️⃣ Modificar una reserva existente`;
-    await setState(from, "IDLE");
+     reply =
+  `Hola ${cliente.name} 😊\n\n` +
+  `1️⃣ Hacer una reserva\n` +
+  `2️⃣ Modificar una reserva existente`;
   }
 }
       }
@@ -87,8 +86,12 @@ export async function POST(req: Request) {
         phone: from,
       });
 
-      reply = `Perfecto ${text} 🎉 Ya estás registrado. ¿Qué querés hacer?`;
-      await setState(from, "IDLE");
+     reply =
+  `Perfecto ${text} 🎉 Ya estás registrado.\n\n` +
+  `1️⃣ Hacer una reserva\n` +
+  `2️⃣ Modificar una reserva existente`;
+
+await setState(from, "MENU");
     }
 
   else if (session.state === "ASK_EMAIL") {
