@@ -217,8 +217,10 @@ export async function POST(req: Request) {
         });
 
         if (!result.success) {
-          reply = result.message || "No se pudo crear la reserva.";
-        } else {
+  reply = result.message || "No se pudo crear la reserva.";
+  await setState(from, "MENU");   // 🔥 IMPORTANTE
+  await setTemp(from, {});        // 🔥 limpiar datos
+} else {
           reply =
             `🎉 ¡Reserva confirmada!\n\n` +
             `📅 ${temp.date}\n` +
