@@ -244,12 +244,16 @@ export async function POST(req: Request) {
 
         } else {
 
-          reply =
-            `🎉 ¡Reserva confirmada!\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}`;
+         reply =
+  `🎉 ¡Reserva confirmada!\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+  `¿Qué querés hacer ahora?\n\n` +
+  `1️⃣ Hacer otra reserva\n` +
+  `2️⃣ Modificar una reserva\n` +
+  `3️⃣ Finalizar`;
 
           await setTemp(from, {});
           await setState(from, "MENU");
