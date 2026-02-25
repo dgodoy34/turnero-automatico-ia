@@ -52,11 +52,9 @@ export async function createReservation({
     .single();
 
   if (error) {
-    return {
-      success: false,
-      message: "Error creando reserva",
-    };
-  }
+  console.error("❌ Supabase insert error:", error);
+  return { success: false, message: error.message };
+}
 
   return {
     success: true,
