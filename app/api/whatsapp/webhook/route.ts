@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
 import { updateReservation } from "@/lib/updateReservation";
-import { interpretMessage } from "@/lib/ai";
+
 
 function formatDateToISO(input: string) {
   const today = new Date();
@@ -318,6 +318,31 @@ else if (session.state === "CONFIRM_MODIFY") {
   } else {
     reply = "Modificación cancelada 👍";
     await setState(from, "MENU");
+  }
+}
+
+// =========================
+// POST RESERVATION
+// =========================
+else if (session.state === "POST_RESERVATION") {
+
+  if (lower === "1") {
+    reply = "🔐 Pasame el código de la reserva.";
+    await setState(from, "ASK_MODIFY_CODE");
+  }
+
+  else if (lower === "2") {
+    reply =
+      `1️⃣ Hacer una reserva\n` +
+      `2️⃣ Modificar una reserva existente`;
+    await setState(from, "MENU");
+  }
+
+  else {
+    reply =
+      `¿Qué querés hacer?\n\n` +
+      `1️⃣ Modificar esta reserva\n` +
+      `2️⃣ Volver al menú`;
   }
 }
     // =========================
