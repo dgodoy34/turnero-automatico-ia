@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
+import { updateReservation } from "@/lib/updateReservation";
 import { interpretMessage } from "@/lib/ai";
 
 function formatDateToISO(input: string) {
@@ -130,19 +131,34 @@ export async function POST(req: Request) {
 
       else if (lower === "2") {
         reply = "🔐 Pasame el código de reserva.";
+        await setState(from, "ASK_MODIFY_CODE");
       }
 
       else {
-        const ai = await interpretMessage(text);
+        reply =
+          `1️⃣ Hacer una reserva\n` +
+          `2️⃣ Modificar una reserva existente`;
+      }
+    }
 
-        if (ai.intent === "create_reservation") {
-          reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
-          await setState(from, "ASK_DATE");
-        } else {
-          reply =
-            `1️⃣ Hacer una reserva\n` +
-            `2️⃣ Modificar una reserva existente`;
-        }
+    // =========================
+    // PEDIR CÓDIGO PARA MODIFICAR
+    // =========================
+    else if (session.state === "ASK_MODIFY_CODE") {
+
+      const { data } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("reservation_code", text)
+        .eq("status", "confirmed")
+        .single();
+
+      if (!data) {
+        reply = "No encontré una reserva activa con ese código.";
+      } else {
+        await setTemp(from, { reservation_code: text });
+        reply = "📅 Decime la nueva fecha.";
+        await setState(from, "MODIFY_DATE");
       }
     }
 
@@ -197,105 +213,111 @@ export async function POST(req: Request) {
         `👥 ${temp.people}\n\n` +
         `¿Confirmamos? (si/no)`;
 
-      await setState(from, "CONFIRM_RESERVATION");
+      await setState(from, session.temp_data?.reservation_code ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
     }
 
-   // =========================
-// CONFIRMAR RESERVA 🔥
+    // =========================
+    // CONFIRMAR RESERVA NUEVA
+    // =========================
+    else if (session.state === "CONFIRM_RESERVATION") {
+
+      if (lower === "si" || lower === "sí") {
+
+        const temp = session.temp_data;
+
+        const result = await createReservation({
+          dni: session.dni,
+          date: temp.date,
+          time: temp.time,
+          people: temp.people,
+        });
+
+        if (!result.success) {
+
+          reply =
+            `${result.message}\n\n` +
+            `¿Querés modificarla?\n\n` +
+            `1️⃣ Sí\n` +
+            `2️⃣ No`;
+
+          await setState(from, "MENU");
+
+        } else {
+
+          reply =
+            `🎉 ¡Reserva confirmada!\n\n` +
+            `📅 ${temp.date}\n` +
+            `⏰ ${temp.time}\n` +
+            `👥 ${temp.people}\n\n` +
+            `🔐 Código: ${result.reservation.reservation_code}`;
+
+          await setTemp(from, {});
+          await setState(from, "MENU");
+        }
+
+      } else {
+        reply = "Reserva cancelada 👍";
+        await setState(from, "MENU");
+      }
+    }
+
+  // =========================
+// CONFIRMAR MODIFICACIÓN
 // =========================
-else if (session.state === "CONFIRM_RESERVATION") {
+else if (session.state === "CONFIRM_MODIFY") {
 
   if (lower === "si" || lower === "sí") {
 
     const temp = session.temp_data;
 
-    const result = await createReservation({
-      dni: session.dni,
-      date: temp.date,
-      time: temp.time,
-      people: temp.people,
-    });
+    if (
+      !temp ||
+      !temp.reservation_code ||
+      !temp.date ||
+      !temp.time ||
+      temp.people === undefined
+    ) {
+      reply = "Error interno al modificar la reserva.";
+      await setTemp(from, {});
+      await setState(from, "MENU");
+    } else {
 
-    // 🔴 Si ya existe reserva
-    if (!result.success) {
+      const {
+        reservation_code,
+        date,
+        time,
+        people,
+      } = temp as {
+        reservation_code: string;
+        date: string;
+        time: string;
+        people: number;
+      };
 
-      reply =
-        `${result.message}\n\n` +
-        `¿Querés modificarla o cancelarla?\n\n` +
-        `1️⃣ Modificar\n` +
-        `2️⃣ Cancelar`;
+      const result = await updateReservation({
+        reservation_code,
+        date,
+        time,
+        people,
+      });
 
-      await setState(from, "EXISTING_CONFLICT");
-      return;
+      if (!result.success) {
+        reply = result.message ?? "No se pudo modificar la reserva.";
+      } else {
+        reply =
+          `✅ Reserva modificada correctamente.\n\n` +
+          `📅 ${date}\n` +
+          `⏰ ${time}\n` +
+          `👥 ${people}`;
+      }
 
-    } 
+      await setTemp(from, {});
+      await setState(from, "MENU");
+    }
 
-    // 🟢 Reserva creada correctamente
-    reply =
-      `🎉 ¡Reserva confirmada!\n\n` +
-      `📅 ${temp.date}\n` +
-      `⏰ ${temp.time}\n` +
-      `👥 ${temp.people}\n\n` +
-      `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-      `¿Querés hacer otra reserva?\n\n` +
-      `1️⃣ Sí, otra reserva\n` +
-      `2️⃣ Finalizar`;
-
-    await setTemp(from, {});
-    await setState(from, "POST_CONFIRM");
-  } 
-
-  else {
-    reply = "Reserva cancelada 👍";
-    await setTemp(from, {});
+  } else {
+    reply = "Modificación cancelada 👍";
     await setState(from, "MENU");
-  }
-}
-
-
-// =========================
-// DESPUÉS DE CONFIRMAR
-// =========================
-else if (session.state === "POST_CONFIRM") {
-
-  if (lower === "1") {
-    reply = "📅 ¿Para qué fecha querés venir?";
-    await setState(from, "ASK_DATE");
-  }
-
-  else {
-    reply = "Gracias por elegirnos 🙌 ¡Te esperamos!";
-    await setState(from, "MENU");
-  }
-}
-
-
-// =========================
-// CONFLICTO DE RESERVA EXISTENTE
-// =========================
-else if (session.state === "EXISTING_CONFLICT") {
-
-  if (lower === "1") {
-    reply = "📅 Decime la nueva fecha.";
-    await setState(from, "ASK_DATE");
-  }
-
-  else if (lower === "2") {
-
-    await supabase
-      .from("appointments")
-      .update({ status: "cancelled" })
-      .eq("client_dni", session.dni)
-      .eq("date", session.temp_data?.date)
-      .eq("time", session.temp_data?.time);
-
-    reply = "Reserva cancelada 👍";
-    await setTemp(from, {});
-    await setState(from, "MENU");
-  }
-
-  else {
-    reply = "1️⃣ Modificar\n2️⃣ Cancelar";
   }
 }
     // =========================
