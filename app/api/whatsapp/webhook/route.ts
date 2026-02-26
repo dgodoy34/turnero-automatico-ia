@@ -142,26 +142,35 @@ export async function POST(req: Request) {
     }
 
     // =========================
-    // PEDIR CÓDIGO PARA MODIFICAR
-    // =========================
-    else if (session.state === "ASK_MODIFY_CODE") {
+// PEDIR CÓDIGO PARA MODIFICAR
+// =========================
+else if (session.state === "ASK_MODIFY_CODE") {
 
-      const { data } = await supabase
-        .from("appointments")
-        .select("*")
-        .eq("reservation_code", text)
-        .eq("status", "confirmed")
-        .single();
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("reservation_code", text)
+    .eq("status", "confirmed")
+    .maybeSingle(); // 🔥 CAMBIO IMPORTANTE
 
-      if (!data) {
-        reply = "No encontré una reserva activa con ese código.";
-      } else {
-        await setTemp(from, { reservation_code: text });
-        reply = "📅 Decime la nueva fecha.";
-        await setState(from, "MODIFY_DATE");
-      }
-    }
+  if (error) {
+    reply = "Hubo un problema al validar el código. Intentá nuevamente.";
+  }
 
+  else if (!data) {
+    reply = "No encontré una reserva activa con ese código.";
+  }
+
+  else {
+    await setTemp(from, {
+      ...session.temp_data,
+      reservation_code: text,
+    });
+
+    reply = "📅 Decime la nueva fecha.";
+    await setState(from, "MODIFY_DATE");
+  }
+}
     // =========================
     // PEDIR FECHA
     // =========================
