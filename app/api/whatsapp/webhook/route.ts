@@ -305,18 +305,22 @@ else if (session.state === "CONFIRM_MODIFY") {
 
       if (!result.success) {
         reply = result.message ?? "No se pudo modificar la reserva.";
-      } else {
-       reply =
-  `✅ Reserva modificada correctamente.\n\n` +
-  `📅 ${date}\n` +
-  `⏰ ${time}\n` +
-  `👥 ${people}\n\n` +
-  `Gracias por usar nuestro sistema 🙌\n\n` +
-  `Si necesitás algo más escribí *hola*.`;
-      }
+      } else reply =
+  `🎉 ¡Reserva confirmada!\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+  `¿Querés agregar algo más?\n\n` +
+  `1️⃣ Ver la carta 📖\n` +
+  `2️⃣ Agregar una nota ✍️\n` +
+  `3️⃣ Nada más`;
 
-      await setTemp(from, {});
-      await setState(from, "MENU");
+await setTemp(from, {
+  reservation_code: result.reservation.reservation_code
+});
+
+await setState(from, "POST_CONFIRM_OPTIONS");
     }
 
   } else {
@@ -346,7 +350,6 @@ else if (session.state === "POST_CONFIRM_OPTIONS") {
     await setState(from, "MENU");
   }
 }
-
 // =========================
 // ADD NOTE
 // =========================
@@ -370,7 +373,6 @@ else if (session.state === "ADD_NOTE") {
     await setState(from, "MENU");
   }
 }
-
 // =========================
 // NUEVA FECHA MODIFICACIÓN
 // =========================
