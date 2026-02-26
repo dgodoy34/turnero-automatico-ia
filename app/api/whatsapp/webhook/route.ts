@@ -408,10 +408,9 @@ else if (session.state === "POST_NOTE_OPTIONS") {
   }
 
   else if (lower === "2") {
-    reply = "Perfecto 🙌 Gracias por elegirnos. ¡Te esperamos!";
-    await setTemp(from, {});
-    await setState(from, "MENU");
-  }
+  reply = "✍️ Escribí la nota que querés agregar (ej: celíaco, cumpleaños, alergia).";
+  await setState(from, "ADD_NOTE");
+}
 
   else {
     reply =
