@@ -267,71 +267,58 @@ else if (session.state === "ASK_PEOPLE") {
     }
 
   // =========================
-// CONFIRMAR MODIFICACIÓN
+// CONFIRMAR RESERVA NUEVA
 // =========================
-else if (session.state === "CONFIRM_MODIFY") {
+else if (session.state === "CONFIRM_RESERVATION") {
 
   if (lower === "si" || lower === "sí") {
 
     const temp = session.temp_data;
 
-    if (
-      !temp ||
-      !temp.reservation_code ||
-      !temp.date ||
-      !temp.time ||
-      temp.people === undefined
-    ) {
-      reply = "Error interno al modificar la reserva.";
-      await setTemp(from, {});
+    const result = await createReservation({
+      dni: session.dni,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+    });
+
+    if (!result.success) {
+
+      reply =
+        `${result.message}\n\n` +
+        `¿Querés modificarla?\n\n` +
+        `1️⃣ Sí\n` +
+        `2️⃣ No`;
+
       await setState(from, "MENU");
+
     } else {
 
-      const {
-        reservation_code,
-        date,
-        time,
-        people,
-      } = temp as {
-        reservation_code: string;
-        date: string;
-        time: string;
-        people: number;
-      };
+      reply =
+        `🎉 ¡Reserva confirmada!\n\n` +
+        `📅 ${temp.date}\n` +
+        `⏰ ${temp.time}\n` +
+        `👥 ${temp.people}\n\n` +
+        `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+        `¿Qué querés hacer ahora?\n\n` +
+        `1️⃣ Ver la carta 📖\n` +
+        `2️⃣ Agregar una nota ✍️\n` +
+        `3️⃣ Modificar esta reserva 🔄\n` +
+        `4️⃣ Finalizar`;
 
-      const result = await updateReservation({
-        reservation_code,
-        date,
-        time,
-        people,
+      await setTemp(from, {
+        reservation_code: result.reservation.reservation_code
       });
 
-      if (!result.success) {
-        reply = result.message ?? "No se pudo modificar la reserva.";
-      } else reply =
-  `🎉 ¡Reserva confirmada!\n\n` +
-  `📅 ${temp.date}\n` +
-  `⏰ ${temp.time}\n` +
-  `👥 ${temp.people}\n\n` +
-  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-  `¿Qué querés hacer ahora?\n\n` +
-  `1️⃣ Ver la carta 📖\n` +
-  `2️⃣ Agregar una nota ✍️\n` +
-  `3️⃣ Modificar esta reserva 🔄\n` +
-  `4️⃣ Finalizar`;
-  
-await setTemp(from, {
-  reservation_code: result.reservation.reservation_code
-});
-
-await setState(from, "POST_CONFIRM_OPTIONS");
+      await setState(from, "POST_CONFIRM_OPTIONS");
     }
 
   } else {
-    reply = "Modificación cancelada 👍";
+    reply = "Reserva cancelada 👍";
     await setState(from, "MENU");
   }
 }
+
 
 // =========================
 // POST CONFIRM OPTIONS
@@ -345,13 +332,11 @@ else if (session.state === "POST_CONFIRM_OPTIONS") {
   else if (lower === "2") {
     reply = "✍️ Escribí la nota que querés agregar (ej: celíaco, cumpleaños, alergia).";
     await setState(from, "ADD_NOTE");
-    return;
   }
 
   else if (lower === "3") {
     reply = "🔄 Vamos a modificar la reserva.\n\n📅 Decime la nueva fecha.";
     await setState(from, "MODIFY_DATE");
-    return;
   }
 
   else if (lower === "4") {
@@ -362,13 +347,14 @@ else if (session.state === "POST_CONFIRM_OPTIONS") {
 
   else {
     reply =
-      `¿Qué querés hacer?\n\n` +
       `1️⃣ Ver la carta 📖\n` +
       `2️⃣ Agregar una nota ✍️\n` +
       `3️⃣ Modificar esta reserva 🔄\n` +
       `4️⃣ Finalizar`;
   }
 }
+
+
 // =========================
 // ADD NOTE
 // =========================
@@ -388,7 +374,7 @@ else if (session.state === "ADD_NOTE") {
 
     reply =
       "📝 Nota agregada correctamente.\n\n" +
-      "¿Querés hacer algo más?\n\n" +
+      "¿Qué querés hacer ahora?\n\n" +
       "1️⃣ Modificar esta reserva 🔄\n" +
       "2️⃣ Finalizar";
 
@@ -396,10 +382,10 @@ else if (session.state === "ADD_NOTE") {
   }
 }
 
-// =========================
-// POST_NOTE_OPTIONS
-// =========================
 
+// =========================
+// POST NOTE OPTIONS
+// =========================
 else if (session.state === "POST_NOTE_OPTIONS") {
 
   if (lower === "1") {
@@ -408,9 +394,10 @@ else if (session.state === "POST_NOTE_OPTIONS") {
   }
 
   else if (lower === "2") {
-  reply = "✍️ Escribí la nota que querés agregar (ej: celíaco, cumpleaños, alergia).";
-  await setState(from, "ADD_NOTE");
-}
+    reply = "Perfecto 🙌 Gracias por elegirnos. ¡Te esperamos!";
+    await setTemp(from, {});
+    await setState(from, "MENU");
+  }
 
   else {
     reply =
