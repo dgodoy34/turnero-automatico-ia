@@ -174,9 +174,15 @@ export async function POST(req: Request) {
 
   const selectedDate = new Date(formattedDate);
 
-  if (selectedDate < today) {
-    reply = "No podés reservar en una fecha pasada 📅";
-  } else {
+  if (isNaN(selectedDate.getTime())) {
+    reply = "Ingresá una fecha válida (ej: 12/03)";
+  }
+
+  else if (selectedDate < today) {
+    reply = "No podés reservar en una fecha pasada 📅\n\nDecime otra fecha.";
+  }
+
+  else {
     await setTemp(from, { date: formattedDate });
     reply = "⏰ ¿A qué hora?";
     await setState(from, "ASK_TIME");
