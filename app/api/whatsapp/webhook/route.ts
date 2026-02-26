@@ -242,20 +242,23 @@ else if (session.state === "ASK_PEOPLE") {
 
         } else {
 
-         reply =
-  `🎉 ¡Reserva confirmada!\n\n` +
-  `📅 ${temp.date}\n` +
-  `⏰ ${temp.time}\n` +
-  `👥 ${temp.people}\n\n` +
-  `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-  `¿Qué querés hacer ahora?\n\n` +
-  `1️⃣ Hacer otra reserva\n` +
-  `2️⃣ Modificar una reserva\n` +
-  `3️⃣ Finalizar`;
+  reply =
+    `🎉 ¡Reserva confirmada!\n\n` +
+    `📅 ${temp.date}\n` +
+    `⏰ ${temp.time}\n` +
+    `👥 ${temp.people}\n\n` +
+    `🔐 Código: ${result.reservation.reservation_code}\n\n` +
+    `¿Querés agregar algo más?\n\n` +
+    `1️⃣ Ver la carta 📖\n` +
+    `2️⃣ Agregar una nota ✍️\n` +
+    `3️⃣ Nada más`;
 
-          await setTemp(from, {});
-          await setState(from, "MENU");
-        }
+  await setTemp(from, {
+    reservation_code: result.reservation.reservation_code
+  });
+
+  await setState(from, "POST_CONFIRM_OPTIONS");
+}
 
       } else {
         reply = "Reserva cancelada 👍";
