@@ -112,7 +112,7 @@ export async function createReservation({
     // =========================
     // 5️⃣ Generar código
     // =========================
-    const reservationCode = await generateReservationCode(date);
+    const reservationCode = await generateReservationCode(restaurant.id, date);
 
     // =========================
     // 6️⃣ Insertar reserva
