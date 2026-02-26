@@ -326,6 +326,52 @@ else if (session.state === "CONFIRM_MODIFY") {
 }
 
 // =========================
+// POST CONFIRM OPTIONS
+// =========================
+else if (session.state === "POST_CONFIRM_OPTIONS") {
+
+  if (lower === "1") {
+    reply = "📖 Te paso nuestra carta:\nhttps://turestaurante.com/carta";
+  }
+
+  else if (lower === "2") {
+    reply = "✍️ Escribí la nota que querés agregar (ej: celíaco, cumpleaños, alergia).";
+    await setState(from, "ADD_NOTE");
+    return;
+  }
+
+  else {
+    reply = "Perfecto 🙌 Te esperamos!";
+    await setTemp(from, {});
+    await setState(from, "MENU");
+  }
+}
+
+// =========================
+// ADD NOTE
+// =========================
+else if (session.state === "ADD_NOTE") {
+
+  const reservationCode = session.temp_data?.reservation_code;
+
+  if (!reservationCode) {
+    reply = "No pude encontrar la reserva.";
+    await setState(from, "MENU");
+  } else {
+
+    await supabase
+      .from("appointments")
+      .update({ notes: text })
+      .eq("reservation_code", reservationCode);
+
+    reply = "📝 Nota agregada correctamente.\n\n¡Te esperamos! 🙌";
+
+    await setTemp(from, {});
+    await setState(from, "MENU");
+  }
+}
+
+// =========================
 // NUEVA FECHA MODIFICACIÓN
 // =========================
 else if (session.state === "MODIFY_DATE") {
