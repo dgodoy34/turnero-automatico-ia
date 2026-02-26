@@ -329,15 +329,17 @@ const result = await updateReservation({
     } else {
 
       reply =
-        `✅ Reserva modificada correctamente.\n\n` +
-        `📅 ${temp.date}\n` +
-        `⏰ ${temp.time}\n` +
-        `👥 ${temp.people}\n\n` +
-        `¿Qué querés hacer ahora?\n\n` +
-        `1️⃣ Ver la carta 📖\n` +
-        `2️⃣ Finalizar`;
+  `✅ Reserva modificada correctamente.\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `¿Qué querés hacer ahora?\n\n` +
+  `1️⃣ Ver la carta 📖\n` +
+  `2️⃣ Agregar una nota ✍️\n` +
+  `3️⃣ Modificar nuevamente 🔄\n` +
+  `4️⃣ Finalizar`;
 
-      await setState(from, "POST_NOTE_OPTIONS");
+await setState(from, "POST_CONFIRM_OPTIONS");
     }
 
   } else {
