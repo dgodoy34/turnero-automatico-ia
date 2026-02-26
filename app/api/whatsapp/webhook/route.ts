@@ -294,6 +294,50 @@ else if (session.state === "CONFIRM_RESERVATION") {
 }
 
 // =========================
+// CONFIRMAR MODIFICACIÓN
+// =========================
+else if (session.state === "CONFIRM_MODIFY") {
+
+  if (lower === "si" || lower === "sí") {
+
+    const temp = session.temp_data as {
+  reservation_code: string;
+  date: string;
+  time: string;
+  people: number;
+};
+
+const result = await updateReservation({
+  reservation_code: temp.reservation_code,
+  date: temp.date,
+  time: temp.time,
+  people: temp.people,
+});
+
+    if (!result.success) {
+      reply = result.message ?? "No se pudo modificar la reserva.";
+      await setState(from, "MENU");
+    } else {
+
+      reply =
+        `✅ Reserva modificada correctamente.\n\n` +
+        `📅 ${temp.date}\n` +
+        `⏰ ${temp.time}\n` +
+        `👥 ${temp.people}\n\n` +
+        `¿Qué querés hacer ahora?\n\n` +
+        `1️⃣ Ver la carta 📖\n` +
+        `2️⃣ Finalizar`;
+
+      await setState(from, "POST_NOTE_OPTIONS");
+    }
+
+  } else {
+    reply = "Modificación cancelada 👍";
+    await setState(from, "MENU");
+  }
+}
+
+// =========================
 // NO CAPACITY OPTIONS
 // =========================
 else if (session.state === "NO_CAPACITY_OPTIONS") {
@@ -316,7 +360,13 @@ else if (session.state === "NO_CAPACITY_OPTIONS") {
 else if (session.state === "POST_CONFIRM_OPTIONS") {
 
   if (lower === "1") {
-    reply = "📖 Te paso nuestra carta:\nhttps://turestaurante.com/carta";
+    reply =
+      "📖 Te paso nuestra carta:\nhttps://turestaurante.com/carta\n\n" +
+      "¿Qué querés hacer ahora?\n\n" +
+      "1️⃣ Modificar esta reserva 🔄\n" +
+      "2️⃣ Finalizar";
+
+    await setState(from, "POST_NOTE_OPTIONS");
   }
 
   else if (lower === "2") {
@@ -325,10 +375,9 @@ else if (session.state === "POST_CONFIRM_OPTIONS") {
   }
 
   else if (lower === "3") {
-    reply = "🔄 Vamos a modificar la reserva.\n\n📅 Decime la nueva fecha.";
-    await setState(from, "MODIFY_DATE");
-  }
-
+  reply = "🔄 Vamos a modificar la reserva.\n\n📅 Decime la nueva fecha.";
+  await setState(from, "MODIFY_DATE");
+}
   else if (lower === "4") {
     reply = "Perfecto 🙌 Gracias por elegirnos. ¡Te esperamos!";
     await setTemp(from, {});

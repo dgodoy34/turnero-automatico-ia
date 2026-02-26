@@ -26,7 +26,8 @@ export async function generateReservationCode(date: string) {
    const { count, error } = await supabase
   .from("appointments")
   .select("id", { count: "exact", head: true })
-  .eq("date", dayKey);
+  .eq("date", dayKey)
+.eq("status", "confirmed");
 
     if (error) {
       console.error("Error counting reservations:", error);
