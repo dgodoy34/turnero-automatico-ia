@@ -28,7 +28,27 @@ export async function createReservation({
       return { success: false, message: "Restaurante no configurado." };
     }
 
-    const MAX_CAPACITY = restaurant.max_capacity || 60;
+   // Capacidad base
+let MAX_CAPACITY =
+  restaurant.online_capacity ||
+  restaurant.max_capacity ||
+  60;
+
+// Buscar override por día
+const { data: dailySettings } = await supabase
+  .from("restaurant_daily_settings")
+  .select("max_capacity_override")
+  .eq("restaurant_id", restaurant.id)
+  .eq("date", date)
+  .maybeSingle();
+
+if (
+  dailySettings &&
+  dailySettings.max_capacity_override !== null &&
+  dailySettings.max_capacity_override !== undefined
+) {
+  MAX_CAPACITY = dailySettings.max_capacity_override;
+}
     const SLOT_DURATION = restaurant.slot_duration_minutes || 90;
     const CAPACITY_MODE = restaurant.capacity_mode || "strict";
 
