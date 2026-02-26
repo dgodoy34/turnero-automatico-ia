@@ -306,11 +306,13 @@ else if (session.state === "CONFIRM_MODIFY") {
       if (!result.success) {
         reply = result.message ?? "No se pudo modificar la reserva.";
       } else {
-        reply =
-          `✅ Reserva modificada correctamente.\n\n` +
-          `📅 ${date}\n` +
-          `⏰ ${time}\n` +
-          `👥 ${people}`;
+       reply =
+  `✅ Reserva modificada correctamente.\n\n` +
+  `📅 ${date}\n` +
+  `⏰ ${time}\n` +
+  `👥 ${people}\n\n` +
+  `Gracias por usar nuestro sistema 🙌\n\n` +
+  `Si necesitás algo más escribí *hola*.`;
       }
 
       await setTemp(from, {});
