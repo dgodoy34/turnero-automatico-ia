@@ -314,11 +314,12 @@ else if (session.state === "CONFIRM_MODIFY") {
   `⏰ ${temp.time}\n` +
   `👥 ${temp.people}\n\n` +
   `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-  `¿Querés agregar algo más?\n\n` +
+  `¿Qué querés hacer ahora?\n\n` +
   `1️⃣ Ver la carta 📖\n` +
   `2️⃣ Agregar una nota ✍️\n` +
-  `3️⃣ Nada más`;
-
+  `3️⃣ Modificar esta reserva 🔄\n` +
+  `4️⃣ Finalizar`;
+  
 await setTemp(from, {
   reservation_code: result.reservation.reservation_code
 });
@@ -347,10 +348,25 @@ else if (session.state === "POST_CONFIRM_OPTIONS") {
     return;
   }
 
-  else {
-    reply = "Perfecto 🙌 Te esperamos!";
+  else if (lower === "3") {
+    reply = "🔄 Vamos a modificar la reserva.\n\n📅 Decime la nueva fecha.";
+    await setState(from, "MODIFY_DATE");
+    return;
+  }
+
+  else if (lower === "4") {
+    reply = "Perfecto 🙌 Gracias por elegirnos. ¡Te esperamos!";
     await setTemp(from, {});
     await setState(from, "MENU");
+  }
+
+  else {
+    reply =
+      `¿Qué querés hacer?\n\n` +
+      `1️⃣ Ver la carta 📖\n` +
+      `2️⃣ Agregar una nota ✍️\n` +
+      `3️⃣ Modificar esta reserva 🔄\n` +
+      `4️⃣ Finalizar`;
   }
 }
 // =========================
@@ -370,10 +386,37 @@ else if (session.state === "ADD_NOTE") {
       .update({ notes: text })
       .eq("reservation_code", reservationCode);
 
-    reply = "📝 Nota agregada correctamente.\n\n¡Te esperamos! 🙌";
+    reply =
+      "📝 Nota agregada correctamente.\n\n" +
+      "¿Querés hacer algo más?\n\n" +
+      "1️⃣ Modificar esta reserva 🔄\n" +
+      "2️⃣ Finalizar";
 
+    await setState(from, "POST_NOTE_OPTIONS");
+  }
+}
+
+// =========================
+// POST_NOTE_OPTIONS
+// =========================
+
+else if (session.state === "POST_NOTE_OPTIONS") {
+
+  if (lower === "1") {
+    reply = "🔄 Vamos a modificar la reserva.\n\n📅 Decime la nueva fecha.";
+    await setState(from, "MODIFY_DATE");
+  }
+
+  else if (lower === "2") {
+    reply = "Perfecto 🙌 Gracias por elegirnos. ¡Te esperamos!";
     await setTemp(from, {});
     await setState(from, "MENU");
+  }
+
+  else {
+    reply =
+      "1️⃣ Modificar esta reserva 🔄\n" +
+      "2️⃣ Finalizar";
   }
 }
 // =========================
