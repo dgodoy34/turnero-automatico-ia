@@ -190,32 +190,30 @@ export async function POST(req: Request) {
     }
 
     // =========================
-    // PEDIR PERSONAS
-    // =========================
-    else if (session.state === "ASK_PEOPLE") {
+// PEDIR PERSONAS
+// =========================
+else if (session.state === "ASK_PEOPLE") {
 
-      const people = parseInt(text);
+  const people = parseInt(text);
 
-      await setTemp(from, {
-        ...session.temp_data,
-        people,
-      });
+  const updatedTemp = {
+    ...session.temp_data,
+    people,
+  };
 
-      const temp = {
-        ...session.temp_data,
-        people,
-      };
+  await setTemp(from, updatedTemp);
 
-      reply =
-        `Confirmo:\n\n` +
-        `📅 ${temp.date}\n` +
-        `⏰ ${temp.time}\n` +
-        `👥 ${temp.people}\n\n` +
-        `¿Confirmamos? (si/no)`;
+  reply =
+    `Confirmo:\n\n` +
+    `📅 ${updatedTemp.date}\n` +
+    `⏰ ${updatedTemp.time}\n` +
+    `👥 ${updatedTemp.people}\n\n` +
+    `¿Confirmamos? (si/no)`;
 
-      await setState(from, session.temp_data?.reservation_code ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
-    }
+  const isModify = !!updatedTemp.reservation_code;
 
+  await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
+}
     // =========================
     // CONFIRMAR RESERVA NUEVA
     // =========================
@@ -323,6 +321,36 @@ else if (session.state === "CONFIRM_MODIFY") {
     reply = "Modificación cancelada 👍";
     await setState(from, "MENU");
   }
+}
+
+// =========================
+// NUEVA FECHA MODIFICACIÓN
+// =========================
+else if (session.state === "MODIFY_DATE") {
+
+  const formattedDate = formatDateToISO(text);
+
+  await setTemp(from, {
+    ...session.temp_data,
+    date: formattedDate,
+  });
+
+  reply = "⏰ Decime la nueva hora.";
+  await setState(from, "MODIFY_TIME");
+}
+
+// =========================
+// NUEVA HORA MODIFICACIÓN
+// =========================
+else if (session.state === "MODIFY_TIME") {
+
+  await setTemp(from, {
+    ...session.temp_data,
+    time: text,
+  });
+
+  reply = "👥 ¿Para cuántas personas?";
+  await setState(from, "ASK_PEOPLE");
 }
 
 // =========================
