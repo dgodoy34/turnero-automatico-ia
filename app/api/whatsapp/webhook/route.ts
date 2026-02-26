@@ -167,27 +167,47 @@ export async function POST(req: Request) {
     // =========================
     else if (session.state === "ASK_DATE") {
 
-      const formattedDate = formatDateToISO(text);
+  const formattedDate = formatDateToISO(text);
 
-      await setTemp(from, { date: formattedDate });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-      reply = "⏰ ¿A qué hora?";
-      await setState(from, "ASK_TIME");
-    }
+  const selectedDate = new Date(formattedDate);
+
+  if (selectedDate < today) {
+    reply = "No podés reservar en una fecha pasada 📅";
+  } else {
+    await setTemp(from, { date: formattedDate });
+    reply = "⏰ ¿A qué hora?";
+    await setState(from, "ASK_TIME");
+  }
+}
 
     // =========================
     // PEDIR HORA
     // =========================
     else if (session.state === "ASK_TIME") {
 
-      await setTemp(from, {
-        ...session.temp_data,
-        time: text,
-      });
+  const formattedTime =
+    text.includes(":") ? text : `${text}:00`;
 
-      reply = "👥 ¿Para cuántas personas?";
-      await setState(from, "ASK_PEOPLE");
-    }
+  const now = new Date();
+  const reservationDateTime =
+    new Date(`${session.temp_data.date}T${formattedTime}:00`);
+
+  if (reservationDateTime < now) {
+    reply = "Ese horario ya pasó ⏰ Elegí otro.";
+  } else {
+
+    await setTemp(from, {
+      ...session.temp_data,
+      time: formattedTime,
+    });
+
+    reply = "👥 ¿Para cuántas personas?";
+    await setState(from, "ASK_PEOPLE");
+  }
+}
 
     // =========================
 // PEDIR PERSONAS
@@ -214,58 +234,7 @@ else if (session.state === "ASK_PEOPLE") {
 
   await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
 }
-    // =========================
-    // CONFIRMAR RESERVA NUEVA
-    // =========================
-    else if (session.state === "CONFIRM_RESERVATION") {
-
-      if (lower === "si" || lower === "sí") {
-
-        const temp = session.temp_data;
-
-        const result = await createReservation({
-          dni: session.dni,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-        });
-
-        if (!result.success) {
-
-          reply =
-            `${result.message}\n\n` +
-            `¿Querés modificarla?\n\n` +
-            `1️⃣ Sí\n` +
-            `2️⃣ No`;
-
-          await setState(from, "MENU");
-
-        } else {
-
-  reply =
-    `🎉 ¡Reserva confirmada!\n\n` +
-    `📅 ${temp.date}\n` +
-    `⏰ ${temp.time}\n` +
-    `👥 ${temp.people}\n\n` +
-    `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-    `¿Querés agregar algo más?\n\n` +
-    `1️⃣ Ver la carta 📖\n` +
-    `2️⃣ Agregar una nota ✍️\n` +
-    `3️⃣ Nada más`;
-
-  await setTemp(from, {
-    reservation_code: result.reservation.reservation_code
-  });
-
-  await setState(from, "POST_CONFIRM_OPTIONS");
-}
-
-      } else {
-        reply = "Reserva cancelada 👍";
-        await setState(from, "MENU");
-      }
-    }
-
+   
   // =========================
 // CONFIRMAR RESERVA NUEVA
 // =========================
@@ -282,17 +251,16 @@ else if (session.state === "CONFIRM_RESERVATION") {
       people: temp.people,
     });
 
-    if (!result.success) {
+   if (!result.success) {
 
-      reply =
-        `${result.message}\n\n` +
-        `¿Querés modificarla?\n\n` +
-        `1️⃣ Sí\n` +
-        `2️⃣ No`;
+  reply =
+    `${result.message}\n\n` +
+    `¿Querés intentar con otra fecha?\n\n` +
+    `1️⃣ Sí\n` +
+    `2️⃣ No`;
 
-      await setState(from, "MENU");
-
-    } else {
+  await setState(from, "NO_CAPACITY_OPTIONS");
+} else {
 
       reply =
         `🎉 ¡Reserva confirmada!\n\n` +
@@ -315,6 +283,22 @@ else if (session.state === "CONFIRM_RESERVATION") {
 
   } else {
     reply = "Reserva cancelada 👍";
+    await setState(from, "MENU");
+  }
+}
+
+// =========================
+// NO CAPACITY OPTIONS
+// =========================
+else if (session.state === "NO_CAPACITY_OPTIONS") {
+
+  if (lower === "1" || lower === "si" || lower === "sí") {
+    reply = "📅 Decime una nueva fecha.";
+    await setState(from, "ASK_DATE");
+  }
+
+  else {
+    reply = "Perfecto 🙌 Volvemos al menú.";
     await setState(from, "MENU");
   }
 }
