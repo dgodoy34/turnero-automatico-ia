@@ -28,32 +28,30 @@ export async function createReservation({
       return { success: false, message: "Restaurante no configurado." };
     }
 
-   // Capacidad base
-let MAX_CAPACITY =
-  restaurant.online_capacity ||
-  restaurant.max_capacity ||
-  60;
+    // =========================
+    // 2️⃣ Capacidad base + override diario
+    // =========================
+    let MAX_CAPACITY =
+      restaurant.online_capacity ||
+      restaurant.max_capacity ||
+      60;
 
-// Buscar override por día
-const { data: dailySettings } = await supabase
-  .from("restaurant_daily_settings")
-  .select("max_capacity_override")
-  .eq("restaurant_id", restaurant.id)
-  .eq("date", date)
-  .maybeSingle();
+    const { data: dailySettings } = await supabase
+      .from("restaurant_daily_settings")
+      .select("max_capacity_override")
+      .eq("restaurant_id", restaurant.id)
+      .eq("date", date)
+      .maybeSingle();
 
-if (
-  dailySettings &&
-  dailySettings.max_capacity_override !== null &&
-  dailySettings.max_capacity_override !== undefined
-) {
-  MAX_CAPACITY = dailySettings.max_capacity_override;
-}
+    if (dailySettings?.max_capacity_override != null) {
+      MAX_CAPACITY = dailySettings.max_capacity_override;
+    }
+
     const SLOT_DURATION = restaurant.slot_duration_minutes || 90;
     const CAPACITY_MODE = restaurant.capacity_mode || "strict";
 
     // =========================
-    // 2️⃣ Normalizar hora
+    // 3️⃣ Normalizar hora
     // =========================
     const formattedStart =
       time.includes(":") ? time : `${time}:00`;
@@ -67,11 +65,12 @@ if (
     const end_time = endDateTime.toTimeString().slice(0, 5);
 
     // =========================
-    // 3️⃣ Verificar reserva duplicada exacta
+    // 4️⃣ Verificar reserva duplicada exacta
     // =========================
     const { data: existing } = await supabase
       .from("appointments")
       .select("*")
+      .eq("restaurant_id", restaurant.id)
       .eq("client_dni", dni)
       .eq("date", date)
       .eq("time", formattedStart)
@@ -87,20 +86,74 @@ if (
     }
 
     // =========================
-    // 4️⃣ Control real de superposición
+    // 5️⃣ CONTROL POR TIPO DE MESA (FASE 2.1)
+    // =========================
+    const { data: tableInventory } = await supabase
+      .from("restaurant_table_inventory")
+      .select("*")
+      .eq("restaurant_id", restaurant.id)
+      .order("capacity", { ascending: true });
+
+    if (!tableInventory || tableInventory.length === 0) {
+      return {
+        success: false,
+        message: "Inventario de mesas no configurado.",
+      };
+    }
+
+    // Buscar mesa mínima que soporte la cantidad
+    const suitableTable = tableInventory.find(
+      (t) => t.capacity >= people
+    );
+
+    if (!suitableTable) {
+      return {
+        success: false,
+        message:
+          "No hay mesa disponible para esa cantidad de personas.",
+      };
+    }
+
+    // Ver cuántas mesas de ese tipo ya están ocupadas
+    const { data: overlappingTables } = await supabase
+      .from("appointments")
+      .select("assigned_table_capacity")
+      .eq("restaurant_id", restaurant.id)
+      .eq("date", date)
+      .eq("status", "confirmed")
+      .eq("assigned_table_capacity", suitableTable.capacity)
+      .lt("start_time", end_time)
+      .gt("end_time", start_time);
+
+    const usedTables = overlappingTables?.length || 0;
+
+    if (usedTables >= suitableTable.quantity) {
+      return {
+        success: false,
+        message:
+          "No hay mesas disponibles para ese horario.",
+      };
+    }
+
+    // =========================
+    // 6️⃣ Control global por capacidad
     // =========================
     if (CAPACITY_MODE !== "disabled") {
       const { data: overlapping, error: overlapError } =
         await supabase
           .from("appointments")
           .select("people")
+          .eq("restaurant_id", restaurant.id)
           .eq("date", date)
           .eq("status", "confirmed")
           .lt("start_time", end_time)
           .gt("end_time", start_time);
 
       if (overlapError) {
-        console.error("❌ Error verificando superposición:", overlapError);
+        console.error(
+          "❌ Error verificando superposición:",
+          overlapError
+        );
         return {
           success: false,
           message: "Error verificando disponibilidad.",
@@ -117,7 +170,8 @@ if (
         if (CAPACITY_MODE === "strict") {
           return {
             success: false,
-            message: "No hay disponibilidad en ese horario.",
+            message:
+              "No hay disponibilidad en ese horario.",
           };
         }
 
@@ -130,12 +184,15 @@ if (
     }
 
     // =========================
-    // 5️⃣ Generar código
+    // 7️⃣ Generar código
     // =========================
-    const reservationCode = await generateReservationCode(restaurant.id, date);
+    const reservationCode = await generateReservationCode(
+      restaurant.id,
+      date
+    );
 
     // =========================
-    // 6️⃣ Insertar reserva
+    // 8️⃣ Insertar reserva
     // =========================
     const { data, error } = await supabase
       .from("appointments")
@@ -150,6 +207,7 @@ if (
         status: "confirmed",
         reservation_code: reservationCode,
         restaurant_id: restaurant.id,
+        assigned_table_capacity: suitableTable.capacity,
       })
       .select()
       .single();
