@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { createReservation } from "@/lib/createReservation";
 
+// ============================
+// GET - Listar reservas
+// ============================
 export async function GET() {
   try {
     const { data, error } = await supabase
@@ -11,7 +15,10 @@ export async function GET() {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, appointments: data ?? [] });
+    return NextResponse.json({
+      success: true,
+      appointments: data ?? [],
+    });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message },
@@ -20,44 +27,34 @@ export async function GET() {
   }
 }
 
+// ============================
+// POST - Crear reserva RESTAURANTE
+// ============================
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { client_dni, date, time, service, notes } = body;
+    const { client_dni, date, time, people } = body;
 
-    if (!client_dni || !date || !time || !service) {
+    if (!client_dni || !date || !time || !people) {
       return NextResponse.json(
         { success: false, error: "Faltan datos obligatorios" },
         { status: 400 }
       );
     }
 
-    // Validar que exista cliente
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("dni")
-      .eq("dni", client_dni)
-      .single();
+    const result = await createReservation({
+      dni: client_dni,
+      date,
+      time,
+      people: Number(people),
+    });
 
-    if (clientError || !client) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: "Cliente no encontrado (DNI inválido)" },
-        { status: 404 }
+        { success: false, error: result.message },
+        { status: 400 }
       );
     }
-
-    const { error } = await supabase.from("appointments").insert([
-      {
-        client_dni,
-        date,
-        time,
-        service,
-        notes: notes ?? null,
-        status: "pendiente",
-      },
-    ]);
-
-    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -68,6 +65,9 @@ export async function POST(req: Request) {
   }
 }
 
+// ============================
+// PUT - Cambiar estado
+// ============================
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
@@ -96,6 +96,9 @@ export async function PUT(req: Request) {
   }
 }
 
+// ============================
+// DELETE - Eliminar reserva
+// ============================
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -123,4 +126,3 @@ export async function DELETE(req: Request) {
     );
   }
 }
-
