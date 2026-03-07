@@ -2,6 +2,25 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { createReservation } from "@/lib/createReservation";
 
+export type AppointmentStatus =
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
+export type Appointment = {
+  id: number;
+  reservation_code: string;
+  client_dni: string;
+  date: string;
+  time: string;
+  people: number;
+  assigned_table_capacity?: number;
+  notes?: string;
+  status: AppointmentStatus;
+  created_at?: string;
+};
+
 // ============================
 // GET - Listar reservas
 // ============================
@@ -9,7 +28,26 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from("appointments")
-      .select("*")
+      .select(`
+  id,
+  reservation_code,
+  client_dni,
+  date,
+  time,
+  start_time,
+  end_time,
+  people,
+  assigned_table_capacity,
+  notes,
+  status,
+  created_at,
+  clients!appointments_client_dni_fkey (
+    dni,
+    name,
+    phone,
+    email
+  )
+`)
       .order("date", { ascending: false })
       .order("time", { ascending: false });
 
@@ -26,7 +64,6 @@ export async function GET() {
     );
   }
 }
-
 // ============================
 // POST - Crear reserva RESTAURANTE
 // ============================

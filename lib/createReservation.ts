@@ -15,8 +15,9 @@ export async function createReservation({
   people,
 }: CreateReservationParams) {
   try {
+
     // =========================
-    // 1️⃣ Obtener configuración del restaurante
+    // 1️⃣ Obtener restaurante
     // =========================
     const { data: restaurant, error: restaurantError } = await supabase
       .from("restaurants")
@@ -29,7 +30,7 @@ export async function createReservation({
     }
 
     // =========================
-    // 2️⃣ Capacidad base + override diario
+    // 2️⃣ Capacidad base
     // =========================
     let MAX_CAPACITY =
       restaurant.online_capacity ||
@@ -65,7 +66,7 @@ export async function createReservation({
     const end_time = endDateTime.toTimeString().slice(0, 5);
 
     // =========================
-    // 4️⃣ Verificar reserva duplicada exacta
+    // 4️⃣ Verificar duplicado
     // =========================
     const { data: existing } = await supabase
       .from("appointments")
@@ -86,13 +87,13 @@ export async function createReservation({
     }
 
     // =========================
-    // 5️⃣ CONTROL POR TIPO DE MESA (FASE 2.1)
+    // 5️⃣ INVENTARIO DE MESAS
     // =========================
     const { data: tableInventory } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
       .eq("restaurant_id", restaurant.id)
-      .order("capacity", { ascending: true });
+      .order("capacity", { ascending: false });
 
     if (!tableInventory || tableInventory.length === 0) {
       return {
@@ -101,45 +102,86 @@ export async function createReservation({
       };
     }
 
-    // Buscar mesa mínima que soporte la cantidad
-    const suitableTable = tableInventory.find(
-      (t) => t.capacity >= people
-    );
+    // =========================
+    // 6️⃣ Expandir mesas disponibles
+    // =========================
+    const tables: number[] = [];
 
-    if (!suitableTable) {
-      return {
-        success: false,
-        message:
-          "No hay mesa disponible para esa cantidad de personas.",
-      };
-    }
+    tableInventory.forEach((t) => {
+      for (let i = 0; i < t.quantity; i++) {
+        tables.push(t.capacity);
+      }
+    });
 
-    // Ver cuántas mesas de ese tipo ya están ocupadas
+    // =========================
+    // 7️⃣ Ver mesas ocupadas
+    // =========================
     const { data: overlappingTables } = await supabase
       .from("appointments")
       .select("assigned_table_capacity")
       .eq("restaurant_id", restaurant.id)
       .eq("date", date)
       .eq("status", "confirmed")
-      .eq("assigned_table_capacity", suitableTable.capacity)
       .lt("start_time", end_time)
       .gt("end_time", start_time);
 
-    const usedTables = overlappingTables?.length || 0;
+    const usedCapacities =
+      overlappingTables?.map((r) => r.assigned_table_capacity) || [];
 
-    if (usedTables >= suitableTable.quantity) {
-      return {
-        success: false,
-        message:
-          "No hay mesas disponibles para ese horario.",
-      };
+    // remover mesas ocupadas
+    const availableTables = [...tables];
+
+    usedCapacities.forEach((cap) => {
+      const index = availableTables.indexOf(cap);
+      if (index !== -1) availableTables.splice(index, 1);
+    });
+
+    // =========================
+    // 8️⃣ Buscar combinación
+    // =========================
+    availableTables.sort((a, b) => b - a);
+
+let assignedCapacity: number | null = null;
+
+for (let i = 0; i < availableTables.length; i++) {
+
+  let sum = availableTables[i];
+
+  if (sum >= people) {
+    assignedCapacity = sum;
+    break;
+  }
+
+  for (let j = i + 1; j < availableTables.length; j++) {
+
+    const combo = sum + availableTables[j];
+
+    if (combo >= people) {
+      assignedCapacity = combo;
+      break;
     }
 
+    for (let k = j + 1; k < availableTables.length; k++) {
+
+      const combo3 = combo + availableTables[k];
+
+      if (combo3 >= people) {
+        assignedCapacity = combo3;
+        break;
+      }
+
+    }
+
+    if (assignedCapacity) break;
+  }
+
+  if (assignedCapacity) break;
+}
     // =========================
-    // 6️⃣ Control global por capacidad
+    // 9️⃣ Control global capacidad
     // =========================
     if (CAPACITY_MODE !== "disabled") {
-      const { data: overlapping, error: overlapError } =
+      const { data: overlapping } =
         await supabase
           .from("appointments")
           .select("people")
@@ -149,17 +191,6 @@ export async function createReservation({
           .lt("start_time", end_time)
           .gt("end_time", start_time);
 
-      if (overlapError) {
-        console.error(
-          "❌ Error verificando superposición:",
-          overlapError
-        );
-        return {
-          success: false,
-          message: "Error verificando disponibilidad.",
-        };
-      }
-
       const currentPeople =
         overlapping?.reduce(
           (sum, r) => sum + (r.people || 0),
@@ -167,24 +198,15 @@ export async function createReservation({
         ) || 0;
 
       if (currentPeople + people > MAX_CAPACITY) {
-        if (CAPACITY_MODE === "strict") {
-          return {
-            success: false,
-            message:
-              "No hay disponibilidad en ese horario.",
-          };
-        }
-
-        if (CAPACITY_MODE === "warning") {
-          console.warn(
-            "⚠️ Capacidad excedida pero modo warning activo"
-          );
-        }
+        return {
+          success: false,
+          message: "No hay disponibilidad en ese horario.",
+        };
       }
     }
 
     // =========================
-    // 7️⃣ Generar código
+    // 🔟 Generar código
     // =========================
     const reservationCode = await generateReservationCode(
       restaurant.id,
@@ -192,7 +214,7 @@ export async function createReservation({
     );
 
     // =========================
-    // 8️⃣ Insertar reserva
+    // 11️⃣ Insertar reserva
     // =========================
     const { data, error } = await supabase
       .from("appointments")
@@ -207,7 +229,7 @@ export async function createReservation({
         status: "confirmed",
         reservation_code: reservationCode,
         restaurant_id: restaurant.id,
-        assigned_table_capacity: suitableTable.capacity,
+        assigned_table_capacity: assignedCapacity,
       })
       .select()
       .single();
@@ -221,6 +243,7 @@ export async function createReservation({
       success: true,
       reservation: data,
     };
+
   } catch (err) {
     console.error("❌ CREATE RESERVATION ERROR:", err);
     return {
