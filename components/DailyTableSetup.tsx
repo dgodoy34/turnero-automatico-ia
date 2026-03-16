@@ -16,15 +16,26 @@ export default function DailyTableSetup() {
 
   async function loadInventory(){
 
-    const res = await fetch(`/api/table-inventory?date=${date}`);
-    const data = await res.json();
+    try{
 
-    setTables(data.tables || []);
+      const res = await fetch(`/api/table-inventory?date=${date}`);
+      const data = await res.json();
+
+      if(data?.tables){
+        setTables(data.tables);
+      }else{
+        setTables([]);
+      }
+
+    }catch(err){
+      console.error("Error cargando inventario",err);
+    }
+
   }
 
   useEffect(()=>{
     loadInventory();
-  },[date]);   // 🔥 ESTA ES LA CORRECCIÓN
+  },[date]);
 
 
   function updateQuantity(index:number,value:number){
@@ -35,28 +46,41 @@ export default function DailyTableSetup() {
     setTables(copy);
   }
 
- async function saveOverride(){
+  async function saveOverride(){
 
-const res = await fetch("/api/daily-table-override",{
-method:"POST",
-headers:{ "Content-Type":"application/json" },
-body:JSON.stringify({
-date,
-tables
-})
-})
+    try{
 
-if(!res.ok){
-alert("Error guardando configuración")
-return
-}
+      const res = await fetch("/api/daily-table-override",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+          date,
+          tables
+        })
+      });
 
-alert("Configuración guardada")
+      const data = await res.json();
 
-window.location.reload()
+      console.log("override response:",data);
 
-}
+      if(!res.ok || data.success === false){
+        alert("Error guardando configuración");
+        return;
+      }
 
+      alert("Configuración guardada");
+
+      // recargar inventario sin recargar página
+      loadInventory();
+
+    }catch(err){
+
+      console.error("Error guardando override",err);
+      alert("Error guardando configuración");
+
+    }
+
+  }
 
 
   return(
@@ -101,6 +125,7 @@ className="border p-2 w-24 rounded"
 </div>
 
 <button
+type="button"
 onClick={saveOverride}
 className="bg-indigo-600 text-white px-4 py-2 rounded"
 >
