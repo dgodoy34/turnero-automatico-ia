@@ -141,7 +141,7 @@ export default function WeeklyAgenda({
                 {selected.clients?.name}
               </div>
 
-              <div>DNI: {selected.clients?.dni}</div>
+              <div>DNI: {(selected.clients as any)?.dni}</div>
 
               {selected.clients?.email && (
                 <div>Email: {selected.clients.email}</div>
