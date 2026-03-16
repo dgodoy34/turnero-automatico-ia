@@ -107,10 +107,24 @@ Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
 </div>
 
 <div className="flex gap-3 text-sm">
+<input
+  type="number"
+  className="border rounded px-2 py-1 w-20"
+  value={t.quantity}
+  onChange={(e) => {
 
-<span className="text-gray-500">
-Total: {t.quantity}
-</span>
+    const value = parseInt(e.target.value) || 0;
+
+    setTables(prev =>
+      prev.map(x =>
+        x.capacity === t.capacity
+          ? { ...x, quantity: value }
+          : x
+      )
+    );
+
+  }}
+/>
 
 <span className="text-red-600">
 Ocupadas: {used}
