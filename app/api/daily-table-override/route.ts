@@ -10,6 +10,8 @@ const restaurant_id = await getRestaurantId(
   process.env.WHATSAPP_PHONE_NUMBER_ID!
 );
 
+console.log("restaurant_id", restaurant_id);
+
 const body = await req.json();
 const { date, tables } = body;
 
