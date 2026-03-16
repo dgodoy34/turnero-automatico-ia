@@ -22,6 +22,7 @@ export default function TableInventoryView({ date }: Props) {
 
   const [tables,setTables] = useState<TableType[]>([]);
   const [appointments,setAppointments] = useState<Appointment[]>([]);
+  const [saving,setSaving] = useState(false);
 
   async function loadData(){
 
@@ -44,28 +45,22 @@ export default function TableInventoryView({ date }: Props) {
   }, [date]);
 
 
-
   function usedTables(capacity:number){
 
     let used = 0;
 
     appointments.forEach(a => {
 
-      // 🔴 SOLO CONTAR RESERVAS DEL DÍA SELECCIONADO
       if(a.date !== date) return;
-
       if(a.status !== "confirmed") return;
-
       if(!a.assigned_table_capacity) return;
 
-      // mesas grandes
       if(a.assigned_table_capacity >= 6 && capacity === 6){
 
         used += a.tables_used || 1;
 
       }
 
-      // mesas exactas
       else if(a.assigned_table_capacity === capacity){
 
         used += a.tables_used || 1;
@@ -78,6 +73,48 @@ export default function TableInventoryView({ date }: Props) {
 
   }
 
+
+  async function saveConfig(){
+
+    setSaving(true);
+
+    try{
+
+      const res = await fetch("/api/table-inventory",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          date,
+          tables
+        })
+      });
+
+      const data = await res.json();
+
+      if(!data.success){
+
+        alert("Error guardando configuración");
+
+      }else{
+
+        await loadData();
+
+        alert("Configuración guardada");
+
+      }
+
+    }catch(err){
+
+      console.error(err);
+      alert("Error del servidor");
+
+    }
+
+    setSaving(false);
+
+  }
 
 
   return(
@@ -106,7 +143,8 @@ className="flex justify-between items-center border p-3 rounded"
 Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
 </div>
 
-<div className="flex gap-3 text-sm">
+<div className="flex gap-3 text-sm items-center">
+
 <input
   type="number"
   className="border rounded px-2 py-1 w-20"
@@ -141,6 +179,19 @@ Libres: {free}
 );
 
 })}
+
+</div>
+
+
+<div className="mt-6">
+
+<button
+onClick={saveConfig}
+disabled={saving}
+className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+>
+{saving ? "Guardando..." : "Guardar configuración"}
+</button>
 
 </div>
 
