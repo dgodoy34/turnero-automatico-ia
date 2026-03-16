@@ -1,37 +1,62 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { getRestaurantId } from "@/lib/getRestaurantId";
 
-export async function POST(req: Request) {
+export async function POST(req: Request){
 
-  const body = await req.json();
-  const { date, tables } = body;
+try{
 
-  const { data: restaurant, error } = await supabase
-    .from("restaurants")
-    .select("id")
-    .limit(1)
-    .single();
+const restaurant_id = await getRestaurantId(req);
 
-  if (error || !restaurant) {
-    return NextResponse.json(
-      { success: false, error: "Restaurante no encontrado" },
-      { status: 400 }
-    );
-  }
+const body = await req.json();
 
-  for (const t of tables) {
+const { date, tables } = body;
 
-    await supabase
-      .from("restaurant_daily_table_override")
-      .upsert({
-        restaurant_id: restaurant.id,
-        date,
-        capacity: t.capacity,
-        quantity: t.quantity
-      });
 
-  }
+// borrar override anterior del restaurante
 
-  return NextResponse.json({ success: true });
+await supabase
+.from("daily_table_override")
+.delete()
+.eq("restaurant_id", restaurant_id)
+.eq("date", date);
+
+
+// crear filas nuevas
+
+const rows = tables.map((t:any)=>({
+restaurant_id,
+date,
+capacity: t.capacity,
+quantity: t.quantity
+}));
+
+
+const { error } = await supabase
+.from("daily_table_override")
+.insert(rows);
+
+
+if(error){
+
+return NextResponse.json({
+success:false,
+error:error.message
+});
+
+}
+
+return NextResponse.json({
+success:true
+});
+
+}catch(err:any){
+
+return NextResponse.json(
+{ success:false,error:err.message },
+{ status:500 }
+);
+
+}
 
 }

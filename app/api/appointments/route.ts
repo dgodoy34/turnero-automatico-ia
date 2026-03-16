@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { createReservation } from "@/lib/createReservation";
+import { getRestaurantId } from "@/lib/getRestaurantId";
 
 export type AppointmentStatus =
   | "confirmed"
@@ -24,30 +25,37 @@ export type Appointment = {
 // ============================
 // GET - Listar reservas
 // ============================
-export async function GET() {
+
+export async function GET(req: Request) {
+
   try {
+
+    const restaurant_id = await getRestaurantId(req);
+
     const { data, error } = await supabase
       .from("appointments")
       .select(`
-  id,
-  reservation_code,
-  client_dni,
-  date,
-  time,
-  start_time,
-  end_time,
-  people,
-  assigned_table_capacity,
-  notes,
-  status,
-  created_at,
-  clients!appointments_client_dni_fkey (
-    dni,
-    name,
-    phone,
-    email
-  )
-`)
+        id,
+        reservation_code,
+        client_dni,
+        date,
+        time,
+        start_time,
+        end_time,
+        people,
+        assigned_table_capacity,
+        tables_used,
+        notes,
+        status,
+        created_at,
+        clients!appointments_client_dni_fkey (
+          dni,
+          name,
+          phone,
+          email
+        )
+      `)
+      .eq("restaurant_id", restaurant_id)
       .order("date", { ascending: false })
       .order("time", { ascending: false });
 
@@ -57,29 +65,42 @@ export async function GET() {
       success: true,
       appointments: data ?? [],
     });
+
   } catch (err: any) {
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
+
   }
+
 }
+
 // ============================
-// POST - Crear reserva RESTAURANTE
+// POST - Crear reserva
 // ============================
+
 export async function POST(req: Request) {
+
   try {
+
+    const restaurant_id = await getRestaurantId(req);
+
     const body = await req.json();
     const { client_dni, date, time, people } = body;
 
     if (!client_dni || !date || !time || !people) {
+
       return NextResponse.json(
         { success: false, error: "Faltan datos obligatorios" },
         { status: 400 }
       );
+
     }
 
     const result = await createReservation({
+      restaurant_id,
       dni: client_dni,
       date,
       time,
@@ -87,79 +108,109 @@ export async function POST(req: Request) {
     });
 
     if (!result.success) {
+
       return NextResponse.json(
         { success: false, error: result.message },
         { status: 400 }
       );
+
     }
 
     return NextResponse.json({ success: true });
+
   } catch (err: any) {
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
+
   }
+
 }
 
 // ============================
 // PUT - Cambiar estado
 // ============================
+
 export async function PUT(req: Request) {
+
   try {
+
+    const restaurant_id = await getRestaurantId(req);
+
     const body = await req.json();
     const { id, status } = body;
 
     if (!id || !status) {
+
       return NextResponse.json(
         { success: false, error: "Faltan datos (id/status)" },
         { status: 400 }
       );
+
     }
 
     const { error } = await supabase
       .from("appointments")
       .update({ status })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("restaurant_id", restaurant_id);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true });
+
   } catch (err: any) {
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
+
   }
+
 }
 
 // ============================
 // DELETE - Eliminar reserva
 // ============================
+
 export async function DELETE(req: Request) {
+
   try {
+
+    const restaurant_id = await getRestaurantId(req);
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
+
       return NextResponse.json(
         { success: false, error: "Falta id" },
         { status: 400 }
       );
+
     }
 
     const { error } = await supabase
       .from("appointments")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("restaurant_id", restaurant_id);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true });
+
   } catch (err: any) {
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
+
   }
+
 }

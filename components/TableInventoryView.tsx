@@ -9,17 +9,23 @@ type TableType = {
 
 type Appointment = {
   assigned_table_capacity?: number;
+  tables_used?: number;
   status: string;
+  date: string;
 };
 
-export default function TableInventoryView() {
+type Props = {
+  date: string;
+};
+
+export default function TableInventoryView({ date }: Props) {
 
   const [tables,setTables] = useState<TableType[]>([]);
   const [appointments,setAppointments] = useState<Appointment[]>([]);
 
   async function loadData(){
 
-    const tablesRes = await fetch("/api/table-inventory");
+    const tablesRes = await fetch(`/api/table-inventory?date=${date}`);
     const tablesData = await tablesRes.json();
 
     const apptRes = await fetch("/api/appointments");
@@ -29,18 +35,50 @@ export default function TableInventoryView() {
     setAppointments(apptData.appointments || []);
   }
 
-  useEffect(()=>{
+  useEffect(() => {
+
+    if (!date) return;
+
     loadData();
-  },[]);
+
+  }, [date]);
+
+
 
   function usedTables(capacity:number){
 
-    return appointments.filter(
-      a =>
-        a.assigned_table_capacity === capacity &&
-        a.status === "confirmed"
-    ).length;
+    let used = 0;
+
+    appointments.forEach(a => {
+
+      // 🔴 SOLO CONTAR RESERVAS DEL DÍA SELECCIONADO
+      if(a.date !== date) return;
+
+      if(a.status !== "confirmed") return;
+
+      if(!a.assigned_table_capacity) return;
+
+      // mesas grandes
+      if(a.assigned_table_capacity >= 6 && capacity === 6){
+
+        used += a.tables_used || 1;
+
+      }
+
+      // mesas exactas
+      else if(a.assigned_table_capacity === capacity){
+
+        used += a.tables_used || 1;
+
+      }
+
+    });
+
+    return used;
+
   }
+
+
 
   return(
 
@@ -55,7 +93,7 @@ Inventario de mesas
 {tables.map(t=>{
 
 const used = usedTables(t.capacity);
-const free = t.quantity - used;
+const free = Math.max(0, t.quantity - used);
 
 return(
 
@@ -65,7 +103,7 @@ className="flex justify-between items-center border p-3 rounded"
 >
 
 <div>
-Mesa {t.capacity} personas
+Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
 </div>
 
 <div className="flex gap-3 text-sm">

@@ -3,87 +3,88 @@
 import { useEffect, useState } from "react";
 
 type Appointment = {
-  id: number;
-  date: string;
-  start_time: string;
-  end_time: string;
-  assigned_table_capacity: number;
+  id: number
+  date: string
+  start_time: string
+  end_time: string
+  people: number
+  assigned_table_capacity?: number
+  tables_used?: number
+  status: string
   clients?: {
-    name?: string;
-  };
-};
+    name?: string
+  }
+}
 
 type TableType = {
-  capacity: number;
-  quantity: number;
-};
+  capacity: number
+  quantity: number
+}
 
-export default function TableFloorView() {
+type Props = {
+  appointments?: Appointment[]
+  date: string
+}
 
-  const [appointments,setAppointments] = useState<Appointment[]>([]);
-  const [tables,setTables] = useState<TableType[]>([]);
-  const [date,setDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+export default function TableFloorView({appointments = [],date}:Props){
 
-  async function loadData(){
+  const [tables,setTables] = useState<TableType[]>([])
 
-    const apptRes = await fetch("/api/appointments");
-    const apptData = await apptRes.json();
+  async function loadTables(){
 
-    const tableRes = await fetch("/api/table-inventory");
-    const tableData = await tableRes.json();
+    const res = await fetch(`/api/table-inventory?date=${date}`)
+    const data = await res.json()
 
-    setAppointments(apptData.appointments || []);
-    setTables(tableData.tables || []);
+    setTables(data.tables || [])
+
   }
 
   useEffect(()=>{
-    loadData();
-  },[]);
+    loadTables()
+  },[date])
 
   const hours = [
     "18:00","18:30","19:00","19:30",
     "20:00","20:30","21:00","21:30",
-    "22:00"
-  ];
+    "22:00","22:30","23:00"
+  ]
 
-  function findReservation(time:string,capacity:number){
+  function reservationsAtHour(time:string){
 
-  return appointments.find(a => {
+    return appointments.filter(a=>{
+      if(a.date !== date) return false
+      return a.start_time.slice(0,5) === time
+    })
 
-    const apptDate = a.date?.slice(0,10)
+  }
 
-    if(apptDate !== date) return false
-    if(a.assigned_table_capacity !== capacity) return false
+  function isOccupied(time:string,reservation:Appointment){
 
-    const slot = new Date(`${date}T${time}:00`).getTime()
-    const start = new Date(`${apptDate}T${a.start_time}`).getTime()
-    const end = new Date(`${apptDate}T${a.end_time}`).getTime()
+    const slot = new Date(`${date}T${time}:00`)
+    const start = new Date(`${date}T${reservation.start_time}`)
+    const end = new Date(`${date}T${reservation.end_time}`)
 
-    return slot >= start && slot < end
+    return slot > start && slot < end
 
-  })
+  }
 
-}
   return(
 
 <div className="bg-white rounded-xl shadow p-6">
 
 <h2 className="font-semibold mb-4">
-Mesas por horario
+Plano de mesas
 </h2>
-
-<input
-type="date"
-value={date}
-onChange={(e)=>setDate(e.target.value)}
-className="border p-2 rounded mb-4"
-/>
 
 <div className="space-y-4">
 
-{hours.map(h=>(
+{hours.map(h=>{
+
+const reservations = reservationsAtHour(h)
+
+const usedReservations:number[] = []
+
+return(
 
 <div key={h} className="border p-3 rounded">
 
@@ -93,50 +94,103 @@ className="border p-2 rounded mb-4"
 
 <div className="grid grid-cols-4 gap-2">
 
-{tables.flatMap(t =>
-  Array.from({length:t.quantity}).map((_,i)=>{
+{tables.flatMap(t=>{
 
-    const reservation = findReservation(h,t.capacity);
+return Array.from({length:t.quantity}).map((_,i)=>{
 
-    let color = "bg-green-100";
-    let label = "Libre";
+let reservation = reservations.find((r,index)=>{
 
-    if(reservation){
-      color = "bg-yellow-100";
-      label = reservation.clients?.name || "Reservada";
-    }
+if(usedReservations.includes(index)) return false
 
-    return(
+if(!r.assigned_table_capacity) return false
+
+return r.assigned_table_capacity === t.capacity
+
+})
+
+let color = "bg-green-200 border border-green-500"
+let label = "🟢 Libre"
+
+if(reservation){
+
+const index = reservations.indexOf(reservation)
+
+usedReservations.push(index)
+
+if(reservation.status === "confirmed"){
+color = "bg-yellow-200 border border-yellow-500"
+label = "🟡 Reservada"
+}
+
+if(reservation.status === "completed"){
+color = "bg-red-200 border border-red-500"
+label = "🔴 Ocupada"
+}
+
+}
+
+else{
+
+const occ = appointments.find(a=>{
+
+if(a.date !== date) return false
+if(a.assigned_table_capacity !== t.capacity) return false
+
+return isOccupied(h,a)
+
+})
+
+if(occ){
+
+color = "bg-gray-300 border border-gray-500"
+label = "⚫ En uso"
+
+}
+
+}
+
+return(
 
 <div
-key={`${t.capacity}-${i}`}
+key={`${t.capacity}-${i}-${h}`}
 className={`p-2 rounded text-sm ${color}`}
 >
 
 <div className="font-semibold">
-Mesa {t.capacity}
+Mesa {t.capacity === 6 ? "6+" : t.capacity}
 </div>
 
-<div className="text-xs text-gray-600">
+<div className="text-xs text-gray-700">
 {label}
 </div>
 
+{reservation?.clients?.name && (
+<div className="text-xs mt-1">
+{reservation.clients.name}
 </div>
-
-);
-
-})
 )}
 
 </div>
 
+)
+
+})
+
+})}
+
 </div>
 
-))}
+</div>
+
+)
+
+})}
 
 </div>
 
 </div>
 
-  );
+)
+
 }
+

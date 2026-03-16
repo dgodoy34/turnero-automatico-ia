@@ -1,26 +1,37 @@
 export type AppointmentStatus =
   | "confirmed"
   | "completed"
-  | "cancelled"
-  | "no_show";
+  | "no_show"
+  | "cancelled";
 
 export type Appointment = {
   id: number;
-  reservation_code: string;
+
+  reservation_code?: string;
+
   client_dni: string;
+
   date: string;
   time: string;
+
+  start_time: string;
+  end_time: string;
+
   people: number;
+
   assigned_table_capacity?: number;
+
+  tables_used?: number;
+
   notes?: string;
+
   status: AppointmentStatus;
+
   created_at?: string;
 
-  // 👇 ESTO ES LO NUEVO
   clients?: {
-    dni: string;
-    name: string;
-    email?: string;
+    name?: string;
     phone?: string;
+    email?: string;
   };
 };

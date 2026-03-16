@@ -16,7 +16,7 @@ export default function DailyTableSetup() {
 
   async function loadInventory(){
 
-    const res = await fetch("/api/table-inventory");
+    const res = await fetch(`/api/table-inventory?date=${date}`);
     const data = await res.json();
 
     setTables(data.tables || []);
@@ -34,19 +34,30 @@ export default function DailyTableSetup() {
     setTables(copy);
   }
 
-  async function saveOverride(){
+ async function saveOverride(){
 
-    await fetch("/api/daily-table-override",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({
-        date,
-        tables
-      })
-    });
+const res = await fetch("/api/daily-table-override",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({
+date,
+tables
+})
+})
 
-    alert("Configuración guardada");
-  }
+if(!res.ok){
+alert("Error guardando configuración")
+return
+}
+
+alert("Configuración guardada")
+
+// 🔥 FORZAR RECARGA DE LA PÁGINA
+window.location.reload()
+
+}
+
+
 
   return(
 

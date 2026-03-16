@@ -9,14 +9,13 @@ export async function GET(req: Request) {
     const restaurant_id = await getRestaurantId(req);
 
     const { data, error } = await supabase
-      .from("clients")
+      .from("restaurant_table_schedule")
       .select("*")
-      .eq("restaurant_id", restaurant_id)
-      .order("created_at", { ascending: false });
+      .eq("restaurant_id", restaurant_id);
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, clients: data ?? [] });
+    return NextResponse.json({ success: true, schedule: data ?? [] });
 
   } catch (err: any) {
 
@@ -36,32 +35,19 @@ export async function POST(req: Request) {
     const restaurant_id = await getRestaurantId(req);
 
     const body = await req.json();
-    const { dni, name, phone, email } = body;
-
-    if (!dni || !name || !phone) {
-      return NextResponse.json(
-        { success: false, error: "Faltan datos obligatorios (dni/name/phone)" },
-        { status: 400 }
-      );
-    }
 
     const { data, error } = await supabase
-      .from("clients")
-      .insert([
-        {
-          restaurant_id,
-          dni: String(dni),
-          name: String(name),
-          phone: String(phone),
-          email: email ? String(email) : null,
-        },
-      ])
+      .from("restaurant_table_schedule")
+      .insert({
+        ...body,
+        restaurant_id
+      })
       .select()
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, client: data });
+    return NextResponse.json({ success: true, schedule: data });
 
   } catch (err: any) {
 

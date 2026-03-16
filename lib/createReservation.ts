@@ -1,7 +1,9 @@
 import { supabase } from "./supabaseClient";
 import { generateReservationCode } from "./reservationCode";
+import { checkLicense } from "./licenses/checkLicense";
 
 type CreateReservationParams = {
+  restaurant_id: string;
   dni: string;
   date: string;
   time: string;
@@ -9,24 +11,39 @@ type CreateReservationParams = {
 };
 
 export async function createReservation({
+  restaurant_id,
   dni,
   date,
   time,
   people,
 }: CreateReservationParams) {
+
   try {
 
     // =========================
     // 1️⃣ Obtener restaurante
     // =========================
+
     const { data: restaurant, error: restaurantError } = await supabase
       .from("restaurants")
       .select("*")
-      .limit(1)
+      .eq("id", restaurant_id)
       .single();
 
     if (restaurantError || !restaurant) {
-      return { success: false, message: "Restaurante no configurado." };
+      return { success: false, message: "Restaurante no encontrado." };
+    }
+
+    // =========================
+    // 🔐 Validar licencia
+    // =========================
+    const license = await checkLicense(restaurant.id);
+
+    if (!license.valid) {
+      return {
+        success: false,
+        message: "La licencia del restaurante no está activa.",
+      };
     }
 
     // =========================
@@ -82,7 +99,6 @@ export async function createReservation({
       return {
         success: false,
         message: "Ya tenés una reserva confirmada en ese horario.",
-        existingReservation: existing,
       };
     }
 
@@ -93,7 +109,7 @@ export async function createReservation({
       .from("restaurant_table_inventory")
       .select("*")
       .eq("restaurant_id", restaurant.id)
-      .order("capacity", { ascending: false });
+      .order("capacity", { ascending: true });
 
     if (!tableInventory || tableInventory.length === 0) {
       return {
@@ -128,7 +144,6 @@ export async function createReservation({
     const usedCapacities =
       overlappingTables?.map((r) => r.assigned_table_capacity) || [];
 
-    // remover mesas ocupadas
     const availableTables = [...tables];
 
     usedCapacities.forEach((cap) => {
@@ -137,65 +152,65 @@ export async function createReservation({
     });
 
     // =========================
-    // 8️⃣ Buscar combinación
+    // 8️⃣ Buscar mesa adecuada
     // =========================
-    availableTables.sort((a, b) => b - a);
+    availableTables.sort((a, b) => a - b);
 
-let assignedCapacity: number | null = null;
+    let assignedCapacity: number | null = null;
+    let tablesUsed: number[] = [];
 
-for (let i = 0; i < availableTables.length; i++) {
+    // grupos chicos
+    if (people <= 2) {
+      const table = availableTables.find((t) => t >= 2);
 
-  let sum = availableTables[i];
-
-  if (sum >= people) {
-    assignedCapacity = sum;
-    break;
-  }
-
-  for (let j = i + 1; j < availableTables.length; j++) {
-
-    const combo = sum + availableTables[j];
-
-    if (combo >= people) {
-      assignedCapacity = combo;
-      break;
-    }
-
-    for (let k = j + 1; k < availableTables.length; k++) {
-
-      const combo3 = combo + availableTables[k];
-
-      if (combo3 >= people) {
-        assignedCapacity = combo3;
-        break;
+      if (table) {
+        assignedCapacity = table;
+        tablesUsed = [table];
       }
-
     }
 
-    if (assignedCapacity) break;
-  }
+    // grupos medianos
+    else if (people <= 4) {
+      const table = availableTables.find((t) => t >= 4);
 
-  if (assignedCapacity) break;
-}
+      if (table) {
+        assignedCapacity = table;
+        tablesUsed = [table];
+      }
+    }
+
+    // grupos grandes
+    else {
+      const table = availableTables.find((t) => t >= 6);
+
+      if (table) {
+        assignedCapacity = table;
+        tablesUsed = [table];
+      }
+    }
+
+    if (!assignedCapacity) {
+      return {
+        success: false,
+        message: "No hay mesas disponibles para ese horario.",
+      };
+    }
+
     // =========================
     // 9️⃣ Control global capacidad
     // =========================
     if (CAPACITY_MODE !== "disabled") {
-      const { data: overlapping } =
-        await supabase
-          .from("appointments")
-          .select("people")
-          .eq("restaurant_id", restaurant.id)
-          .eq("date", date)
-          .eq("status", "confirmed")
-          .lt("start_time", end_time)
-          .gt("end_time", start_time);
+      const { data: overlapping } = await supabase
+        .from("appointments")
+        .select("people")
+        .eq("restaurant_id", restaurant.id)
+        .eq("date", date)
+        .eq("status", "confirmed")
+        .lt("start_time", end_time)
+        .gt("end_time", start_time);
 
       const currentPeople =
-        overlapping?.reduce(
-          (sum, r) => sum + (r.people || 0),
-          0
-        ) || 0;
+        overlapping?.reduce((sum, r) => sum + (r.people || 0), 0) || 0;
 
       if (currentPeople + people > MAX_CAPACITY) {
         return {
@@ -230,6 +245,7 @@ for (let i = 0; i < availableTables.length; i++) {
         reservation_code: reservationCode,
         restaurant_id: restaurant.id,
         assigned_table_capacity: assignedCapacity,
+        tables_used: tablesUsed.length,
       })
       .select()
       .single();

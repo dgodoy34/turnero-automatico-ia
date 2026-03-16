@@ -46,6 +46,21 @@ export async function POST(req: Request) {
     let reply = "No entendí el mensaje 🤔";
 
     // =========================
+// OBTENER RESTAURANTE
+// =========================
+
+const { data: restaurant } = await supabase
+  .from("restaurants")
+  .select("id")
+  .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
+  .single();
+
+if (!restaurant) {
+  console.error("❌ Restaurante no encontrado");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+    // =========================
     // NO TIENE DNI
     // =========================
     if (!session.dni) {
@@ -94,30 +109,47 @@ export async function POST(req: Request) {
       await setState(from, "ASK_EMAIL");
     }
 
-    // =========================
-    // PEDIR EMAIL
-    // =========================
-    else if (session.state === "ASK_EMAIL") {
+// =========================
+// PEDIR EMAIL
+// =========================
+else if (session.state === "ASK_EMAIL") {
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-      if (!emailRegex.test(text)) {
-        reply = "Ese email no parece válido 🤔";
-      } else {
+  if (!emailRegex.test(text)) {
+    reply = "Ese email no parece válido 🤔";
+  } else {
 
-        await supabase
-          .from("clients")
-          .update({ email: text })
-          .eq("dni", session.dni);
+    await supabase
+      .from("clients")
+      .update({ email: text })
+      .eq("dni", session.dni);
 
-        reply =
-          `Perfecto 👍\n\n` +
-          `1️⃣ Hacer una reserva\n` +
-          `2️⃣ Modificar una reserva existente`;
+    reply = "🎂 Perfecto. Ahora decime tu fecha de cumpleaños (ej: 15/08).";
 
-        await setState(from, "MENU");
-      }
-    }
+    await setState(from, "ASK_BIRTHDAY");
+  }
+}
+
+// =========================
+// PEDIR CUMPLEAÑOS
+// =========================
+else if (session.state === "ASK_BIRTHDAY") {
+
+  const formattedBirthday = formatDateToISO(text);
+
+  await supabase
+    .from("clients")
+    .update({ birthday: formattedBirthday })
+    .eq("dni", session.dni);
+
+  reply =
+    `Perfecto 👍\n\n` +
+    `1️⃣ Hacer una reserva\n` +
+    `2️⃣ Modificar una reserva existente`;
+
+  await setState(from, "MENU");
+}
 
     // =========================
     // MENU
@@ -260,11 +292,12 @@ else if (session.state === "CONFIRM_RESERVATION") {
     const temp = session.temp_data;
 
     const result = await createReservation({
-      dni: session.dni,
-      date: temp.date,
-      time: temp.time,
-      people: temp.people,
-    });
+  restaurant_id: restaurant.id,
+  dni: session.dni,
+  date: temp.date,
+  time: temp.time,
+  people: temp.people,
+});
 
    if (!result.success) {
 

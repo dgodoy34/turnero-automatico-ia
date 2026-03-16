@@ -2,12 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import CalendarView from "../../components/CalendarView";
-import TableInventoryView from "@/components/TableInventoryView";
+import CapacityTimeline from "@/components/ui/CapacityTimeline";
+import DayAgenda from "@/components/ui/DayAgenda";
 import type { Appointment, AppointmentStatus } from "@/types/Appointment";
-import DailyTableSetup from "@/components/DailyTableSetup";
-import TableFloorView from "@/components/TableFloorView";
-import CapacityTimeline from "@/components/CapacityTimeline";
-import DayAgenda from "@/components/DayAgenda";
 
 function todayISO() {
   return new Date().toISOString().split("T")[0];
@@ -39,20 +36,18 @@ export default function TurneroUI() {
   const [people,setPeople] = useState(2);
   const [notes,setNotes] = useState("");
 
+  const [selectedDate,setSelectedDate] = useState(todayISO());
+
   async function loadAll(){
 
     setLoading(true);
 
     const res = await fetch("/api/appointments");
-
-    if (!res.ok) {
-      console.error("API error", res.status);
-      return;
-    }
-
     const data = await res.json();
+
     setAppointments(data.appointments || []);
     setLoading(false);
+
   }
 
   useEffect(()=>{
@@ -84,6 +79,7 @@ export default function TurneroUI() {
     setNotes("");
 
     await loadAll();
+
   }
 
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
@@ -95,6 +91,7 @@ export default function TurneroUI() {
     });
 
     await loadAll();
+
   }
 
   async function deleteAppointment(id:number){
@@ -106,17 +103,18 @@ export default function TurneroUI() {
     });
 
     await loadAll();
+
   }
 
   const todayReservations = useMemo(
-    ()=>appointments.filter(a=>a.date===todayISO()),
-    [appointments]
-  );
+ ()=>appointments.filter(a=>a.date===selectedDate),
+ [appointments,selectedDate]
+);
 
   const occupancy = todayReservations.reduce(
-    (acc,r)=>acc+r.people,
-    0
-  );
+ (acc,r)=>acc+r.people,
+ 0
+);
 
   const foundReservation = useMemo(()=>{
 
@@ -161,39 +159,70 @@ Gestión inteligente de reservas
 </div>
 
 <div className="text-gray-500">
-{todayISO()}
+{selectedDate}
 </div>
 
 </div>
 
-{/* ESTADÍSTICAS DEL DÍA */}
+{/* SELECTOR DE FECHA */}
 
-<div className="grid grid-cols-3 gap-6">
+<div className="bg-white rounded-xl shadow p-6">
 
-  <div className="bg-white rounded-xl shadow p-6">
-    <div className="text-gray-500 text-sm">Reservas hoy</div>
-    <div className="text-3xl font-bold">
-      {todayReservations.length}
-    </div>
-  </div>
+<div className="flex items-center gap-4">
 
-  <div className="bg-white rounded-xl shadow p-6">
-    <div className="text-gray-500 text-sm">Personas hoy</div>
-    <div className="text-3xl font-bold">
-      {occupancy}
-    </div>
-  </div>
+<label className="font-semibold">
+Servicio del día
+</label>
 
-  <div className="bg-white rounded-xl shadow p-6">
-    <div className="text-gray-500 text-sm">Confirmadas</div>
-    <div className="text-3xl font-bold">
-      {todayReservations.filter(r => r.status === "confirmed").length}
-    </div>
-  </div>
+<input
+type="date"
+value={selectedDate}
+onChange={(e)=>setSelectedDate(e.target.value)}
+className="border p-2 rounded"
+/>
+
+<button
+onClick={loadAll}
+className="bg-indigo-600 text-white px-4 py-2 rounded"
+>
+Buscar
+</button>
 
 </div>
 
+</div>
 
+{/* KPIs */}
+
+<div className="grid grid-cols-4 gap-6">
+
+<div className="bg-white rounded-xl shadow p-6">
+<div className="text-gray-500 text-sm">Reservas hoy</div>
+<div className="text-3xl font-bold">{todayReservations.length}</div>
+</div>
+
+<div className="bg-white rounded-xl shadow p-6">
+<div className="text-gray-500 text-sm">Personas hoy</div>
+<div className="text-3xl font-bold">{occupancy}</div>
+</div>
+
+<div className="bg-white rounded-xl shadow p-6">
+<div className="text-gray-500 text-sm">Mesas usadas</div>
+<div className="text-3xl font-bold">
+{todayReservations.filter(r => r.assigned_table_capacity).length}
+</div>
+</div>
+
+<div className="bg-white rounded-xl shadow p-6">
+<div className="text-gray-500 text-sm">Promedio por reserva</div>
+<div className="text-3xl font-bold">
+{todayReservations.length
+? Math.round(occupancy / todayReservations.length)
+: 0}
+</div>
+</div>
+
+</div>
 
 {/* BUSCAR RESERVA */}
 
@@ -204,7 +233,7 @@ Buscar reserva
 </h2>
 
 <input
-placeholder="Buscar por DNI, nombre o código de reserva"
+placeholder="Buscar por DNI, nombre o código"
 value={searchCode}
 onChange={(e)=>setSearchCode(e.target.value)}
 className="border p-3 rounded w-full"
@@ -216,16 +245,8 @@ className="border p-3 rounded w-full"
 
 <div className="flex justify-between">
 
-<div className="font-semibold space-y-1">
-
-<div className="text-xs text-gray-500">
-Código: {foundReservation.reservation_code}
-</div>
-
 <div>
 {foundReservation.date} • {foundReservation.time}
-</div>
-
 </div>
 
 <span className={`px-2 py-1 text-xs rounded ${statusColor(foundReservation.status)}`}>
@@ -234,19 +255,13 @@ Código: {foundReservation.reservation_code}
 
 </div>
 
-<div>{foundReservation.people} personas</div>
-
-<div>Cliente: {foundReservation.clients?.name}</div>
-
-{foundReservation.assigned_table_capacity && (
-<div>Mesa asignada: {foundReservation.assigned_table_capacity}</div>
-)}
-
-{foundReservation.notes && (
-<div className="text-sm text-gray-500">
-{foundReservation.notes}
+<div>
+{foundReservation.people} personas
 </div>
-)}
+
+<div>
+Cliente: {foundReservation.clients?.name}
+</div>
 
 <div className="flex gap-3 pt-3">
 
@@ -279,6 +294,13 @@ Eliminar
 
 </div>
 
+{/* AGENDA + CREAR RESERVA */}
+
+<div className="grid grid-cols-2 gap-6">
+
+<DayAgenda appointments={appointments} date={selectedDate} />
+
+
 
 {/* NUEVA RESERVA */}
 
@@ -288,12 +310,19 @@ Eliminar
 Nueva reserva
 </h2>
 
-<div className="grid grid-cols-4 gap-3">
+<div className="grid grid-cols-2 gap-3">
 
 <input
 placeholder="DNI"
 value={clientId}
 onChange={(e)=>setClientId(e.target.value)}
+className="border p-3 rounded"
+/>
+
+<input
+type="number"
+value={people}
+onChange={(e)=>setPeople(Number(e.target.value))}
 className="border p-3 rounded"
 />
 
@@ -311,13 +340,6 @@ onChange={(e)=>setTime(e.target.value)}
 className="border p-3 rounded"
 />
 
-<input
-type="number"
-value={people}
-onChange={(e)=>setPeople(Number(e.target.value))}
-className="border p-3 rounded"
-/>
-
 </div>
 
 <textarea
@@ -329,52 +351,127 @@ className="border p-3 rounded w-full"
 
 <button
 onClick={addAppointment}
-className="bg-indigo-600 text-white px-6 py-3 rounded"
+className="bg-indigo-600 text-white px-6 py-3 rounded w-full"
 >
 Crear reserva
 </button>
 
 </div>
 
+</div>
+
+{/* RESERVAS DEL DÍA */}
+
+<div className="bg-white rounded-xl shadow p-6">
+
+<h2 className="font-semibold mb-4">
+Reservas del día
+</h2>
+
+<div className="overflow-x-auto">
+
+<table className="w-full text-sm">
+
+<thead className="text-gray-500 border-b">
+
+<tr>
+
+<th className="text-left py-2">Hora</th>
+<th className="text-left py-2">Cliente</th>
+<th className="text-left py-2">Personas</th>
+<th className="text-left py-2">Mesa</th>
+<th className="text-left py-2">Estado</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{todayReservations
+.sort((a,b)=>a.time.localeCompare(b.time))
+.map(r=>(
+
+<tr key={r.id} className="border-b hover:bg-gray-50">
+
+<td className="py-2">
+{r.time}
+</td>
+
+<td>
+{r.clients?.name || "Cliente"}
+</td>
+
+<td>
+{r.people}
+</td>
+
+<td>
+{r.assigned_table_capacity || "-"}
+</td>
+
+<td>
+
+<span className={`px-2 py-1 rounded text-xs ${statusColor(r.status)}`}>
+{r.status}
+</span>
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+{/* OCUPACIÓN */}
+
+<div className="bg-white rounded-xl shadow p-6">
+
+<h2 className="font-semibold mb-4">
+Ocupación por horario
+</h2>
+
+<CapacityTimeline
+appointments={appointments}
+date={selectedDate}
+/>
+
+</div>
+
+
 
 {/* CALENDARIO */}
 
 <div className="bg-white rounded-xl shadow p-6">
 
+<h2 className="font-semibold mb-4">
+Calendario de reservas
+</h2>
+
 {!loading && (
+
 <CalendarView
 appointments={appointments}
 onCheckIn={(id)=>updateAppointmentStatus(id,"completed")}
 onNoShow={(id)=>updateAppointmentStatus(id,"no_show")}
 onDelete={deleteAppointment}
 />
+
 )}
 
 </div>
 
-<DayAgenda
-appointments={appointments}
-date={todayISO()}
-/>
-
-{/* OCUPACIÓN */}
-
-<CapacityTimeline />
 
 
-{/* MESAS */}
-
-<TableInventoryView />
-
-<TableFloorView />
-
-
-{/* CONFIGURACIÓN */}
-
-<DailyTableSetup />
-
-
-{/* PROXIMAS RESERVAS */}
+{/* PRÓXIMAS RESERVAS */}
 
 <div className="bg-white rounded-xl shadow p-6">
 
@@ -382,13 +479,11 @@ date={todayISO()}
 Próximas reservas
 </h2>
 
-<div className="space-y-2 max-h-64 overflow-y-auto">
+<div className="space-y-2">
 
 {upcoming.map(a=>(
 
-<div key={a.id} className="border-b pb-2">
-
-<div className="flex justify-between">
+<div key={a.id} className="flex justify-between border-b pb-2">
 
 <div>
 {a.date} • {a.time} • {a.people}
@@ -397,8 +492,6 @@ Próximas reservas
 <span className={`px-2 py-1 text-xs rounded ${statusColor(a.status)}`}>
 {a.status}
 </span>
-
-</div>
 
 </div>
 
@@ -411,4 +504,5 @@ Próximas reservas
 </div>
 
   );
+
 }
