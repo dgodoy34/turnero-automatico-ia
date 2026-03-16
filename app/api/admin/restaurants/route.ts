@@ -1,34 +1,32 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { NextResponse } from "next/server"
+import { supabase } from "@/lib/supabaseClient"
 
 export async function GET(){
 
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select(`
-      id,
-      name,
-      slug,
-      phone_number_id,
-      restaurant_licenses(
-        status,
-        expires_at,
-        subscription_plans(
-          name
-        )
-      )
-    `);
+const {data,error} = await supabase
+.from("restaurants")
+.select(`
+id,
+name,
+restaurant_licenses(
+status,
+expires_at,
+subscription_plans(
+name
+)
+)
+`)
 
-  if(error){
-    return NextResponse.json(
-      { success:false, error:error.message },
-      { status:500 }
-    );
-  }
+if(error){
+return NextResponse.json({
+success:false,
+error:error.message
+})
+}
 
-  return NextResponse.json({
-    success:true,
-    restaurants:data
-  });
+return NextResponse.json({
+success:true,
+restaurants:data
+})
 
 }

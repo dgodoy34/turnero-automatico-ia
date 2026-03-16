@@ -131,21 +131,16 @@ label = "🔴 Ocupada"
 
 else{
 
-const occ = appointments.find(a=>{
+  const activeReservations = appointments.filter(a=>{
+    if(a.date !== date) return false
+    if(a.assigned_table_capacity !== t.capacity) return false
+    return isOccupied(h,a)
+  })
 
-if(a.date !== date) return false
-if(a.assigned_table_capacity !== t.capacity) return false
-
-return isOccupied(h,a)
-
-})
-
-if(occ){
-
-color = "bg-gray-300 border border-gray-500"
-label = "⚫ En uso"
-
-}
+  if(i < activeReservations.length){
+    color = "bg-gray-300 border border-gray-500"
+    label = "⚫ En uso"
+  }
 
 }
 
