@@ -1,14 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
 
-export default function Page({ params }: { params: { id: string } }) {
+export default function Page(){
+
+const params = useParams()
+const id = params?.id as string
 
 const [restaurant,setRestaurant] = useState<any>(null)
 
 useEffect(()=>{
 
-fetch(`/api/admin/restaurants/${params.id}`)
+if(!id) return
+
+fetch(`/api/admin/restaurants/${id}`)
 .then(r=>r.json())
 .then(data=>{
 if(data.success){
@@ -16,7 +22,7 @@ setRestaurant(data.restaurant)
 }
 })
 
-},[params.id])
+},[id])
 
 if(!restaurant){
 return <div>Cargando...</div>
