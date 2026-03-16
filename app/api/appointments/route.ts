@@ -30,7 +30,9 @@ export async function GET(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(req);
+   const restaurant_id = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
 
     const { data, error } = await supabase
       .from("appointments")
@@ -85,7 +87,9 @@ export async function POST(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(req);
+    const restaurant_id = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
 
     const body = await req.json();
     const { client_dni, date, time, people } = body;
@@ -137,7 +141,9 @@ export async function PUT(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(req);
+    const restaurant_id = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
 
     const body = await req.json();
     const { id, status } = body;
@@ -180,7 +186,9 @@ export async function DELETE(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(req);
+    const restaurant_id = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
