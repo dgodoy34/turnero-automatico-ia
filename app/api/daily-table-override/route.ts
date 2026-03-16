@@ -15,16 +15,7 @@ const body = await req.json();
 const { date, tables } = body;
 
 
-// borrar override anterior del restaurante
-
-await supabase
-.from("daily_table_override")
-.delete()
-.eq("restaurant_id", restaurant_id)
-.eq("date", date);
-
-
-// crear filas nuevas
+// preparar filas
 
 const rows = tables.map((t:any)=>({
 restaurant_id,
@@ -34,9 +25,13 @@ quantity: t.quantity
 }));
 
 
+// UPSERT (actualiza o crea)
+
 const { error } = await supabase
-.from("daily_table_override")
-.insert(rows);
+.from("restaurant_daily_table_override")
+.upsert(rows,{
+onConflict:"restaurant_id,date,capacity"
+});
 
 
 if(error){
