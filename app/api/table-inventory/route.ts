@@ -3,61 +3,81 @@ import { supabase } from "@/lib/supabaseClient";
 
 export async function GET(req: Request){
 
-  const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date");
+  try{
 
-  // obtener restaurante
-  const { data:restaurant, error:restaurantError } = await supabase
-    .from("restaurants")
-    .select("id")
-    .limit(1)
-    .single();
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
 
-  if(restaurantError || !restaurant){
-    return NextResponse.json({
-      success:false,
-      error:"Restaurante no encontrado"
-    },{ status:400 });
-  }
+    // obtener restaurante
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("id")
+      .limit(1)
+      .single();
 
-  // inventario base
-  const { data:baseTables } = await supabase
-    .from("restaurant_table_inventory")
-    .select("capacity,quantity")
-    .eq("restaurant_id", restaurant.id)
-    .order("capacity",{ ascending:true });
+    if(restaurantError || !restaurant){
+      return NextResponse.json({
+        success:false,
+        error:"Restaurante no encontrado"
+      },{ status:400 });
+    }
 
-  // override del día
-  let override:any[] = [];
-
-  if(date){
-
-    const { data } = await supabase
-      .from("restaurant_daily_table_override")
+    // inventario base
+    const { data: baseTables, error: baseError } = await supabase
+      .from("restaurant_table_inventory")
       .select("capacity,quantity")
       .eq("restaurant_id", restaurant.id)
-      .eq("date", date);
+      .order("capacity",{ ascending:true });
 
-    override = data || [];
+    if(baseError){
+      return NextResponse.json({
+        success:false,
+        error: baseError.message
+      });
+    }
+
+    // override del día
+    let override:any[] = [];
+
+    if(date){
+
+      const { data: overrideData, error: overrideError } = await supabase
+        .from("restaurant_daily_table_override")
+        .select("capacity,quantity")
+        .eq("restaurant_id", restaurant.id)
+        .eq("date", date);
+
+      if(!overrideError && overrideData){
+        override = overrideData;
+      }
+
+    }
+
+    // aplicar override
+    const tables = (baseTables || []).map((t:any) => {
+
+      const o = override.find(x => x.capacity === t.capacity);
+
+      return {
+        capacity: t.capacity,
+        quantity: o ? o.quantity : t.quantity
+      };
+
+    });
+
+    return NextResponse.json({
+      success:true,
+      tables
+    });
+
+  }catch(err:any){
+
+    return NextResponse.json({
+      success:false,
+      error: err.message
+    });
 
   }
-
-  // aplicar override
-  const tables = baseTables?.map(t => {
-
-    const o = override.find(x => x.capacity === t.capacity);
-
-    return {
-      capacity: t.capacity,
-      quantity: o ? o.quantity : t.quantity
-    };
-
-  });
-
-  return NextResponse.json({
-    success:true,
-    tables
-  });
 
 }
 
@@ -78,7 +98,7 @@ export async function POST(req: Request){
     }
 
     // obtener restaurante
-    const { data:restaurant } = await supabase
+    const { data: restaurant } = await supabase
       .from("restaurants")
       .select("id")
       .limit(1)
