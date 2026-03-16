@@ -24,7 +24,8 @@ export default function DailyTableSetup() {
 
   useEffect(()=>{
     loadInventory();
-  },[]);
+  },[date]);   // 🔥 ESTA ES LA CORRECCIÓN
+
 
   function updateQuantity(index:number,value:number){
 
@@ -52,7 +53,6 @@ return
 
 alert("Configuración guardada")
 
-// 🔥 FORZAR RECARGA DE LA PÁGINA
 window.location.reload()
 
 }

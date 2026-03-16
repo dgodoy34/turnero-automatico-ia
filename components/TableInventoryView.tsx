@@ -22,7 +22,6 @@ export default function TableInventoryView({ date }: Props) {
 
   const [tables,setTables] = useState<TableType[]>([]);
   const [appointments,setAppointments] = useState<Appointment[]>([]);
-  const [saving,setSaving] = useState(false);
 
   async function loadData(){
 
@@ -74,49 +73,6 @@ export default function TableInventoryView({ date }: Props) {
   }
 
 
-  async function saveConfig(){
-
-    setSaving(true);
-
-    try{
-
-      const res = await fetch("/api/table-inventory",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          date,
-          tables
-        })
-      });
-
-      const data = await res.json();
-
-      if(!data.success){
-
-        alert("Error guardando configuración");
-
-      }else{
-
-        await loadData();
-
-        alert("Configuración guardada");
-
-      }
-
-    }catch(err){
-
-      console.error(err);
-      alert("Error del servidor");
-
-    }
-
-    setSaving(false);
-
-  }
-
-
   return(
 
 <div className="bg-white rounded-xl shadow p-6">
@@ -143,26 +99,11 @@ className="flex justify-between items-center border p-3 rounded"
 Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
 </div>
 
-<div className="flex gap-3 text-sm items-center">
+<div className="flex gap-3 text-sm">
 
-<input
-  type="number"
-  className="border rounded px-2 py-1 w-20"
-  value={t.quantity}
-  onChange={(e) => {
-
-    const value = parseInt(e.target.value) || 0;
-
-    setTables(prev =>
-      prev.map(x =>
-        x.capacity === t.capacity
-          ? { ...x, quantity: value }
-          : x
-      )
-    );
-
-  }}
-/>
+<span className="text-gray-500">
+Total: {t.quantity}
+</span>
 
 <span className="text-red-600">
 Ocupadas: {used}
@@ -179,19 +120,6 @@ Libres: {free}
 );
 
 })}
-
-</div>
-
-
-<div className="mt-6">
-
-<button
-onClick={saveConfig}
-disabled={saving}
-className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
->
-{saving ? "Guardando..." : "Guardar configuración"}
-</button>
 
 </div>
 
