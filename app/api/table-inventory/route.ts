@@ -1,71 +1,51 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 
-export async function GET(req: Request){
+export async function POST(req: Request){
 
-const { searchParams } = new URL(req.url);
-const date = searchParams.get("date");
+  const body = await req.json();
+  const { tables } = body;
 
+  // obtener restaurante
+  const { data:restaurant, error:restaurantError } = await supabase
+    .from("restaurants")
+    .select("id")
+    .limit(1)
+    .single();
 
-// obtener restaurante
+  if(restaurantError || !restaurant){
+    return NextResponse.json({
+      success:false,
+      error:"Restaurante no encontrado"
+    },{ status:400 });
+  }
 
-const { data:restaurant, error:restaurantError } = await supabase
-.from("restaurants")
-.select("id")
-.limit(1)
-.single();
+  // borrar inventario actual
+  await supabase
+    .from("restaurant_table_inventory")
+    .delete()
+    .eq("restaurant_id", restaurant.id);
 
-if(restaurantError || !restaurant){
-return NextResponse.json({
-success:false,
-error:"Restaurante no encontrado"
-},{ status:400 });
-}
+  // insertar nuevo inventario
+  const rows = tables.map((t:any)=>({
+    restaurant_id: restaurant.id,
+    capacity: t.capacity,
+    quantity: t.quantity
+  }));
 
+  const { error } = await supabase
+    .from("restaurant_table_inventory")
+    .insert(rows);
 
-// inventario base
+  if(error){
+    return NextResponse.json({
+      success:false,
+      error:error.message
+    });
+  }
 
-const { data:baseTables } = await supabase
-.from("restaurant_table_inventory")
-.select("capacity,quantity")
-.eq("restaurant_id", restaurant.id)
-.order("capacity",{ ascending:true });
-
-
-// override del día
-
-let override:any[] = [];
-
-if(date){
-
-const { data } = await supabase
-.from("restaurant_daily_table_override")
-.select("capacity,quantity")
-.eq("restaurant_id", restaurant.id)
-.eq("date", date);
-
-override = data || [];
-
-}
-
-
-// aplicar override
-
-const tables = baseTables?.map(t => {
-
-const o = override.find(x => x.capacity === t.capacity);
-
-return {
-capacity: t.capacity,
-quantity: o ? o.quantity : t.quantity
-};
-
-});
-
-
-return NextResponse.json({
-success:true,
-tables
-});
+  return NextResponse.json({
+    success:true
+  });
 
 }
