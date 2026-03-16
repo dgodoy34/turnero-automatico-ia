@@ -7,7 +7,9 @@ export async function POST(req: Request) {
 try {
 
 // obtener restaurant automáticamente desde el middleware
-const restaurant_id = await getRestaurantId(req);
+const restaurant_id = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
 
 const { date, time, people } = await req.json();
 

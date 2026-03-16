@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
 import { updateReservation } from "@/lib/updateReservation";
+import { interpretMessage } from "@/lib/ai";
+import { getRestaurantId } from "@/lib/getRestaurantId";
 
 
 function formatDateToISO(input: string) {
@@ -42,8 +44,30 @@ export async function POST(req: Request) {
     const text = message.text.body.trim();
     const lower = text.toLowerCase();
 
+    // =========================
+// INTERPRETAR MENSAJE CON IA
+// =========================
+
+const ai = await interpretMessage(text);
+const restaurantId = await getRestaurantId(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!
+);
+
+console.log("AI:", ai);
+console.log("Restaurant ID:", restaurantId);
+
     const session = await getSession(from);
     let reply = "No entendí el mensaje 🤔";
+    if (!session.restaurant_id) {
+
+  await supabase
+    .from("conversation_state")
+    .update({
+      restaurant_id: restaurantId
+    })
+    .eq("phone", from);
+
+}
 
     // =========================
 // OBTENER RESTAURANTE
@@ -151,27 +175,64 @@ else if (session.state === "ASK_BIRTHDAY") {
   await setState(from, "MENU");
 }
 
-    // =========================
-    // MENU
-    // =========================
-    else if (session.state === "MENU") {
+   else if (session.state === "MENU") {
 
-      if (lower === "1") {
-        reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
-        await setState(from, "ASK_DATE");
-      }
+  // =========================
+  // IA detecta reserva directa
+  // =========================
 
-      else if (lower === "2") {
-        reply = "🔐 Pasame el código de reserva.";
-        await setState(from, "ASK_MODIFY_CODE");
-      }
+  if (ai.intent === "create_reservation" && ai.date && ai.time && ai.people) {
 
-      else {
-        reply =
-          `1️⃣ Hacer una reserva\n` +
-          `2️⃣ Modificar una reserva existente`;
-      }
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: session.dni,
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+    });
+
+    if (!result.success) {
+
+      reply =
+        `${result.message}\n\n` +
+        `¿Querés intentar otra fecha?`;
+
+    } else {
+
+      reply =
+        `🎉 Reserva confirmada\n\n` +
+        `📅 ${ai.date}\n` +
+        `⏰ ${ai.time}\n` +
+        `👥 ${ai.people}\n\n` +
+        `🔐 Código: ${result.reservation.reservation_code}`;
+
     }
+
+  }
+
+  else if (lower === "1") {
+
+    reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
+    await setState(from, "ASK_DATE");
+
+  }
+
+  else if (lower === "2") {
+
+    reply = "🔐 Pasame el código de reserva.";
+    await setState(from, "ASK_MODIFY_CODE");
+
+  }
+
+  else {
+
+    reply =
+      `1️⃣ Hacer una reserva\n` +
+      `2️⃣ Modificar una reserva existente`;
+
+  }
+
+}
 
     // =========================
 // PEDIR CÓDIGO PARA MODIFICAR
