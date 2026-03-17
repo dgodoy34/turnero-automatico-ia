@@ -1,14 +1,20 @@
 "use client"
 
 import { useEffect,useState } from "react"
+import { useSearchParams } from "next/navigation"
 
-export default function RestaurantAdminPage({params}:any){
+export default function RestaurantAdminPage(){
+
+const searchParams = useSearchParams()
+const id = searchParams.get("id")
 
 const [restaurant,setRestaurant] = useState<any>(null)
 
 useEffect(()=>{
 
-fetch(`/api/admin/restaurants/${params.id}`)
+if(!id) return
+
+fetch(`/api/admin/restaurants?id=${id}`)
 .then(r=>r.json())
 .then(data=>{
 if(data.success){
@@ -16,7 +22,7 @@ setRestaurant(data.restaurant)
 }
 })
 
-},[params.id])
+},[id])
 
 if(!restaurant){
 return <div>Cargando...</div>
@@ -39,8 +45,6 @@ return(
 
 <div className="grid grid-cols-2 gap-4">
 
-{/* Licencia */}
-
 <div className="border p-4 rounded-lg bg-white">
 
 <h2 className="font-semibold mb-2">
@@ -60,8 +64,6 @@ Expira: {formatDate(license?.expires_at)}
 </div>
 
 </div>
-
-{/* WhatsApp */}
 
 <div className="border p-4 rounded-lg bg-white">
 
@@ -83,8 +85,6 @@ Número: {restaurant.phone_number_id || "-"}
 
 </div>
 
-{/* Usuarios */}
-
 <div className="border p-4 rounded-lg bg-white">
 
 <h2 className="font-semibold mb-2">
@@ -96,8 +96,6 @@ Usuarios activos: {restaurant.restaurant_users?.length || 0}
 </div>
 
 </div>
-
-{/* Acciones */}
 
 <div className="border p-4 rounded-lg bg-white">
 

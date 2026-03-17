@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 
 export default function Page(){
 
-const params = useParams()
-const id = params?.id as string
+const searchParams = useSearchParams()
+const id = searchParams.get("id")
 
 const [restaurant,setRestaurant] = useState<any>(null)
 
