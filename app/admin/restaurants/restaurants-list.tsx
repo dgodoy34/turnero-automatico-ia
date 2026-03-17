@@ -1,10 +1,7 @@
 "use client"
 
-
-
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-
 
 export default function RestaurantAdminPage(){
 
@@ -21,7 +18,7 @@ fetch(`/api/admin/restaurants?id=${id}`)
 .then(r=>r.json())
 .then(data=>{
 if(data.success){
-setRestaurant(data.restaurant)
+setRestaurant(data.restaurants?.[0] || null)
 }
 })
 
@@ -75,11 +72,7 @@ WhatsApp
 </h2>
 
 <div className="text-sm">
-
-Estado: {restaurant.phone_number_id
-? "🟢 conectado"
-: "🔴 no conectado"}
-
+Estado: {restaurant.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
 </div>
 
 <div className="text-sm">
