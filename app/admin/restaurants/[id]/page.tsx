@@ -14,7 +14,7 @@ useEffect(()=>{
 
 if(!id) return
 
-fetch(`/api/admin/restaurants/${id}`)
+fetch(`/api/admin/restaurants?id=${id}`)
 .then(r=>r.json())
 .then(data=>{
 if(data.success){

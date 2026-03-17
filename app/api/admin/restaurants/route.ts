@@ -1,34 +1,59 @@
-import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabaseClient"
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
-export async function GET(){
+export async function GET(req: Request) {
 
-const {data,error} = await supabase
-.from("restaurants")
-.select(`
-id,
-name,
-restaurant_licenses(
-status,
-expires_at,
-subscription_plans(
-name
-)
-)
-`)
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
 
-if(error){
-return NextResponse.json({
-success:false,
-error:error.message
-})
-}
+  // si viene id → traer un restaurante
+  if (id) {
 
-return NextResponse.json({
-success:true,
-restaurants:data
-})
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select(`
+        id,
+        name,
+        restaurant_licenses(
+          status,
+          expires_at,
+          subscription_plans(
+            name
+          )
+        )
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      return NextResponse.json({ success:false, error:error.message });
+    }
+
+    return NextResponse.json({ success:true, restaurant:data });
+  }
+
+  // si no viene id → lista completa
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select(`
+      id,
+      name,
+      restaurant_licenses(
+        status,
+        expires_at,
+        subscription_plans(
+          name
+        )
+      )
+    `);
+
+  if (error) {
+    return NextResponse.json({ success:false, error:error.message });
+  }
+
+  return NextResponse.json({ success:true, restaurants:data });
 
 }
