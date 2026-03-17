@@ -170,11 +170,11 @@ export default function AdminPage() {
 
 
             <a
-              href={`/admin/restaurants/${r.id}`}
-              className="bg-gray-900 text-white px-4 py-2 rounded"
-            >
-              Administrar
-            </a>
+href={`/admin/restaurants/detail?id=${r.id}`}
+className="bg-black text-white px-3 py-2 rounded text-sm"
+>
+Administrar
+</a>
 
           </div>
 
