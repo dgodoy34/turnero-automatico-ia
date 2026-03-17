@@ -1,132 +1,67 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 
-export default function RestaurantAdminPage(){
+export default function RestaurantsList(){
 
-const searchParams = useSearchParams()
-const id = searchParams.get("id")
-
-const [restaurant,setRestaurant] = useState<any>(null)
+const [restaurants,setRestaurants] = useState<any[]>([])
+const [loading,setLoading] = useState(true)
 
 useEffect(()=>{
 
-if(!id) return
-
-fetch(`/api/admin/restaurants?id=${id}`)
+fetch("/api/admin/restaurants")
 .then(r=>r.json())
 .then(data=>{
 if(data.success){
-setRestaurant(data.restaurants?.[0] || null)
+setRestaurants(data.restaurants || [])
 }
+setLoading(false)
 })
 
-},[id])
+},[])
 
-if(!restaurant){
+if(loading){
 return <div>Cargando...</div>
-}
-
-const license = restaurant.restaurant_licenses?.[0]
-
-function formatDate(date:string){
-if(!date) return "-"
-return new Date(date).toLocaleDateString()
 }
 
 return(
 
-<div className="space-y-6">
+<div className="space-y-4">
 
-<h1 className="text-2xl font-bold">
-{restaurant.name}
-</h1>
-
-<div className="grid grid-cols-2 gap-4">
-
-<div className="border p-4 rounded-lg bg-white">
-
-<h2 className="font-semibold mb-2">
-Licencia
+<h2 className="text-xl font-semibold">
+Restaurantes
 </h2>
 
-<div className="text-sm">
-Estado: {license?.status || "sin licencia"}
-</div>
+{restaurants.map((r:any)=>(
 
-<div className="text-sm">
-Plan: {license?.subscription_plans?.name || "-"}
-</div>
-
-<div className="text-sm">
-Expira: {formatDate(license?.expires_at)}
-</div>
-
-</div>
-
-<div className="border p-4 rounded-lg bg-white">
-
-<h2 className="font-semibold mb-2">
-WhatsApp
-</h2>
-
-<div className="text-sm">
-Estado: {restaurant.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
-</div>
-
-<div className="text-sm">
-Número: {restaurant.phone_number_id || "-"}
-</div>
-
-</div>
-
-<div className="border p-4 rounded-lg bg-white">
-
-<h2 className="font-semibold mb-2">
-Usuarios
-</h2>
-
-<div className="text-sm">
-Usuarios activos: {restaurant.restaurant_users?.length || 0}
-</div>
-
-</div>
-
-<div className="border p-4 rounded-lg bg-white">
-
-<h2 className="font-semibold mb-2">
-Acciones
-</h2>
-
-<div className="flex gap-2">
-
-<a
-href={`/admin/licenses`}
-className="bg-purple-600 text-white px-3 py-2 rounded text-sm"
+<div
+key={r.id}
+className="border p-4 rounded-lg flex justify-between items-center"
 >
-Renovar licencia
-</a>
 
-<a
-href={`/admin/whatsapp`}
-className="bg-green-600 text-white px-3 py-2 rounded text-sm"
->
-Configurar WhatsApp
-</a>
+<div>
 
-<a
-href={`/turnero`}
+<div className="font-semibold">
+{r.name}
+</div>
+
+<div className="text-sm text-gray-500">
+WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
+</div>
+
+</div>
+
+<Link
+href={`/admin/restaurants/detail?id=${r.id}`}
 className="bg-black text-white px-3 py-2 rounded text-sm"
 >
-Abrir panel restaurante
-</a>
+Administrar
+</Link>
 
 </div>
 
-</div>
-
-</div>
+))}
 
 </div>
 
