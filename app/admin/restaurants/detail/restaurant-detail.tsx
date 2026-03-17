@@ -17,9 +17,8 @@ if(!id) return
 fetch(`/api/admin/restaurants?id=${id}`)
 .then(r=>r.json())
 .then(data=>{
-if(data.success){
-setRestaurant(data.restaurant)
-}
+  console.log("API DATA:",data)
+  setRestaurant(data.restaurants?.[0] || null)
 })
 
 },[id])
