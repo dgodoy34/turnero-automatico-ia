@@ -8,7 +8,7 @@ export default function RestaurantDetail(){
 const searchParams = useSearchParams()
 const id = searchParams.get("id")
 
-const [restaurant,setRestaurants] = useState<any>(null)
+const [restaurant,setRestaurant] = useState<any>(null)
 
 useEffect(()=>{
 
@@ -17,8 +17,9 @@ if(!id) return
 fetch(`/api/admin/restaurants?id=${id}`)
 .then(r=>r.json())
 .then(data=>{
-  console.log("API DATA:",data)
-  setRestaurants(data.restaurants?.[0] || null)
+if(data.success){
+setRestaurant(data.restaurant)
+}
 })
 
 },[id])
