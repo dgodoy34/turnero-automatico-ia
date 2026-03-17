@@ -3,12 +3,17 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
+
+// =========================
+// GET
+// =========================
+
 export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
-  // si viene id → traer un restaurante
+  // traer un restaurante
   if (id) {
 
     const { data, error } = await supabase
@@ -16,6 +21,8 @@ export async function GET(req: Request) {
       .select(`
         id,
         name,
+        slug,
+        phone_number_id,
         restaurant_licenses(
           status,
           expires_at,
@@ -28,19 +35,27 @@ export async function GET(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ success:false, error:error.message });
+      return NextResponse.json({
+        success:false,
+        error:error.message
+      });
     }
 
-    return NextResponse.json({ success:true, restaurant:data });
+    return NextResponse.json({
+      success:true,
+      restaurant:data
+    });
   }
 
-  // si no viene id → lista completa
+  // lista completa
 
   const { data, error } = await supabase
     .from("restaurants")
     .select(`
       id,
       name,
+      slug,
+      phone_number_id,
       restaurant_licenses(
         status,
         expires_at,
@@ -51,9 +66,48 @@ export async function GET(req: Request) {
     `);
 
   if (error) {
-    return NextResponse.json({ success:false, error:error.message });
+    return NextResponse.json({
+      success:false,
+      error:error.message
+    });
   }
 
-  return NextResponse.json({ success:true, restaurants:data });
+  return NextResponse.json({
+    success:true,
+    restaurants:data
+  });
+
+}
+
+
+
+// =========================
+// UPDATE RESTAURANT
+// =========================
+
+export async function PUT(req:Request){
+
+  const body = await req.json();
+
+  const { id, name, slug } = body;
+
+  const { error } = await supabase
+    .from("restaurants")
+    .update({
+      name,
+      slug
+    })
+    .eq("id",id);
+
+  if(error){
+    return NextResponse.json({
+      success:false,
+      error:error.message
+    });
+  }
+
+  return NextResponse.json({
+    success:true
+  });
 
 }
