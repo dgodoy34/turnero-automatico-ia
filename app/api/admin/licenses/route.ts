@@ -1,6 +1,52 @@
 import { NextResponse } from "next/server"
 import { supabase } from "@/lib/supabaseClient"
 
+// =========================
+// GET LICENSES
+// =========================
+
+export async function GET(req:Request){
+
+const { searchParams } = new URL(req.url)
+const restaurant_id = searchParams.get("id")
+
+let query = supabase
+.from("restaurant_licenses")
+.select(`
+id,
+status,
+expires_at,
+restaurants(name),
+subscription_plans(name)
+`)
+.order("expires_at",{ ascending:false })
+
+if(restaurant_id){
+query = query.eq("restaurant_id",restaurant_id)
+}
+
+const { data, error } = await query
+
+if(error){
+return NextResponse.json({
+success:false,
+error:error.message
+})
+}
+
+return NextResponse.json({
+success:true,
+licenses:data
+})
+
+}
+
+
+
+// =========================
+// CREATE LICENSE
+// =========================
+
 export async function POST(req:Request){
 
 try{
@@ -47,5 +93,38 @@ error:err.message
 })
 
 }
+
+}
+
+
+
+// =========================
+// DELETE LICENSE
+// =========================
+
+export async function DELETE(req:Request){
+
+const { searchParams } = new URL(req.url)
+const id = searchParams.get("id")
+
+if(!id){
+return NextResponse.json({ success:false })
+}
+
+const { error } = await supabase
+.from("restaurant_licenses")
+.delete()
+.eq("id",id)
+
+if(error){
+return NextResponse.json({
+success:false,
+error:error.message
+})
+}
+
+return NextResponse.json({
+success:true
+})
 
 }

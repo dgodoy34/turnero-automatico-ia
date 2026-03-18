@@ -1,9 +1,12 @@
 "use client"
 
 import { useEffect,useState } from "react"
+import { useSearchParams } from "next/navigation"
 
 export default function LicensesPage(){
 
+const searchParams = useSearchParams()
+const restaurantId = searchParams.get("id")    
 const [restaurants,setRestaurants] = useState<any[]>([])
 const [plans,setPlans] = useState<any[]>([])
 const [licenses,setLicenses] = useState<any[]>([])
@@ -28,7 +31,13 @@ const p = await fetch("/api/admin/plans")
 const pjson = await p.json()
 setPlans(pjson.plans || [])
 
-const l = await fetch("/api/admin/licenses")
+let url = "/api/admin/licenses"
+
+if(restaurantId){
+url = `/api/admin/licenses?id=${restaurantId}`
+}
+
+const l = await fetch(url)
 const ljson = await l.json()
 setLicenses(ljson.licenses || [])
 
