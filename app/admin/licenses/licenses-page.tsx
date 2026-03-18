@@ -50,6 +50,10 @@ setLicenses(ljson.licenses || [])
 
 async function createLicense(){
 
+    console.log("restaurant",restaurant)
+console.log("plan",plan)
+
+
 await fetch("/api/admin/licenses",{
 method:"POST",
 headers:{ "Content-Type":"application/json"},
@@ -123,11 +127,19 @@ Crear Licencia
 <select onChange={(e)=>setPlan(e.target.value)}>
 <option>Plan</option>
 
+<select
+value={plan}
+onChange={(e)=>setPlan(e.target.value)}
+>
+<option value="">Plan</option>
+
 {plans.map((p:any)=>(
 <option key={p.id} value={p.id}>
 {p.name}
 </option>
 ))}
+
+</select>
 
 </select>
 
