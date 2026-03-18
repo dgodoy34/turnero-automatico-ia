@@ -7,30 +7,28 @@ export const dynamic = "force-dynamic";
 // HELPERS
 // =========================
 
-function generateSlug(name:string){
+function generateSlug(name: string) {
   return name
     .toLowerCase()
     .trim()
-    .replace(/\s+/g,"-")
-    .replace(/[^a-z0-9-]/g,"")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
 }
 
-function generateBranchCode(name:string){
-  return generateSlug(name) + "-" + Math.floor(Math.random()*1000)
+function generateBranchCode(name: string) {
+  const base = generateSlug(name) || "resto";
+  return base + "-" + Math.floor(Math.random() * 1000);
 }
-
 
 // =========================
 // GET
 // =========================
 
 export async function GET(req: Request) {
-
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
   if (id) {
-
     const { data, error } = await supabase
       .from("restaurants")
       .select(`
@@ -56,14 +54,14 @@ export async function GET(req: Request) {
 
     if (error) {
       return NextResponse.json({
-        success:false,
-        error:error.message
+        success: false,
+        error: error.message,
       });
     }
 
     return NextResponse.json({
-      success:true,
-      restaurant:data
+      success: true,
+      restaurant: data,
     });
   }
 
@@ -90,79 +88,86 @@ export async function GET(req: Request) {
 
   if (error) {
     return NextResponse.json({
-      success:false,
-      error:error.message
+      success: false,
+      error: error.message,
     });
   }
 
   return NextResponse.json({
-    success:true,
-    restaurants:data
+    success: true,
+    restaurants: data,
   });
 }
-
 
 // =========================
 // CREATE RESTAURANT
 // =========================
 
-export async function POST(req:Request){
-
-  try{
-
+export async function POST(req: Request) {
+  try {
     const body = await req.json();
+
+    console.log("BODY:", body);
 
     const { name, address, owner_name, phone, email } = body;
 
-    if(!name){
+    if (!name || name.trim() === "") {
       return NextResponse.json({
-        success:false,
-        error:"Nombre requerido"
+        success: false,
+        error: "Nombre requerido",
       });
     }
 
     const slug = generateSlug(name);
-    const branch_code = generateBranchCode(name);
 
-    const { error } = await supabase
+    // 🔥 SIEMPRE asegura valor válido
+    let branch_code = generateBranchCode(name);
+
+    if (!branch_code || branch_code.includes("undefined")) {
+      branch_code = `branch-${Date.now()}`;
+    }
+
+    console.log("BRANCH_CODE:", branch_code);
+
+    const { data, error } = await supabase
       .from("restaurants")
-      .insert({
-        name,
-        slug,
-        branch_code,
-        address,
-        owner_name,
-        phone,
-        email
-      });
+      .insert([
+        {
+          name,
+          slug,
+          branch_code,
+          address: address || "",
+          owner_name: owner_name || "",
+          phone: phone || "",
+          email: email || "",
+        },
+      ])
+      .select();
 
-    if(error){
+    if (error) {
       return NextResponse.json({
-        success:false,
-        error:error.message
+        success: false,
+        error: error.message,
       });
     }
 
     return NextResponse.json({
-      success:true
+      success: true,
+      restaurant: data[0],
     });
-
-  }catch(err:any){
+  } catch (err: any) {
     return NextResponse.json({
-      success:false,
-      error:err.message
+      success: false,
+      error: err.message,
     });
   }
-
 }
-
 
 // =========================
 // UPDATE RESTAURANT
 // =========================
 
-export async function PUT(req:Request){
-
+export async function PUT(req: Request) {
   const body = await req.json();
 
   const {
@@ -172,64 +177,64 @@ export async function PUT(req:Request){
     address,
     owner_name,
     phone,
-    email
+    email,
   } = body;
 
-  const newSlug = slug || generateSlug(name);
+  if (!id) {
+    return NextResponse.json({ success: false, error: "ID requerido" });
+  }
+
+  const newSlug = slug || generateSlug(name || "");
 
   const { error } = await supabase
     .from("restaurants")
     .update({
       name,
       slug: newSlug,
-      address,
-      owner_name,
-      phone,
-      email
+      address: address || "",
+      owner_name: owner_name || "",
+      phone: phone || "",
+      email: email || "",
     })
-    .eq("id",id);
+    .eq("id", id);
 
-  if(error){
+  if (error) {
     return NextResponse.json({
-      success:false,
-      error:error.message
+      success: false,
+      error: error.message,
     });
   }
 
   return NextResponse.json({
-    success:true
+    success: true,
   });
-
 }
-
 
 // =========================
 // DELETE
 // =========================
 
-export async function DELETE(req:Request){
+export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
 
-  const { searchParams } = new URL(req.url)
-  const id = searchParams.get("id")
-
-  if(!id){
-    return NextResponse.json({success:false})
+  if (!id) {
+    return NextResponse.json({ success: false });
   }
 
   const { error } = await supabase
     .from("restaurants")
     .delete()
-    .eq("id",id)
+    .eq("id", id);
 
-  if(error){
+  if (error) {
     return NextResponse.json({
-      success:false,
-      error:error.message
-    })
+      success: false,
+      error: error.message,
+    });
   }
 
   return NextResponse.json({
-    success:true
-  })
-
+    success: true,
+  });
 }
