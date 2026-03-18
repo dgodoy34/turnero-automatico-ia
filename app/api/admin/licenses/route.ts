@@ -128,3 +128,37 @@ success:true
 })
 
 }
+
+// =========================
+// UPDATE LICENSE STATUS
+// =========================
+
+export async function PATCH(req:Request){
+
+const body = await req.json()
+
+const { id, status } = body
+
+if(!id){
+return NextResponse.json({success:false})
+}
+
+const { error } = await supabase
+.from("restaurant_licenses")
+.update({
+status
+})
+.eq("id",id)
+
+if(error){
+return NextResponse.json({
+success:false,
+error:error.message
+})
+}
+
+return NextResponse.json({
+success:true
+})
+
+}

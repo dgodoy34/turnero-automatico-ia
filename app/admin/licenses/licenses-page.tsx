@@ -61,6 +61,21 @@ loadData()
 
 }
 
+async function updateStatus(id:string,status:string){
+
+await fetch("/api/admin/licenses",{
+method:"PATCH",
+headers:{ "Content-Type":"application/json"},
+body:JSON.stringify({
+id,
+status
+})
+})
+
+loadData()
+
+}
+
 async function deleteLicense(id:string){
 
 if(!confirm("Eliminar licencia?")) return
@@ -162,6 +177,20 @@ Expira: {new Date(l.expires_at).toLocaleDateString()}
 </div>
 
 <div className="flex gap-2">
+
+<button
+onClick={()=>updateStatus(l.id,"active")}
+className="bg-green-600 text-white px-3 py-1 rounded text-sm"
+>
+Activar
+</button>
+
+<button
+onClick={()=>updateStatus(l.id,"suspended")}
+className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+>
+Suspender
+</button>
 
 <button
 onClick={()=>deleteLicense(l.id)}
