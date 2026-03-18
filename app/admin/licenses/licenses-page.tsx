@@ -6,22 +6,15 @@ import { useSearchParams } from "next/navigation"
 export default function LicensesPage(){
 
 const searchParams = useSearchParams()
-const restaurantId = searchParams.get("id")    
-const [restaurants,setRestaurants] = useState<any[]>([])
-const [plans,setPlans] = useState<any[]>([])
-const [licenses,setLicenses] = useState<any[]>([])
+const restaurantId = searchParams.get("id")
 
-const [restaurant,setRestaurant] = useState("")
-const [plan,setPlan] = useState("")
-const [months,setMonths] = useState(1)
+const [restaurants,setRestaurants] = useState([])
+const [plans,setPlans] = useState([])
+const [licenses,setLicenses] = useState([])
 
 useEffect(()=>{
 
-loadData()
-
-},[])
-
-async function loadData(){
+async function load(){
 
 const r = await fetch("/api/admin/restaurants")
 const rjson = await r.json()
@@ -39,144 +32,44 @@ url = `/api/admin/licenses?id=${restaurantId}`
 
 const l = await fetch(url)
 const ljson = await l.json()
+
 setLicenses(ljson.licenses || [])
 
 }
 
-async function createLicense(){
+load()
 
-await fetch("/api/admin/licenses",{
-method:"POST",
-headers:{ "Content-Type":"application/json"},
-body:JSON.stringify({
-restaurant_id:restaurant,
-plan_id:plan,
-months
-})
-})
-
-alert("Licencia creada")
-
-loadData()
-
-}
-
-async function deleteLicense(id:string){
-
-if(!confirm("Eliminar licencia?")) return
-
-await fetch(`/api/admin/licenses?id=${id}`,{
-method:"DELETE"
-})
-
-loadData()
-
-}
+},[restaurantId])
 
 return(
 
-<div className="space-y-6">
+<div>
 
-<h1 className="text-2xl font-bold">
+<h1 className="text-2xl font-bold mb-4">
 Licencias
 </h1>
 
-{/* Crear licencia */}
-
-<div className="space-y-3 border p-4 rounded">
-
-<h2 className="font-semibold">
-Crear Licencia
-</h2>
-
-<select onChange={(e)=>setRestaurant(e.target.value)}>
-<option>Restaurante</option>
-
-{restaurants.map((r:any)=>(
-<option key={r.id} value={r.id}>
-{r.name}
-</option>
-))}
-
-</select>
-
-<select onChange={(e)=>setPlan(e.target.value)}>
-<option>Plan</option>
-
-{plans.map((p:any)=>(
-<option key={p.id} value={p.id}>
-{p.name}
-</option>
-))}
-
-</select>
-
-<input
-type="number"
-value={months}
-onChange={(e)=>setMonths(Number(e.target.value))}
-/>
-
-<button
-onClick={createLicense}
-className="bg-purple-600 text-white px-4 py-2 rounded"
->
-Activar licencia
-</button>
-
-</div>
-
-{/* Lista licencias */}
-
-<div className="space-y-3">
-
-<h2 className="font-semibold">
-Licencias activas
-</h2>
-
 {licenses.map((l:any)=>(
-
-<div
-key={l.id}
-className="border p-3 rounded flex justify-between items-center"
->
+<div key={l.id} className="border p-3 rounded mb-2">
 
 <div>
-
-<div className="font-semibold">
-{l.restaurants?.name}
+Restaurante: {l.restaurants?.name}
 </div>
 
-<div className="text-sm text-gray-500">
+<div>
 Plan: {l.subscription_plans?.name}
 </div>
 
-<div className="text-sm">
+<div>
 Estado: {l.status}
 </div>
 
-<div className="text-sm">
+<div>
 Expira: {new Date(l.expires_at).toLocaleDateString()}
 </div>
 
 </div>
-
-<div className="flex gap-2">
-
-<button
-onClick={()=>deleteLicense(l.id)}
-className="bg-red-600 text-white px-3 py-1 rounded text-sm"
->
-Eliminar
-</button>
-
-</div>
-
-</div>
-
 ))}
-
-</div>
 
 </div>
 
