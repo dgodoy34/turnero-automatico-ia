@@ -21,6 +21,18 @@ setLoading(false)
 
 },[])
 
+async function deleteRestaurant(id:string){
+
+if(!confirm("Eliminar restaurante?")) return
+
+await fetch(`/api/admin/restaurants?id=${id}`,{
+method:"DELETE"
+})
+
+setRestaurants(prev=>prev.filter(r=>r.id!==id))
+
+}
+
 if(loading){
 return <div>Cargando...</div>
 }
@@ -52,12 +64,44 @@ WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
 
 </div>
 
+<div className="flex gap-2">
+
 <Link
 href={`/admin/restaurants/detail?id=${r.id}`}
 className="bg-black text-white px-3 py-2 rounded text-sm"
 >
 Administrar
 </Link>
+
+<Link
+href={`/admin/restaurants/edit?id=${r.id}`}
+className="bg-blue-600 text-white px-3 py-2 rounded text-sm"
+>
+Editar
+</Link>
+
+<Link
+href={`/admin/licenses?id=${r.id}`}
+className="bg-purple-600 text-white px-3 py-2 rounded text-sm"
+>
+Licencia
+</Link>
+
+<Link
+href={`/admin/whatsapp?id=${r.id}`}
+className="bg-green-600 text-white px-3 py-2 rounded text-sm"
+>
+WhatsApp
+</Link>
+
+<button
+onClick={()=>deleteRestaurant(r.id)}
+className="bg-red-600 text-white px-3 py-2 rounded text-sm"
+>
+Eliminar
+</button>
+
+</div>
 
 </div>
 

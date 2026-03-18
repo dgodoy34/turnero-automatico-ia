@@ -3,18 +3,29 @@ import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
 
+  const url = req.nextUrl.clone();
   const host = req.headers.get("host") || "";
 
-  const slug = host.split(".")[0];
+  // ejemplo: cliente1.turiact.com.ar
+  const parts = host.split(".");
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-restaurant-slug", slug);
+  // si no hay subdominio → salir
+  if (parts.length < 3) {
+    return NextResponse.next();
+  }
 
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  const subdomain = parts[0];
+
+  // evitar admin o www
+  if (subdomain === "www" || subdomain === "turiact") {
+    return NextResponse.next();
+  }
+
+  // reescribir a /r/[slug]
+  url.pathname = `/r/${subdomain}${url.pathname}`;
+
+  return NextResponse.rewrite(url);
+
 }
 
 export const config = {

@@ -81,6 +81,7 @@ export async function GET(req: Request) {
 
 
 
+
 // =========================
 // UPDATE RESTAURANT
 // =========================
@@ -109,5 +110,35 @@ export async function PUT(req:Request){
   return NextResponse.json({
     success:true
   });
+
+}
+
+// =========================
+// DELETE
+// =========================
+export async function DELETE(req:Request){
+
+const { searchParams } = new URL(req.url)
+const id = searchParams.get("id")
+
+if(!id){
+return NextResponse.json({success:false})
+}
+
+const { error } = await supabase
+.from("restaurants")
+.delete()
+.eq("id",id)
+
+if(error){
+return NextResponse.json({
+success:false,
+error:error.message
+})
+}
+
+return NextResponse.json({
+success:true
+})
 
 }
