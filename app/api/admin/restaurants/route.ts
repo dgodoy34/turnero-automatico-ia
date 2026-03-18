@@ -22,6 +22,10 @@ export async function GET(req: Request) {
         id,
         name,
         slug,
+        address,
+        owner_name,
+        phone,
+        email,
         phone_number_id,
         restaurant_licenses(
           status,
@@ -55,6 +59,10 @@ export async function GET(req: Request) {
       id,
       name,
       slug,
+      address,
+      owner_name,
+      phone,
+      email,
       phone_number_id,
       restaurant_licenses(
         status,
@@ -80,8 +88,6 @@ export async function GET(req: Request) {
 }
 
 
-
-
 // =========================
 // UPDATE RESTAURANT
 // =========================
@@ -90,13 +96,25 @@ export async function PUT(req:Request){
 
   const body = await req.json();
 
-  const { id, name, slug } = body;
+  const {
+    id,
+    name,
+    slug,
+    address,
+    owner_name,
+    phone,
+    email
+  } = body;
 
   const { error } = await supabase
     .from("restaurants")
     .update({
       name,
-      slug
+      slug,
+      address,
+      owner_name,
+      phone,
+      email
     })
     .eq("id",id);
 
@@ -113,9 +131,11 @@ export async function PUT(req:Request){
 
 }
 
+
 // =========================
 // DELETE
 // =========================
+
 export async function DELETE(req:Request){
 
 const { searchParams } = new URL(req.url)

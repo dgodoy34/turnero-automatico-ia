@@ -9,8 +9,14 @@ const searchParams = useSearchParams()
 const id = searchParams.get("id")
 
 const [restaurant,setRestaurant] = useState<any>(null)
+
 const [name,setName] = useState("")
 const [slug,setSlug] = useState("")
+const [address,setAddress] = useState("")
+const [ownerName,setOwnerName] = useState("")
+const [phone,setPhone] = useState("")
+const [email,setEmail] = useState("")
+
 const [saving,setSaving] = useState(false)
 
 useEffect(()=>{
@@ -26,8 +32,13 @@ if(data.success){
 const r = data.restaurant
 
 setRestaurant(r)
+
 setName(r?.name || "")
 setSlug(r?.slug || "")
+setAddress(r?.address || "")
+setOwnerName(r?.owner_name || "")
+setPhone(r?.phone || "")
+setEmail(r?.email || "")
 
 }
 
@@ -47,7 +58,11 @@ headers:{
 body:JSON.stringify({
 id,
 name,
-slug
+slug,
+address,
+owner_name:ownerName,
+phone,
+email
 })
 })
 
@@ -69,6 +84,13 @@ return(
 Editar Restaurante
 </h1>
 
+<a
+href="/admin/restaurants"
+className="text-sm text-blue-600"
+>
+← Volver a restaurantes
+</a>
+
 <div className="space-y-4">
 
 <div>
@@ -85,6 +107,42 @@ className="border p-2 rounded w-full"
 <input
 value={slug}
 onChange={e=>setSlug(e.target.value)}
+className="border p-2 rounded w-full"
+/>
+</div>
+
+<div>
+<label className="text-sm">Dirección</label>
+<input
+value={address}
+onChange={e=>setAddress(e.target.value)}
+className="border p-2 rounded w-full"
+/>
+</div>
+
+<div>
+<label className="text-sm">Responsable</label>
+<input
+value={ownerName}
+onChange={e=>setOwnerName(e.target.value)}
+className="border p-2 rounded w-full"
+/>
+</div>
+
+<div>
+<label className="text-sm">Teléfono</label>
+<input
+value={phone}
+onChange={e=>setPhone(e.target.value)}
+className="border p-2 rounded w-full"
+/>
+</div>
+
+<div>
+<label className="text-sm">Email</label>
+<input
+value={email}
+onChange={e=>setEmail(e.target.value)}
 className="border p-2 rounded w-full"
 />
 </div>
