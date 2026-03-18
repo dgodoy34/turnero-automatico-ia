@@ -124,13 +124,12 @@ Crear Licencia
 
 </select>
 
-<select onChange={(e)=>setPlan(e.target.value)}>
-<option>Plan</option>
-
 <select
 value={plan}
 onChange={(e)=>setPlan(e.target.value)}
+className="border p-2 rounded"
 >
+
 <option value="">Plan</option>
 
 {plans.map((p:any)=>(
@@ -138,8 +137,6 @@ onChange={(e)=>setPlan(e.target.value)}
 {p.name}
 </option>
 ))}
-
-</select>
 
 </select>
 
