@@ -6,7 +6,8 @@ import { useSearchParams } from "next/navigation"
 export default function LicensesPage(){
 
 const searchParams = useSearchParams()
-const restaurantId = searchParams.get("id")    
+const restaurantId = searchParams.get("id")
+
 const [restaurants,setRestaurants] = useState<any[]>([])
 const [plans,setPlans] = useState<any[]>([])
 const [licenses,setLicenses] = useState<any[]>([])
@@ -16,21 +17,22 @@ const [plan,setPlan] = useState("")
 const [months,setMonths] = useState(1)
 
 useEffect(()=>{
-
 loadData()
-
-},[])
+},[restaurantId])
 
 async function loadData(){
 
+// restaurantes
 const r = await fetch("/api/admin/restaurants")
 const rjson = await r.json()
 setRestaurants(rjson.restaurants || [])
 
+// planes
 const p = await fetch("/api/admin/plans")
 const pjson = await p.json()
 setPlans(pjson.plans || [])
 
+// licencias
 let url = "/api/admin/licenses"
 
 if(restaurantId){
@@ -39,7 +41,10 @@ url = `/api/admin/licenses?id=${restaurantId}`
 
 const l = await fetch(url)
 const ljson = await l.json()
+
+if(ljson.success){
 setLicenses(ljson.licenses || [])
+}
 
 }
 
