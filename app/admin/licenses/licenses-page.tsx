@@ -143,8 +143,13 @@ className="border p-2 rounded"
 <input
 type="number"
 value={months}
+min="1"
+className="border p-2 rounded w-24"
 onChange={(e)=>setMonths(Number(e.target.value))}
 />
+<span className="text-sm text-gray-500">
+meses
+</span>
 
 <button
 onClick={createLicense}
