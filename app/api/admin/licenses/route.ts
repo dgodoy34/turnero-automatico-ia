@@ -17,7 +17,12 @@ id,
 status,
 expires_at,
 restaurants(name),
-subscription_plans(name)
+subscription_plans(
+name,
+max_users,
+max_reservations,
+price
+)
 `)
 .order("expires_at",{ ascending:false })
 

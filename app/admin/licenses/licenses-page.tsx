@@ -167,21 +167,30 @@ Licencias activas
 
 <div
 key={l.id}
-className="border p-3 rounded flex justify-between items-center"
+className="border rounded-lg p-4 flex justify-between items-center bg-white shadow-sm"
 >
 
-<div>
+<div className="space-y-1">
 
-<div className="font-semibold">
+<div className="font-semibold text-lg">
 {l.restaurants?.name}
 </div>
 
 <div className="text-sm text-gray-500">
-Plan: {l.subscription_plans?.name}
+Licencia: {l.id}
 </div>
 
 <div className="text-sm">
-Estado: {l.status}
+Plan: <b>{l.subscription_plans?.name}</b>
+</div>
+
+<div className="text-sm text-gray-600">
+Usuarios: {l.subscription_plans?.max_users} |
+Reservas/mes: {l.subscription_plans?.max_reservations}
+</div>
+
+<div className="text-sm">
+Estado: <b>{l.status}</b>
 </div>
 
 <div className="text-sm">
