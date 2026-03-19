@@ -11,11 +11,13 @@ export async function interpretMessage(message: string) {
     input: `
 Sos un sistema que interpreta mensajes de clientes de restaurante.
 
+Fecha actual: ${new Date().toISOString().split("T")[0]}
+
 NO respondas como humano.
 NO expliques nada.
 NO agregues texto adicional.
 
-Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
+Respondé ÚNICAMENTE con JSON válido:
 
 {
   "intent": "create_reservation | cancel_reservation | consult_reservation | modify_reservation | menu | greeting | unknown",
@@ -25,19 +27,16 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
 }
 
 Reglas:
-- Si detectás intención de reservar → intent=create_reservation
-- Si quiere cambiar una reserva → modify_reservation
-- Si quiere cancelar → cancel_reservation
-- Si quiere consultar → consult_reservation
-- Si pregunta por comida → menu
-- Si saluda → greeting
-- Si no entendés → unknown
+- Interpretá lenguaje natural:
+  - "mañana" → fecha real
+  - "hoy" → fecha actual
+  - "tipo 9" → 21:00
+  - "a la noche" → 21:00
+- Si no podés inferir → null
+- Fecha formato YYYY-MM-DD
+- Hora formato HH:mm
+- SOLO JSON
 
-Si no hay fecha, hora o personas → null
-Fecha siempre en formato YYYY-MM-DD si es posible.
-Hora en formato HH:mm si es posible.
-
-Mensaje del cliente:
 "${message}"
 `
   });

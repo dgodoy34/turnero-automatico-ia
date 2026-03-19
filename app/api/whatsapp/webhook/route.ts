@@ -5,6 +5,25 @@ import { updateReservation } from "@/lib/updateReservation";
 import { interpretMessage } from "@/lib/ai";
 import { getRestaurantId } from "@/lib/getRestaurantId";
 
+async function sendWhatsApp(to: string, body: string) {
+  await fetch(
+    `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body },
+      }),
+    }
+  );
+}
+
 
 function formatDateToISO(input: string) {
   const today = new Date();
@@ -35,6 +54,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const change = body?.entry?.[0]?.changes?.[0];
+    const phoneNumberId = change?.value?.metadata?.phone_number_id;
     const message = change?.value?.messages?.[0];
 
     if (!message || message.type !== "text")
@@ -69,14 +89,14 @@ console.log("Restaurant ID:", restaurantId);
 
 }
 
-    // =========================
+ // =========================
 // OBTENER RESTAURANTE
 // =========================
 
 const { data: restaurant } = await supabase
   .from("restaurants")
   .select("id")
-  .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
+  .eq("phone_number_id", phoneNumberId)
   .single();
 
 if (!restaurant) {
@@ -84,6 +104,44 @@ if (!restaurant) {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+
+// =========================
+// IA GLOBAL (INTERRUPTOR)
+// =========================
+
+if (ai.intent === "create_reservation") {
+
+  // Si ya tiene datos completos → ejecuta directo
+  if (ai.date && ai.time && ai.people && session.dni) {
+
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: session.dni,
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+    });
+
+    if (result.success) {
+      await setState(from, "MENU");
+
+      await sendWhatsApp(from,
+        `🎉 Reserva confirmada\n\n` +
+        `📅 ${ai.date}\n` +
+        `⏰ ${ai.time}\n` +
+        `👥 ${ai.people}\n\n` +
+        `🔐 Código: ${result.reservation.reservation_code}`
+      );
+
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+  }
+
+  // Si faltan datos → redirige al flujo clásico
+  await setState(from, "ASK_DATE");
+}
+
+   
     // =========================
     // NO TIENE DNI
     // =========================
@@ -117,6 +175,20 @@ if (!restaurant) {
         }
       }
     }
+
+    // =========================
+// IA FLEXIBLE EN CUALQUIER ESTADO
+// =========================
+
+if (ai.intent === "modify_reservation") {
+  await setState(from, "ASK_MODIFY_CODE");
+}
+
+if (ai.intent === "cancel_reservation") {
+  reply = "Para cancelar necesito tu código de reserva 🔐";
+  await setState(from, "ASK_MODIFY_CODE");
+}
+
 
     // =========================
     // REGISTRAR NOMBRE
@@ -267,27 +339,28 @@ else if (session.state === "ASK_MODIFY_CODE") {
     // =========================
     // PEDIR FECHA
     // =========================
-    else if (session.state === "ASK_DATE") {
+   else if (session.state === "ASK_DATE") {
 
-  const formattedDate = formatDateToISO(text);
+  const date = ai.date || formatDateToISO(text);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const selectedDate = new Date(formattedDate);
-
-  if (isNaN(selectedDate.getTime())) {
+  if (!date) {
     reply = "Ingresá una fecha válida (ej: 12/03)";
   }
 
-  else if (selectedDate < today) {
-    reply = "No podés reservar en una fecha pasada 📅\n\nDecime otra fecha.";
-  }
-
   else {
-    await setTemp(from, { date: formattedDate });
-    reply = "⏰ ¿A qué hora?";
-    await setState(from, "ASK_TIME");
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const selectedDate = new Date(date);
+
+    if (selectedDate < today) {
+      reply = "No podés reservar en una fecha pasada 📅\n\nDecime otra fecha.";
+    } else {
+      await setTemp(from, { date });
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    }
   }
 }
 
@@ -296,12 +369,11 @@ else if (session.state === "ASK_MODIFY_CODE") {
     // =========================
     else if (session.state === "ASK_TIME") {
 
-  const formattedTime =
-    text.includes(":") ? text : `${text}:00`;
+  const time = ai.time || (text.includes(":") ? text : `${text}:00`);
 
   const now = new Date();
   const reservationDateTime =
-    new Date(`${session.temp_data.date}T${formattedTime}:00`);
+    new Date(`${session.temp_data.date}T${time}:00`);
 
   if (reservationDateTime < now) {
     reply = "Ese horario ya pasó ⏰ Elegí otro.";
@@ -309,7 +381,7 @@ else if (session.state === "ASK_MODIFY_CODE") {
 
     await setTemp(from, {
       ...session.temp_data,
-      time: formattedTime,
+      time,
     });
 
     reply = "👥 ¿Para cuántas personas?";
@@ -322,25 +394,30 @@ else if (session.state === "ASK_MODIFY_CODE") {
 // =========================
 else if (session.state === "ASK_PEOPLE") {
 
-  const people = parseInt(text);
+  const people = ai.people || parseInt(text);
 
-  const updatedTemp = {
-    ...session.temp_data,
-    people,
-  };
+  if (!people || isNaN(people)) {
+    reply = "Decime cuántas personas son 👥";
+  } else {
 
-  await setTemp(from, updatedTemp);
+    const updatedTemp = {
+      ...session.temp_data,
+      people,
+    };
 
-  reply =
-    `Confirmo:\n\n` +
-    `📅 ${updatedTemp.date}\n` +
-    `⏰ ${updatedTemp.time}\n` +
-    `👥 ${updatedTemp.people}\n\n` +
-    `¿Confirmamos? (si/no)`;
+    await setTemp(from, updatedTemp);
 
-  const isModify = !!updatedTemp.reservation_code;
+    reply =
+      `Confirmo:\n\n` +
+      `📅 ${updatedTemp.date}\n` +
+      `⏰ ${updatedTemp.time}\n` +
+      `👥 ${updatedTemp.people}\n\n` +
+      `¿Confirmamos? (si/no)`;
 
-  await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
+    const isModify = !!updatedTemp.reservation_code;
+
+    await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
+  }
 }
    
   // =========================
