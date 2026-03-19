@@ -129,31 +129,7 @@ export async function POST(req: Request) {
         }
       ]);
 
-    // =========================
-    // 5️⃣ Plan default
-    // =========================
-
-    const { data:plan } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .limit(1)
-      .single();
-
-    const expires = new Date();
-    expires.setMonth(expires.getMonth()+1);
-
-    if(plan){
-
-      await supabase
-        .from("restaurant_licenses")
-        .insert({
-          restaurant_id: restaurant.id,
-          plan_id: plan.id,
-          status:"active",
-          expires_at: expires
-        });
-
-    }
+  
 
     // =========================
     // RESPUESTA
