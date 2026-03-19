@@ -17,19 +17,24 @@ function generateSlug(name: string): string {
     .replace(/[^a-z0-9-]/g, "") || "resto";
 }
 
-function generateBranchCode(name: string): string {
-  const base = generateSlug(name);
-  const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-  
-  let code = `${base}-${randomPart}`;
+function generateBranchCode(name: string) {
+  const base = generateSlug(name) || "resto";
 
-  // Blindaje final: nunca dejar algo inválido
-  if (!code || code.length < 5 || code.includes("undefined")) {
+  let code = `${base}-${crypto.randomUUID().slice(0, 6)}`;
+
+  // 🔥 Blindaje final
+  if (
+    !code ||
+    code.length < 5 ||
+    code.includes("undefined") ||
+    code.includes("--")
+  ) {
     code = `branch-${Date.now().toString().slice(-8)}`;
   }
 
   return code;
 }
+  
 
 // =========================
 // GET (sin cambios relevantes)
