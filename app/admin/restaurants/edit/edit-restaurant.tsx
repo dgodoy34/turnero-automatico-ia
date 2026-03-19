@@ -1,163 +1,181 @@
 "use client"
 
-import { useEffect,useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 
 export default function EditRestaurant(){
 
-const searchParams = useSearchParams()
-const id = searchParams.get("id")
+  const searchParams = useSearchParams()
+  const id = searchParams.get("id")
 
-const [restaurant,setRestaurant] = useState<any>(null)
+  const [restaurant,setRestaurant] = useState<any>(null)
 
-const [name,setName] = useState("")
-const [slug,setSlug] = useState("")
-const [address,setAddress] = useState("")
-const [ownerName,setOwnerName] = useState("")
-const [phone,setPhone] = useState("")
-const [email,setEmail] = useState("")
+  const [name,setName] = useState("")
+  const [slug,setSlug] = useState("")
+  const [address,setAddress] = useState("")
+  const [ownerName,setOwnerName] = useState("")
+  const [phone,setPhone] = useState("")
+  const [email,setEmail] = useState("")
 
-const [saving,setSaving] = useState(false)
+  // 🔥 NUEVO
+  const [whatsappNumber, setWhatsappNumber] = useState("")
 
-useEffect(()=>{
+  const [saving,setSaving] = useState(false)
 
-if(!id) return
+  useEffect(()=>{
 
-fetch(`/api/admin/restaurants?id=${id}`)
-.then(r=>r.json())
-.then(data=>{
+    if(!id) return
 
-if(data.success){
+    fetch(`/api/admin/restaurants?id=${id}`)
+    .then(r=>r.json())
+    .then(data=>{
 
-const r = data.restaurant
+      if(data.success){
 
-setRestaurant(r)
+        const r = data.restaurant
 
-setName(r?.name || "")
-setSlug(r?.slug || "")
-setAddress(r?.address || "")
-setOwnerName(r?.owner_name || "")
-setPhone(r?.phone || "")
-setEmail(r?.email || "")
+        setRestaurant(r)
 
-}
+        setName(r?.name || "")
+        setSlug(r?.slug || "")
+        setAddress(r?.address || "")
+        setOwnerName(r?.owner_name || "")
+        setPhone(r?.phone || "")
+        setEmail(r?.email || "")
 
-})
+        // 🔥 CARGAR WHATSAPP
+        setWhatsappNumber(r?.whatsapp_number || "")
 
-},[id])
+      }
 
-async function save(){
+    })
 
-setSaving(true)
+  },[id])
 
-await fetch("/api/admin/restaurants",{
-method:"PUT",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-id,
-name,
-slug,
-address,
-owner_name:ownerName,
-phone,
-email
-})
-})
+  async function save(){
 
-setSaving(false)
+    setSaving(true)
 
-alert("Restaurante actualizado")
+    await fetch("/api/admin/restaurants",{
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        id,
+        name,
+        slug,
+        address,
+        owner_name:ownerName,
+        phone,
+        email,
+        whatsapp_number: whatsappNumber // 🔥 IMPORTANTE
+      })
+    })
 
-}
+    setSaving(false)
 
-if(!restaurant){
-return <div>Cargando...</div>
-}
+    alert("Restaurante actualizado")
 
-return(
+  }
 
-<div className="space-y-6 max-w-xl">
+  if(!restaurant){
+    return <div>Cargando...</div>
+  }
 
-<h1 className="text-2xl font-bold">
-Editar Restaurante
-</h1>
+  return(
 
-<a
-href="/admin/restaurants"
-className="text-sm text-blue-600"
->
-← Volver a restaurantes
-</a>
+    <div className="space-y-6 max-w-xl">
 
-<div className="space-y-4">
+      <h1 className="text-2xl font-bold">
+        Editar Restaurante
+      </h1>
 
-<div>
-<label className="text-sm">Nombre</label>
-<input
-value={name}
-onChange={e=>setName(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+      <a
+        href="/admin/restaurants"
+        className="text-sm text-blue-600"
+      >
+        ← Volver a restaurantes
+      </a>
 
-<div>
-<label className="text-sm">Slug (subdominio)</label>
-<input
-value={slug}
-onChange={e=>setSlug(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+      <div className="space-y-4">
 
-<div>
-<label className="text-sm">Dirección</label>
-<input
-value={address}
-onChange={e=>setAddress(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+        <div>
+          <label className="text-sm">Nombre</label>
+          <input
+            value={name}
+            onChange={e=>setName(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-<div>
-<label className="text-sm">Responsable</label>
-<input
-value={ownerName}
-onChange={e=>setOwnerName(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+        <div>
+          <label className="text-sm">Slug (subdominio)</label>
+          <input
+            value={slug}
+            onChange={e=>setSlug(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-<div>
-<label className="text-sm">Teléfono</label>
-<input
-value={phone}
-onChange={e=>setPhone(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+        <div>
+          <label className="text-sm">Dirección</label>
+          <input
+            value={address}
+            onChange={e=>setAddress(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-<div>
-<label className="text-sm">Email</label>
-<input
-value={email}
-onChange={e=>setEmail(e.target.value)}
-className="border p-2 rounded w-full"
-/>
-</div>
+        <div>
+          <label className="text-sm">Responsable</label>
+          <input
+            value={ownerName}
+            onChange={e=>setOwnerName(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-</div>
+        <div>
+          <label className="text-sm">Teléfono</label>
+          <input
+            value={phone}
+            onChange={e=>setPhone(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-<button
-onClick={save}
-className="bg-blue-600 text-white px-4 py-2 rounded"
->
-{saving ? "Guardando..." : "Guardar"}
-</button>
+        {/* 🔥 WHATSAPP NUEVO */}
+        <div>
+          <label className="text-sm">Número WhatsApp</label>
+          <input
+            placeholder="Número WhatsApp (+549...)"
+            value={whatsappNumber}
+            onChange={(e)=>setWhatsappNumber(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-</div>
+        <div>
+          <label className="text-sm">Email</label>
+          <input
+            value={email}
+            onChange={e=>setEmail(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+        </div>
 
-)
+      </div>
+
+      <button
+        onClick={save}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        {saving ? "Guardando..." : "Guardar"}
+      </button>
+
+    </div>
+
+  )
 
 }

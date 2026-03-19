@@ -49,7 +49,8 @@ export async function POST(req: Request) {
       .insert({
         name,
         slug,
-        phone_number_id: process.env.WHATSAPP_PHONE_NUMBER_ID,
+        phone_number_id: null,
+whatsapp_number: body.whatsapp_number || null,
         max_capacity:60,
         slot_duration_minutes:90,
         capacity_mode:"strict"
