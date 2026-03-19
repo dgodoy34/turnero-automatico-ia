@@ -26,10 +26,14 @@ price
 `)
 .order("expires_at",{ ascending:false })
 
-if(restaurant_id){
-query = query.eq("restaurant_id",restaurant_id)
+if(!restaurant_id){
+  return NextResponse.json({
+    success:false,
+    error:"restaurant_id requerido"
+  })
 }
 
+query = query.eq("restaurant_id",restaurant_id)
 const { data, error } = await query
 
 if(error){
