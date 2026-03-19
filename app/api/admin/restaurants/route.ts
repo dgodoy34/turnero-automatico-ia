@@ -57,6 +57,7 @@ export async function GET(req: Request) {
         phone,
         email,
         phone_number_id,
+        whatsapp_number,
         restaurant_licenses(
           status,
           expires_at,
@@ -85,6 +86,7 @@ export async function GET(req: Request) {
       phone,
       email,
       phone_number_id,
+      whatsapp_number,
       restaurant_licenses(
         status,
         expires_at,
@@ -100,8 +102,7 @@ export async function GET(req: Request) {
 }
 
 // =========================
-// CREATE RESTAURANT (POST)
-// 🔥 FIX: NO enviamos branch_code
+// CREATE (POST)
 // =========================
 
 export async function POST(req: Request) {
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("[POST] BODY:", body);
 
-    const { name, address, owner_name, phone, email } = body;
+    const { name, address, owner_name, phone, email, whatsapp_number } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({
@@ -129,6 +130,7 @@ export async function POST(req: Request) {
         owner_name: owner_name || "",
         phone: phone || "",
         email: email || "",
+        whatsapp_number: whatsapp_number || null, // 🔥
       })
       .select()
       .single();
@@ -140,8 +142,6 @@ export async function POST(req: Request) {
         error: error.message,
       });
     }
-
-    console.log("[POST OK]:", data);
 
     return NextResponse.json({
       success: true,
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
 }
 
 // =========================
-// UPDATE RESTAURANT (PUT)
+// UPDATE (PUT)
 // =========================
 
 export async function PUT(req: Request) {
@@ -173,6 +173,7 @@ export async function PUT(req: Request) {
       owner_name,
       phone,
       email,
+      whatsapp_number // 🔥 NUEVO
     } = body;
 
     if (!id) {
@@ -190,10 +191,8 @@ export async function PUT(req: Request) {
 
     let branch_code = existing?.branch_code;
 
-    // 🔥 si falta, lo generamos
     if (!branch_code) {
       branch_code = generateBranchCode(name || existing?.name || "resto");
-      console.log("[PUT] branch_code generado:", branch_code);
     }
 
     const newSlug =
@@ -209,6 +208,11 @@ export async function PUT(req: Request) {
     if (owner_name !== undefined) updateData.owner_name = owner_name || "";
     if (phone !== undefined) updateData.phone = phone || "";
     if (email !== undefined) updateData.email = email || "";
+
+    // 🔥 ESTE ES EL FIX CLAVE
+    if (whatsapp_number !== undefined) {
+      updateData.whatsapp_number = whatsapp_number || null;
+    }
 
     const { error } = await supabase
       .from("restaurants")
