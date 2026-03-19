@@ -9,15 +9,20 @@ export const dynamic = "force-dynamic";
 
 function generateSlug(name: string) {
   return name
-    .toLowerCase()
+    ?.toLowerCase()
     .trim()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
+    .replace(/[^a-z0-9-]/g, "") || "resto";
 }
 
 function generateBranchCode(name: string) {
-  const base = generateSlug(name) || "resto";
-  return base + "-" + Math.floor(Math.random() * 1000);
+  const base = generateSlug(name);
+
+  if (!base || base === "-") {
+    return `branch-${Date.now()}`;
+  }
+
+  return `${base}-${Math.floor(Math.random() * 1000)}`;
 }
 
 // =========================
@@ -44,9 +49,7 @@ export async function GET(req: Request) {
         restaurant_licenses(
           status,
           expires_at,
-          subscription_plans(
-            name
-          )
+          subscription_plans(name)
         )
       `)
       .eq("id", id)
@@ -65,6 +68,7 @@ export async function GET(req: Request) {
     });
   }
 
+  // 🔥 lista
   const { data, error } = await supabase
     .from("restaurants")
     .select(`
@@ -80,9 +84,7 @@ export async function GET(req: Request) {
       restaurant_licenses(
         status,
         expires_at,
-        subscription_plans(
-          name
-        )
+        subscription_plans(name)
       )
     `);
 
@@ -98,7 +100,6 @@ export async function GET(req: Request) {
     restaurants: data,
   });
 }
-
 // =========================
 // CREATE RESTAURANT
 // =========================
@@ -106,8 +107,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
-    console.log("BODY:", body);
+    console.log("POST BODY:", body);
 
     const { name, address, owner_name, phone, email } = body;
 
@@ -120,14 +120,18 @@ export async function POST(req: Request) {
 
     const slug = generateSlug(name);
 
-    // 🔥 SIEMPRE asegura valor válido
     let branch_code = generateBranchCode(name);
 
-    if (!branch_code || branch_code.includes("undefined")) {
+    // 🔥 blindaje total
+    if (
+      !branch_code ||
+      branch_code.includes("undefined") ||
+      branch_code.length < 3
+    ) {
       branch_code = `branch-${Date.now()}`;
     }
 
-    console.log("BRANCH_CODE:", branch_code);
+    console.log("FINAL BRANCH_CODE:", branch_code);
 
     const { data, error } = await supabase
       .from("restaurants")
@@ -142,9 +146,11 @@ export async function POST(req: Request) {
           email: email || "",
         },
       ])
-      .select();
+      .select()
+      .single();
 
     if (error) {
+      console.error("INSERT ERROR:", error);
       return NextResponse.json({
         success: false,
         error: error.message,
@@ -153,9 +159,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      restaurant: data[0],
+      restaurant: data,
     });
   } catch (err: any) {
+    console.error("POST ERROR:", err);
     return NextResponse.json({
       success: false,
       error: err.message,
@@ -168,46 +175,83 @@ export async function POST(req: Request) {
 // =========================
 
 export async function PUT(req: Request) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    console.log("PUT BODY:", body);
 
-  const {
-    id,
-    name,
-    slug,
-    address,
-    owner_name,
-    phone,
-    email,
-  } = body;
-
-  if (!id) {
-    return NextResponse.json({ success: false, error: "ID requerido" });
-  }
-
-  const newSlug = slug || generateSlug(name || "");
-
-  const { error } = await supabase
-    .from("restaurants")
-    .update({
+    const {
+      id,
       name,
-      slug: newSlug,
-      address: address || "",
-      owner_name: owner_name || "",
-      phone: phone || "",
-      email: email || "",
-    })
-    .eq("id", id);
+      slug: incomingSlug,
+      address,
+      owner_name,
+      phone,
+      email,
+    } = body;
 
-  if (error) {
+    if (!id) {
+      return NextResponse.json({
+        success: false,
+        error: "ID requerido",
+      });
+    }
+
+    // 🔥 traemos el actual
+    const { data: existing, error: fetchError } = await supabase
+      .from("restaurants")
+      .select("branch_code, slug")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) {
+      console.error("FETCH ERROR:", fetchError);
+    }
+
+    let branch_code = existing?.branch_code;
+
+    // 🔥 si no existe → lo generamos SIEMPRE
+    if (!branch_code) {
+      branch_code = generateBranchCode(name || "resto");
+      console.log("Generated missing branch_code:", branch_code);
+    }
+
+    const newSlug =
+      incomingSlug || (name ? generateSlug(name) : existing?.slug);
+
+    const updateData: any = {
+      slug: newSlug,
+      branch_code,
+    };
+
+    if (name !== undefined) updateData.name = name;
+    if (address !== undefined) updateData.address = address;
+    if (owner_name !== undefined) updateData.owner_name = owner_name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+
+    const { error } = await supabase
+      .from("restaurants")
+      .update(updateData)
+      .eq("id", id);
+
+    if (error) {
+      console.error("UPDATE ERROR:", error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (err: any) {
+    console.error("PUT ERROR:", err);
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: err.message,
     });
   }
-
-  return NextResponse.json({
-    success: true,
-  });
 }
 
 // =========================
