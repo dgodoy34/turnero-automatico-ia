@@ -229,6 +229,24 @@ export async function createReservation({
     );
 
     // =========================
+// ASEGURAR CLIENTE
+// =========================
+
+const { data: existingClient } = await supabase
+  .from("clients")
+  .select("dni")
+  .eq("dni", dni)
+  .maybeSingle();
+
+if (!existingClient) {
+  await supabase.from("clients").insert({
+    dni,
+    name: "Cliente WhatsApp",
+    phone: "", // opcional
+  });
+}
+
+    // =========================
     // 11️⃣ Insertar reserva
     // =========================
     const { data, error } = await supabase

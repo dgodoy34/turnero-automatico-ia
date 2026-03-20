@@ -586,7 +586,7 @@ const result = await updateReservation({
 });
 
     if (!result.success) {
-      reply = result.message ?? "No se pudo modificar la reserva.";
+      reply = "Hubo un problema al crear la reserva 😕 Probemos con otra fecha.";
       await setState(from, "MENU");
     } else {
 
