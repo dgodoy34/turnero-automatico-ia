@@ -5,49 +5,80 @@ const openai = new OpenAI({
 });
 
 export async function interpretMessage(message: string) {
+  const today = new Date().toISOString().split("T")[0];
+
   const response = await openai.responses.create({
     model: "gpt-4.1-mini",
     temperature: 0,
     input: `
-Sos un sistema que interpreta mensajes de clientes de restaurante.
+Sos un parser de intención para un bot de reservas de restaurante.
 
-Fecha actual: ${new Date().toISOString().split("T")[0]}
+Fecha actual: ${today}
 
-NO respondas como humano.
-NO expliques nada.
-NO agregues texto adicional.
+Tu tarea:
+Convertir el mensaje del usuario en JSON estructurado.
 
-Respondé ÚNICAMENTE con JSON válido:
+IMPORTANTE:
+- SOLO devolver JSON válido
+- NO texto adicional
+- NO explicaciones
+
+Formato exacto:
 
 {
-  "intent": "create_reservation | cancel_reservation | consult_reservation | modify_reservation | menu | greeting | unknown",
-  "date": null,
-  "time": null,
-  "people": null
+  "intent": "create_reservation | consult_reservation | modify_reservation | greeting | unknown",
+  "date": "YYYY-MM-DD | null",
+  "time": "HH:mm | null",
+  "people": number | null
 }
 
 Reglas:
-- Interpretá lenguaje natural:
-  - "mañana" → fecha real
-  - "hoy" → fecha actual
-  - "tipo 9" → 21:00
-  - "a la noche" → 21:00
-- Si no podés inferir → null
-- Fecha formato YYYY-MM-DD
-- Hora formato HH:mm
-- SOLO JSON
+- "mañana" = fecha actual +1
+- "hoy" = fecha actual
+- "pasado mañana" = +2 días
+- "tipo 9", "a las 9", "9pm" = 21:00
+- "a la noche" = 21:00
+- "al mediodía" = 13:00
+- personas: número entero
+- Si falta info → null
 
+Ejemplos:
+
+Usuario: "hola"
+→ {"intent":"greeting","date":null,"time":null,"people":null}
+
+Usuario: "quiero reservar"
+→ {"intent":"create_reservation","date":null,"time":null,"people":null}
+
+Usuario: "reserva para 4 mañana a las 9"
+→ {"intent":"create_reservation","date":"${today}","time":"21:00","people":4}
+
+Usuario: "tengo una reserva"
+→ {"intent":"consult_reservation","date":null,"time":null,"people":null}
+
+Mensaje:
 "${message}"
 `
   });
 
-  const raw = response.output_text.trim();
+  let raw = response.output_text.trim();
 
-// Limpiar posibles bloques ```json
-const cleaned = raw
-  .replace(/```json/g, "")
-  .replace(/```/g, "")
-  .trim();
+  // limpieza ultra defensiva
+  raw = raw
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
 
-return JSON.parse(cleaned);
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("❌ IA PARSE ERROR:", raw);
+
+    return {
+      intent: "unknown",
+      date: null,
+      time: null,
+      people: null,
+    };
+  }
 }
