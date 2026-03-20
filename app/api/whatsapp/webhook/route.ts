@@ -232,36 +232,34 @@ else if (session.state === "ASK_BIRTHDAY") {
   // 👉 IA (si escribe natural tipo "quiero reservar mañana")
   else if (ai.intent === "create_reservation" || ai.date) {
 
-    if (!ai.date) {
-      reply = "📅 ¿Para qué fecha querés reservar?";
-      await setState(from, "ASK_DATE");
-      return;
-    }
-
-    if (!ai.time) {
-      await setTemp(from, { date: ai.date });
-      reply = "⏰ ¿A qué hora?";
-      await setState(from, "ASK_TIME");
-      return;
-    }
-
-    if (!ai.people) {
-      await setTemp(from, {
-        date: ai.date,
-        time: ai.time,
-      });
-      reply = "👥 ¿Para cuántas personas?";
-      await setState(from, "ASK_PEOPLE");
-      return;
-    }
+  // 📅 si no hay fecha todavía
+  if (!ai.date && !session.temp_data?.date) {
+    reply = "📅 ¿Para qué fecha querés reservar?";
+    await setState(from, "ASK_DATE");
+    return;
   }
 
-  else {
-    reply =
-      `1️⃣ Hacer una reserva\n` +
-      `2️⃣ Modificar una reserva existente`;
+  const date = ai.date || session.temp_data?.date;
+
+  // ⏰ si falta hora
+  if (!ai.time) {
+    await setTemp(from, { date });
+    reply = "⏰ ¿A qué hora?";
+    await setState(from, "ASK_TIME");
+    return;
   }
-}
+
+  // 👥 si falta personas
+  if (!ai.people) {
+    await setTemp(from, {
+      date,
+      time: ai.time,
+    });
+    reply = "👥 ¿Para cuántas personas?";
+    await setState(from, "ASK_PEOPLE");
+    return;
+  }
+}}
   
     // =========================
 // PEDIR CÓDIGO PARA MODIFICAR
