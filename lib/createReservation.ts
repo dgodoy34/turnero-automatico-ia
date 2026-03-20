@@ -229,25 +229,6 @@ export async function createReservation({
     );
 
     // =========================
-// ASEGURAR CLIENTE
-// =========================
-
-
-// 🔒 asegurarse que el cliente existe
-const { data: clientCheck } = await supabase
-  .from("clients")
-  .select("dni")
-  .eq("dni", dni)
-  .maybeSingle();
-
-if (!clientCheck) {
-  return {
-    success: false,
-    message: "No encontré tus datos. Probá nuevamente."
-  };
-}
-
-    // =========================
     // 11️⃣ Insertar reserva
     // =========================
     const { data, error } = await supabase
