@@ -24,6 +24,12 @@ async function sendWhatsApp(to: string, body: string) {
   );
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Buenos días";
+  if (hour < 20) return "Buenas tardes";
+  return "Buenas noches";
+}
 
 function formatDateToISO(input: string) {
   const today = new Date();
@@ -78,15 +84,18 @@ console.log("Restaurant ID:", restaurantId);
 
     const session = await getSession(from);
     let reply = "No entendí el mensaje 🤔";
-    if (!session.restaurant_id) {
 
-  await supabase
-    .from("conversation_state")
-    .update({
-      restaurant_id: restaurantId
-    })
-    .eq("phone", from);
+// =========================
+// IA GLOBAL (FUERA DEL FLUJO)
+// =========================
 
+if (ai.intent === "modify_reservation") {
+  await setState(from, "ASK_MODIFY_CODE");
+}
+
+if (ai.intent === "cancel_reservation") {
+  reply = "Para cancelar necesito tu código de reserva 🔐";
+  await setState(from, "ASK_MODIFY_CODE");
 }
 
  // =========================
@@ -148,7 +157,7 @@ if (ai.intent === "create_reservation") {
     if (!session.dni) {
 
       if (!/^\d{7,8}$/.test(text)) {
-        reply = "👋 Hola, para comenzar necesito tu DNI (7 u 8 números).";
+       reply = `${getGreeting()} 😊 Bienvenido a nuestro restaurante.\n\nPara comenzar necesito tu DNI (7 u 8 números).`;
       } else {
 
         await setDNI(from, text);
@@ -394,30 +403,25 @@ else if (session.state === "ASK_MODIFY_CODE") {
 // =========================
 else if (session.state === "ASK_PEOPLE") {
 
-  const people = ai.people || parseInt(text);
+  const people = parseInt(text);
 
-  if (!people || isNaN(people)) {
-    reply = "Decime cuántas personas son 👥";
-  } else {
+  const updatedTemp = {
+    ...session.temp_data,
+    people,
+  };
 
-    const updatedTemp = {
-      ...session.temp_data,
-      people,
-    };
+  await setTemp(from, updatedTemp);
 
-    await setTemp(from, updatedTemp);
+  reply =
+    `Confirmo:\n\n` +
+    `📅 ${updatedTemp.date}\n` +
+    `⏰ ${updatedTemp.time}\n` +
+    `👥 ${updatedTemp.people}\n\n` +
+    `¿Confirmamos? (si/no)`;
 
-    reply =
-      `Confirmo:\n\n` +
-      `📅 ${updatedTemp.date}\n` +
-      `⏰ ${updatedTemp.time}\n` +
-      `👥 ${updatedTemp.people}\n\n` +
-      `¿Confirmamos? (si/no)`;
+  const isModify = !!updatedTemp.reservation_code;
 
-    const isModify = !!updatedTemp.reservation_code;
-
-    await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
-  }
+  await setState(from, isModify ? "CONFIRM_MODIFY" : "CONFIRM_RESERVATION");
 }
    
   // =========================
