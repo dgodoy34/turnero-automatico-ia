@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
+import { updateReservation } from "@/lib/updateReservation";
 import { interpretMessage } from "@/lib/ai";
 import { getRestaurantId } from "@/lib/getRestaurantId";
 
@@ -77,10 +78,10 @@ export async function POST(req: Request) {
     let reply = "No entendí 🤔";
 
     // =========================
-    // IA GLOBAL (SIEMPRE PRIMERO)
+    // IA GLOBAL (UNA SOLA)
     // =========================
 
-    let ai;
+    let ai: any = null;
 
     try {
       ai = await interpretMessage(text);
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       console.error("IA error");
     }
 
-    // 👉 IA puede romper cualquier estado
+    // 👉 SI DETECTA INTENCIÓN → ROMPE FLUJO
     if (ai && ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent)) {
 
       await setState(from, "INIT");
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
       else if (ai.intent === "create_reservation") {
 
         await setTemp(from, {
+          ...session.temp_data,
           date: ai.date,
           time: ai.time,
           people: ai.people,
@@ -145,7 +147,10 @@ export async function POST(req: Request) {
 
       const date = formatDateToISO(text);
 
-      await setTemp(from, { ...session.temp_data, date });
+      await setTemp(from, {
+        ...session.temp_data,
+        date,
+      });
 
       reply = "⏰ ¿A qué hora?";
       await setState(from, "ASK_TIME");
@@ -155,7 +160,10 @@ export async function POST(req: Request) {
 
       const time = text.includes(":") ? text : `${text}:00`;
 
-      await setTemp(from, { ...session.temp_data, time });
+      await setTemp(from, {
+        ...session.temp_data,
+        time,
+      });
 
       reply = "👥 ¿Para cuántas personas?";
       await setState(from, "ASK_PEOPLE");
@@ -165,7 +173,10 @@ export async function POST(req: Request) {
 
       const people = parseInt(text);
 
-      await setTemp(from, { ...session.temp_data, people });
+      await setTemp(from, {
+        ...session.temp_data,
+        people,
+      });
 
       reply = "Perfecto 👍 Ahora necesito tu DNI.";
       await setState(from, "ASK_DNI");
@@ -186,10 +197,17 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (!client) {
-          await supabase.from("clients").upsert({ dni: text, phone: from });
+
+          await supabase.from("clients").upsert({
+            dni: text,
+            phone: from,
+          });
+
           reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
           await setState(from, "REGISTER_NAME");
+
         } else {
+
           reply = `Perfecto ${client.name} 👍 ¿Confirmamos la reserva? (si/no)`;
           await setState(from, "CONFIRM_RESERVATION");
         }
@@ -198,7 +216,10 @@ export async function POST(req: Request) {
 
     else if (session.state === "REGISTER_NAME") {
 
-      await supabase.from("clients").update({ name: text }).eq("dni", session.dni);
+      await supabase
+        .from("clients")
+        .update({ name: text })
+        .eq("dni", session.dni);
 
       reply = "Perfecto 🎉 Ahora tu email.";
       await setState(from, "ASK_EMAIL");
@@ -206,7 +227,10 @@ export async function POST(req: Request) {
 
     else if (session.state === "ASK_EMAIL") {
 
-      await supabase.from("clients").update({ email: text }).eq("dni", session.dni);
+      await supabase
+        .from("clients")
+        .update({ email: text })
+        .eq("dni", session.dni);
 
       reply = "🎂 Tu fecha de cumpleaños (ej: 15/08)";
       await setState(from, "ASK_BIRTHDAY");
@@ -216,7 +240,10 @@ export async function POST(req: Request) {
 
       const birthday = formatDateToISO(text);
 
-      await supabase.from("clients").update({ birthday }).eq("dni", session.dni);
+      await supabase
+        .from("clients")
+        .update({ birthday })
+        .eq("dni", session.dni);
 
       reply = "Listo 🙌 ¿Confirmamos la reserva? (si/no)";
       await setState(from, "CONFIRM_RESERVATION");
@@ -237,7 +264,7 @@ export async function POST(req: Request) {
         });
 
         if (!result.success) {
-          reply = result.message ?? "Error al crear la reserva.";
+          reply = result.message ?? "No se pudo crear la reserva.";
           await setState(from, "INIT");
         } else {
 
@@ -269,10 +296,16 @@ export async function POST(req: Request) {
       if (!data) {
         reply = "No encontré una reserva con ese código.";
       } else {
+
         reply =
           `📅 ${data.date}\n` +
           `⏰ ${data.time}\n` +
           `👥 ${data.people}`;
+
+        await setTemp(from, {
+          ...session.temp_data,
+          reservation_code: text,
+        });
       }
     }
 
