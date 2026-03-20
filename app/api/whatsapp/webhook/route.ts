@@ -217,74 +217,51 @@ else if (session.state === "ASK_BIRTHDAY") {
 
    else if (session.state === "MENU") {
 
-// =========================
-// IA DECISIÓN PRINCIPAL
-// =========================
-
-// 👉 CREAR RESERVA
-if (ai.intent === "create_reservation") {
-
-  if (!session.dni) {
-    reply = "Antes de reservar necesito tu DNI 😊";
-    await setState(from, "ASK_DNI");
-    return;
-  }
-
-  if (!ai.date) {
-    reply = "📅 ¿Para qué fecha querés reservar?";
+  // 👉 OPCIÓN 1 (MANUAL)
+  if (lower === "1") {
+    reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
     await setState(from, "ASK_DATE");
-    return;
   }
 
-  if (!ai.time) {
-    await setTemp(from, { date: ai.date });
-    reply = "⏰ ¿A qué hora?";
-    await setState(from, "ASK_TIME");
-    return;
+  // 👉 OPCIÓN 2 (MANUAL)
+  else if (lower === "2") {
+    reply = "🔐 Pasame el código de reserva.";
+    await setState(from, "ASK_MODIFY_CODE");
   }
 
-  if (!ai.people) {
-    await setTemp(from, {
-      date: ai.date,
-      time: ai.time,
-    });
-    reply = "👥 ¿Para cuántas personas?";
-    await setState(from, "ASK_PEOPLE");
-    return;
+  // 👉 IA (si escribe natural tipo "quiero reservar mañana")
+  else if (ai.intent === "create_reservation") {
+
+    if (!ai.date) {
+      reply = "📅 ¿Para qué fecha querés reservar?";
+      await setState(from, "ASK_DATE");
+      return;
+    }
+
+    if (!ai.time) {
+      await setTemp(from, { date: ai.date });
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+      return;
+    }
+
+    if (!ai.people) {
+      await setTemp(from, {
+        date: ai.date,
+        time: ai.time,
+      });
+      reply = "👥 ¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+      return;
+    }
   }
 
-  const result = await createReservation({
-    restaurant_id: restaurant.id,
-    dni: session.dni,
-    date: ai.date,
-    time: ai.time,
-    people: ai.people,
-  });
-
-  if (!result.success) {
-    reply = result.message ?? "No se pudo completar la reserva";
-  } else {
+  else {
     reply =
-      `🎉 ¡Reserva confirmada!\n\n` +
-      `📅 ${ai.date}\n` +
-      `⏰ ${ai.time}\n` +
-      `👥 ${ai.people}\n\n` +
-      `🔐 Código: ${result.reservation.reservation_code}`;
+      `1️⃣ Hacer una reserva\n` +
+      `2️⃣ Modificar una reserva existente`;
   }
-
-  await sendWhatsApp(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
 }
-
-// 👉 MODIFICAR
-if (ai.intent === "modify_reservation") {
-  reply = "🔐 Pasame tu código de reserva y lo modificamos.";
-  await setState(from, "ASK_MODIFY_CODE");
-  await sendWhatsApp(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
-   }
-
   
     // =========================
 // PEDIR CÓDIGO PARA MODIFICAR
