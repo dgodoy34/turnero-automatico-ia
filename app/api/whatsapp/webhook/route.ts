@@ -68,56 +68,60 @@ export async function POST(req: Request) {
 
     console.log("STATE ACTUAL:", session.state);
 
-if (!session.state || ["INIT", "MENU"].includes(session.state)) {
+// 🔥 SIEMPRE permitir IA si el mensaje no encaja con el flujo actual
 
-  
+let ai = null;
 
-      const ai = await interpretMessage(text);
-      console.log("AI:", ai);
+try {
+  ai = await interpretMessage(text);
+  console.log("AI:", ai);
+} catch (e) {
+  console.error("IA error");
+}
 
-      if (ai.intent === "greeting") {
-        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-      }
+// 👉 SI detecta intención fuerte, romper flujo actual
+if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.intent === "consult_reservation")) {
 
-      else if (ai.intent === "create_reservation") {
+  await setState(from, "INIT");
 
-        await setTemp(from, {
-          date: ai.date,
-          time: ai.time,
-          people: ai.people,
-        });
+  if (ai.intent === "greeting") {
+    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+  }
 
-        if (!ai.date) {
-          reply = "📅 ¿Para qué día querés la reserva?";
-          await setState(from, "ASK_DATE");
-        }
+  else if (ai.intent === "create_reservation") {
 
-        else if (!ai.time) {
-          reply = "⏰ ¿A qué hora?";
-          await setState(from, "ASK_TIME");
-        }
+    await setTemp(from, {
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+    });
 
-        else if (!ai.people) {
-          reply = "👥 ¿Para cuántas personas?";
-          await setState(from, "ASK_PEOPLE");
-        }
-
-        else {
-          reply = "Perfecto 👍 Solo necesito tu DNI para continuar.";
-          await setState(from, "ASK_DNI");
-        }
-      }
-
-      else if (ai.intent === "consult_reservation") {
-        reply = "🔐 Para consultar tu reserva necesito el código.";
-        await setState(from, "ASK_CODE");
-      }
-
-      else {
-        reply = "Puedo ayudarte a hacer una reserva 😊";
-      }
+    if (!ai.date) {
+      reply = "📅 ¿Para qué día querés la reserva?";
+      await setState(from, "ASK_DATE");
     }
 
+    else if (!ai.time) {
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    }
+
+    else if (!ai.people) {
+      reply = "👥 ¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    }
+
+    else {
+      reply = "Perfecto 👍 Solo necesito tu DNI para continuar.";
+      await setState(from, "ASK_DNI");
+    }
+  }
+
+  else if (ai.intent === "consult_reservation") {
+    reply = "🔐 Para consultar tu reserva necesito el código.";
+    await setState(from, "ASK_CODE");
+  }
+}
     // =========================
     // FECHA
     // =========================
