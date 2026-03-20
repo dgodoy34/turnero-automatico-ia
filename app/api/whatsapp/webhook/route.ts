@@ -92,7 +92,14 @@ export async function POST(req: Request) {
     }
 
     // 👉 SI DETECTA INTENCIÓN → ROMPE FLUJO
-    if (ai && ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent)) {
+    const isInitialState =
+  !session.state || session.state === "INIT";
+
+if (
+  ai &&
+  ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
+  isInitialState
+) {
 
       await setState(from, "INIT");
 
