@@ -66,9 +66,7 @@ export async function POST(req: Request) {
     // ESTADO INICIAL (IA)
     // =========================
 
-    const FREE_STATES = ["INIT", "MENU", null];
-
-if (FREE_STATES.includes(session.state))  {
+if (!session.state || ["INIT", "MENU"].includes(session.state)) {
 
   console.log("STATE:", session.state);
 
