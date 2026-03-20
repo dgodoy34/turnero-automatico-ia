@@ -232,18 +232,19 @@ export async function createReservation({
 // ASEGURAR CLIENTE
 // =========================
 
-const { data: existingClient } = await supabase
+
+// 🔒 asegurarse que el cliente existe
+const { data: clientCheck } = await supabase
   .from("clients")
   .select("dni")
   .eq("dni", dni)
   .maybeSingle();
 
-if (!existingClient) {
-  await supabase.from("clients").insert({
-    dni,
-    name: "Cliente WhatsApp",
-    phone: "", // opcional
-  });
+if (!clientCheck) {
+  return {
+    success: false,
+    message: "No encontré tus datos. Probá nuevamente."
+  };
 }
 
     // =========================

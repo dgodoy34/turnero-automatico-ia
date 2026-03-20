@@ -230,7 +230,7 @@ else if (session.state === "ASK_BIRTHDAY") {
   }
 
   // 👉 IA (si escribe natural tipo "quiero reservar mañana")
-  else if (ai.intent === "create_reservation") {
+  else if (ai.intent === "create_reservation" || ai.date) {
 
     if (!ai.date) {
       reply = "📅 ¿Para qué fecha querés reservar?";
