@@ -198,6 +198,11 @@ if (
 
         await setDNI(from, text);
 
+await setTemp(from, {
+  ...session.temp_data,
+  dni: text,
+});
+
         const { data: client } = await supabase
           .from("clients")
           .select("*")
@@ -274,7 +279,7 @@ const { data: existingClient } = await supabase
 
 if (!existingClient) {
   await supabase.from("clients").insert({
-    dni: session.dni,
+    dni: session.temp_data?.dni || session.dni,
     name: session.temp_data?.name || "Cliente",
     phone: from,
   });
