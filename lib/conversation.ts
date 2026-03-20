@@ -5,12 +5,16 @@ export async function getSession(phone: string) {
     .from("conversation_state")
     .select("*")
     .eq("phone", phone)
-    .single();
+    .maybeSingle(); // 🔥 CAMBIO CLAVE
 
   if (!data) {
     const { data: created } = await supabase
       .from("conversation_state")
-      .insert({ phone })
+      .insert({
+        phone,
+        state: "INIT",
+        temp_data: {},
+      })
       .select()
       .single();
 
@@ -23,20 +27,27 @@ export async function getSession(phone: string) {
 export async function setState(phone: string, state: string) {
   await supabase
     .from("conversation_state")
-    .update({ state, updated_at: new Date().toISOString() })
-    .eq("phone", phone);
+    .upsert({
+      phone,
+      state,
+      updated_at: new Date().toISOString(),
+    });
 }
 
 export async function setDNI(phone: string, dni: string) {
   await supabase
     .from("conversation_state")
-    .update({ dni })
-    .eq("phone", phone);
+    .upsert({
+      phone,
+      dni,
+    });
 }
 
 export async function setTemp(phone: string, temp: any) {
   await supabase
     .from("conversation_state")
-    .update({ temp_data: temp })
-    .eq("phone", phone);
+    .upsert({
+      phone,
+      temp_data: temp,
+    });
 }
