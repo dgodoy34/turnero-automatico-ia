@@ -92,14 +92,12 @@ console.log("Restaurant ID:", restaurantId);
 // IA GLOBAL (FUERA DEL FLUJO)
 // =========================
 
-if (ai.intent === "modify_reservation") {
-  await setState(from, "ASK_MODIFY_CODE");
-}
 
 if (ai.intent === "cancel_reservation") {
   reply = "Para cancelar necesito tu código de reserva 🔐";
   await setState(from, "ASK_MODIFY_CODE");
 }
+
 
  // =========================
 // OBTENER RESTAURANTE
@@ -117,90 +115,48 @@ if (!restaurant) {
 }
 
 
-// =========================
-// IA GLOBAL (INTERRUPTOR)
-// =========================
-
-if (ai.intent === "create_reservation") {
-
-  // Si ya tiene datos completos → ejecuta directo
-  if (ai.date && ai.time && ai.people && session.dni) {
-
-    const result = await createReservation({
-      restaurant_id: restaurant.id,
-      dni: session.dni,
-      date: ai.date,
-      time: ai.time,
-      people: ai.people,
-    });
-
-    if (result.success) {
-      await setState(from, "MENU");
-
-      await sendWhatsApp(from,
-        `🎉 Reserva confirmada\n\n` +
-        `📅 ${ai.date}\n` +
-        `⏰ ${ai.time}\n` +
-        `👥 ${ai.people}\n\n` +
-        `🔐 Código: ${result.reservation.reservation_code}`
-      );
-
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
-  }
-
-  // Si faltan datos → redirige al flujo clásico
-  await setState(from, "ASK_DATE");
-}
-
-   
     // =========================
     // NO TIENE DNI
     // =========================
     if (!session.dni) {
 
-      if (!/^\d{7,8}$/.test(text)) {
-       reply = `${getGreeting()} 😊 Bienvenido a nuestro restaurante.\n\nPara comenzar necesito tu DNI (7 u 8 números).`;
-      } else {
+  if (!/^\d{7,8}$/.test(text)) {
+    reply = `${getGreeting()} 😊 Bienvenido a nuestro restaurante.\n\nNecesito tu DNI (7 u 8 números).`;
+    await sendWhatsApp(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-        await setDNI(from, text);
+  await setDNI(from, text);
 
-        const { data: client } = await supabase
-          .from("clients")
-          .select("*")
-          .eq("dni", text)
-          .maybeSingle();
+  const { data: client } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("dni", text)
+    .maybeSingle();
 
-        if (!client) {
-          reply = "No estás registrado. Decime tu nombre completo.";
-          await setState(from, "REGISTER_NAME");
-        } else if (!client.email) {
-          reply = `Hola ${client.name} 😊 Antes de continuar necesito tu email.`;
-          await setState(from, "ASK_EMAIL");
-        } else {
-          reply =
-            `Hola ${client.name} 😊\n\n` +
-            `1️⃣ Hacer una reserva\n` +
-            `2️⃣ Modificar una reserva existente`;
+  if (!client) {
+    reply = "Perfecto 👍 Ahora decime tu nombre completo.";
+    await setState(from, "REGISTER_NAME");
+    await sendWhatsApp(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-          await setState(from, "MENU");
-        }
-      }
-    }
+  if (!client.email) {
+    reply = `Hola ${client.name} 😊 Necesito tu email.`;
+    await setState(from, "ASK_EMAIL");
+    await sendWhatsApp(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-    // =========================
-// IA FLEXIBLE EN CUALQUIER ESTADO
-// =========================
+  reply =
+    `Hola ${client.name} 😊\n\n` +
+    `1️⃣ Hacer una reserva\n` +
+    `2️⃣ Modificar una reserva existente`;
 
-if (ai.intent === "modify_reservation") {
-  await setState(from, "ASK_MODIFY_CODE");
+  await setState(from, "MENU");
+  await sendWhatsApp(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
 }
-
-if (ai.intent === "cancel_reservation") {
-  reply = "Para cancelar necesito tu código de reserva 🔐";
-  await setState(from, "ASK_MODIFY_CODE");
-}
-
 
     // =========================
     // REGISTRAR NOMBRE
@@ -261,7 +217,7 @@ else if (session.state === "ASK_BIRTHDAY") {
 
    else if (session.state === "MENU") {
 
-    // =========================
+// =========================
 // IA DECISIÓN PRINCIPAL
 // =========================
 
@@ -327,64 +283,9 @@ if (ai.intent === "modify_reservation") {
   await sendWhatsApp(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
+   }
 
-  // =========================
-  // IA detecta reserva directa
-  // =========================
-
-  if (ai.intent === "create_reservation" && ai.date && ai.time && ai.people) {
-
-    const result = await createReservation({
-      restaurant_id: restaurant.id,
-      dni: session.dni,
-      date: ai.date,
-      time: ai.time,
-      people: ai.people,
-    });
-
-    if (!result.success) {
-
-      reply =
-        `${result.message}\n\n` +
-        `¿Querés intentar otra fecha?`;
-
-    } else {
-
-      reply =
-        `🎉 Reserva confirmada\n\n` +
-        `📅 ${ai.date}\n` +
-        `⏰ ${ai.time}\n` +
-        `👥 ${ai.people}\n\n` +
-        `🔐 Código: ${result.reservation.reservation_code}`;
-
-    }
-
-  }
-
-  else if (lower === "1") {
-
-    reply = "📅 ¿Para qué fecha querés venir? (ej: 12/03)";
-    await setState(from, "ASK_DATE");
-
-  }
-
-  else if (lower === "2") {
-
-    reply = "🔐 Pasame el código de reserva.";
-    await setState(from, "ASK_MODIFY_CODE");
-
-  }
-
-  else {
-
-    reply =
-      `1️⃣ Hacer una reserva\n` +
-      `2️⃣ Modificar una reserva existente`;
-
-  }
-
-}
-
+  
     // =========================
 // PEDIR CÓDIGO PARA MODIFICAR
 // =========================
@@ -414,12 +315,11 @@ else if (session.state === "ASK_MODIFY_CODE") {
   }
 
   else if (!data) {
-    reply =
-      "No encontré una reserva activa con ese código 🤔\n\n¿Querés hacer una nueva reserva?"
-      "👉 Podés:\n" +
-      "1️⃣ Intentar nuevamente\n" +
-      "2️⃣ Hacer una nueva reserva";
-
+   reply =
+  "No encontré una reserva activa con ese código 🤔\n\n" +
+  "¿Querés hacer una nueva reserva?\n\n" +
+  "1️⃣ Intentar nuevamente\n" +
+  "2️⃣ Hacer una nueva reserva";
   }
 
   else {
