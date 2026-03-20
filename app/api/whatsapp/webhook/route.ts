@@ -257,9 +257,28 @@ if (
       await setState(from, "CONFIRM_RESERVATION");
     }
 
+    
+
     else if (session.state === "CONFIRM_RESERVATION") {
 
-      if (lower === "si" || lower === "sí") {
+      if (lower === "si" || lower === "sí")
+        
+        {
+
+          // 🔥 ASEGURAR QUE EL CLIENTE EXISTE
+const { data: existingClient } = await supabase
+  .from("clients")
+  .select("dni")
+  .eq("dni", session.dni)
+  .maybeSingle();
+
+if (!existingClient) {
+  await supabase.from("clients").insert({
+    dni: session.dni,
+    name: session.temp_data?.name || "Cliente",
+    phone: from,
+  });
+}
 
         const temp = session.temp_data;
 
