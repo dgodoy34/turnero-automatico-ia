@@ -85,8 +85,19 @@ const restaurantId = await getRestaurantId(
 console.log("AI:", ai);
 console.log("Restaurant ID:", restaurantId);
 
-    const session = await getSession(from);
-    let reply: string = "";
+    let session = await getSession(from);
+let reply: string = "";
+
+// 🔥 completar datos automáticamente desde IA
+if (ai.date || ai.time || ai.people) {
+  await setTemp(from, {
+    ...session.temp_data,
+    ...(ai.date && { date: ai.date }),
+    ...(ai.time && { time: ai.time }),
+    ...(ai.people && { people: ai.people }),
+  });
+  session = await getSession(from);
+}
 
 // =========================
 // IA GLOBAL (FUERA DEL FLUJO)
@@ -163,11 +174,11 @@ if (!restaurant) {
     // =========================
     else if (session.state === "REGISTER_NAME") {
 
-      await supabase.from("clients").insert({
-        dni: session.dni,
-        name: text,
-        phone: from,
-      });
+     await supabase.from("clients").upsert({
+  dni: session.dni,
+  name: text,
+  phone: from,
+});
 
       reply = "Perfecto 🎉 Ahora necesito tu email.";
       await setState(from, "ASK_EMAIL");
@@ -228,38 +239,10 @@ else if (session.state === "ASK_BIRTHDAY") {
     reply = "🔐 Pasame el código de reserva.";
     await setState(from, "ASK_MODIFY_CODE");
   }
+}
 
   // 👉 IA (si escribe natural tipo "quiero reservar mañana")
-  else if (ai.intent === "create_reservation" || ai.date) {
 
-  // 📅 si no hay fecha todavía
-  if (!ai.date && !session.temp_data?.date) {
-    reply = "📅 ¿Para qué fecha querés reservar?";
-    await setState(from, "ASK_DATE");
-    return;
-  }
-
-  const date = ai.date || session.temp_data?.date;
-
-  // ⏰ si falta hora
-  if (!ai.time) {
-    await setTemp(from, { date });
-    reply = "⏰ ¿A qué hora?";
-    await setState(from, "ASK_TIME");
-    return;
-  }
-
-  // 👥 si falta personas
-  if (!ai.people) {
-    await setTemp(from, {
-      date,
-      time: ai.time,
-    });
-    reply = "👥 ¿Para cuántas personas?";
-    await setState(from, "ASK_PEOPLE");
-    return;
-  }
-}}
   
     // =========================
 // PEDIR CÓDIGO PARA MODIFICAR
@@ -415,16 +398,16 @@ else if (session.state === "CONFIRM_RESERVATION") {
 } else {
 
       reply =
-        `🎉 ¡Reserva confirmada!\n\n` +
-        `📅 ${temp.date}\n` +
-        `⏰ ${temp.time}\n` +
-        `👥 ${temp.people}\n\n` +
-        `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-        `¿Qué querés hacer ahora?\n\n` +
-        `1️⃣ Ver la carta 📖\n` +
-        `2️⃣ Agregar una nota ✍️\n` +
-        `3️⃣ Modificar esta reserva 🔄\n` +
-        `4️⃣ Finalizar`;
+  `🎉 ¡Reserva confirmada!\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código:\n${result.reservation.reservation_code}\n\n` +
+  `¿Cómo seguimos? 😊\n\n` +
+  `1️⃣ Ver la carta 📖\n` +
+  `2️⃣ Agregar una nota ✍️\n` +
+  `3️⃣ Modificar esta reserva 🔄\n` +
+  `4️⃣ Finalizar`;
 
       await setTemp(from, {
         reservation_code: result.reservation.reservation_code
