@@ -1,7 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
-import { updateReservation } from "@/lib/updateReservation";
 import { interpretMessage } from "@/lib/ai";
 import { getRestaurantId } from "@/lib/getRestaurantId";
 
@@ -30,6 +29,25 @@ function formatDateToISO(input: string) {
   return input;
 }
 
+async function sendReply(to: string, reply: string) {
+  await fetch(
+    `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body: reply },
+      }),
+    }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -45,10 +63,6 @@ export async function POST(req: Request) {
 
     const session = await getSession(from);
 
-    const restaurantId = await getRestaurantId(
-      process.env.WHATSAPP_PHONE_NUMBER_ID!
-    );
-
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("id")
@@ -63,116 +77,100 @@ export async function POST(req: Request) {
     let reply = "No entendí 🤔";
 
     // =========================
-    // ESTADO INICIAL (IA)
+    // IA GLOBAL (SIEMPRE PRIMERO)
     // =========================
 
-    console.log("STATE ACTUAL:", session.state);
+    let ai;
 
-// 🔥 SIEMPRE permitir IA si el mensaje no encaja con el flujo actual
-
-let ai = null;
-
-try {
-  ai = await interpretMessage(text);
-  console.log("AI:", ai);
-} catch (e) {
-  console.error("IA error");
-}
-
-// 👉 SI detecta intención fuerte, romper flujo actual
-if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.intent === "consult_reservation")) {
-
-  await setState(from, "INIT");
-
-  if (ai.intent === "greeting") {
-    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-  }
-
-  else if (ai.intent === "create_reservation") {
-
-    await setTemp(from, {
-      date: ai.date,
-      time: ai.time,
-      people: ai.people,
-    });
-
-    if (!ai.date) {
-      reply = "📅 ¿Para qué día querés la reserva?";
-      await setState(from, "ASK_DATE");
+    try {
+      ai = await interpretMessage(text);
+      console.log("AI:", ai);
+      console.log("STATE:", session.state);
+    } catch (e) {
+      console.error("IA error");
     }
 
-    else if (!ai.time) {
-      reply = "⏰ ¿A qué hora?";
-      await setState(from, "ASK_TIME");
+    // 👉 IA puede romper cualquier estado
+    if (ai && ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent)) {
+
+      await setState(from, "INIT");
+
+      if (ai.intent === "greeting") {
+        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+      }
+
+      else if (ai.intent === "create_reservation") {
+
+        await setTemp(from, {
+          date: ai.date,
+          time: ai.time,
+          people: ai.people,
+        });
+
+        if (!ai.date) {
+          reply = "📅 ¿Para qué día querés la reserva?";
+          await setState(from, "ASK_DATE");
+        }
+
+        else if (!ai.time) {
+          reply = "⏰ ¿A qué hora?";
+          await setState(from, "ASK_TIME");
+        }
+
+        else if (!ai.people) {
+          reply = "👥 ¿Para cuántas personas?";
+          await setState(from, "ASK_PEOPLE");
+        }
+
+        else {
+          reply = "Perfecto 👍 Solo necesito tu DNI.";
+          await setState(from, "ASK_DNI");
+        }
+      }
+
+      else if (ai.intent === "consult_reservation") {
+        reply = "🔐 Pasame el código de reserva.";
+        await setState(from, "ASK_CODE");
+      }
+
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    else if (!ai.people) {
-      reply = "👥 ¿Para cuántas personas?";
-      await setState(from, "ASK_PEOPLE");
-    }
-
-    else {
-      reply = "Perfecto 👍 Solo necesito tu DNI para continuar.";
-      await setState(from, "ASK_DNI");
-    }
-  }
-
-  else if (ai.intent === "consult_reservation") {
-    reply = "🔐 Para consultar tu reserva necesito el código.";
-    await setState(from, "ASK_CODE");
-  }
-}
     // =========================
-    // FECHA
+    // FLUJO NORMAL
     // =========================
-    else if (session.state === "ASK_DATE") {
+
+    if (session.state === "ASK_DATE") {
 
       const date = formatDateToISO(text);
 
-      await setTemp(from, {
-        ...session.temp_data,
-        date,
-      });
+      await setTemp(from, { ...session.temp_data, date });
 
       reply = "⏰ ¿A qué hora?";
       await setState(from, "ASK_TIME");
     }
 
-    // =========================
-    // HORA
-    // =========================
     else if (session.state === "ASK_TIME") {
 
       const time = text.includes(":") ? text : `${text}:00`;
 
-      await setTemp(from, {
-        ...session.temp_data,
-        time,
-      });
+      await setTemp(from, { ...session.temp_data, time });
 
       reply = "👥 ¿Para cuántas personas?";
       await setState(from, "ASK_PEOPLE");
     }
 
-    // =========================
-    // PERSONAS
-    // =========================
     else if (session.state === "ASK_PEOPLE") {
 
       const people = parseInt(text);
 
-      await setTemp(from, {
-        ...session.temp_data,
-        people,
-      });
+      await setTemp(from, { ...session.temp_data, people });
 
       reply = "Perfecto 👍 Ahora necesito tu DNI.";
       await setState(from, "ASK_DNI");
     }
 
-    // =========================
-    // DNI + REGISTRO
-    // =========================
     else if (session.state === "ASK_DNI") {
 
       if (!/^\d{7,8}$/.test(text)) {
@@ -188,32 +186,19 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
           .maybeSingle();
 
         if (!client) {
-
-          await supabase.from("clients").upsert({
-            dni: text,
-            phone: from,
-          });
-
+          await supabase.from("clients").upsert({ dni: text, phone: from });
           reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
           await setState(from, "REGISTER_NAME");
-
         } else {
-
           reply = `Perfecto ${client.name} 👍 ¿Confirmamos la reserva? (si/no)`;
           await setState(from, "CONFIRM_RESERVATION");
         }
       }
     }
 
-    // =========================
-    // REGISTRO
-    // =========================
     else if (session.state === "REGISTER_NAME") {
 
-      await supabase
-        .from("clients")
-        .update({ name: text })
-        .eq("dni", session.dni);
+      await supabase.from("clients").update({ name: text }).eq("dni", session.dni);
 
       reply = "Perfecto 🎉 Ahora tu email.";
       await setState(from, "ASK_EMAIL");
@@ -221,10 +206,7 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
 
     else if (session.state === "ASK_EMAIL") {
 
-      await supabase
-        .from("clients")
-        .update({ email: text })
-        .eq("dni", session.dni);
+      await supabase.from("clients").update({ email: text }).eq("dni", session.dni);
 
       reply = "🎂 Tu fecha de cumpleaños (ej: 15/08)";
       await setState(from, "ASK_BIRTHDAY");
@@ -234,18 +216,12 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
 
       const birthday = formatDateToISO(text);
 
-      await supabase
-        .from("clients")
-        .update({ birthday })
-        .eq("dni", session.dni);
+      await supabase.from("clients").update({ birthday }).eq("dni", session.dni);
 
       reply = "Listo 🙌 ¿Confirmamos la reserva? (si/no)";
       await setState(from, "CONFIRM_RESERVATION");
     }
 
-    // =========================
-    // CONFIRMAR RESERVA
-    // =========================
     else if (session.state === "CONFIRM_RESERVATION") {
 
       if (lower === "si" || lower === "sí") {
@@ -260,18 +236,17 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
           people: temp.people,
         });
 
-       if (!result.success) {
-  reply = result.message ?? "No se pudo crear la reserva. Intentá nuevamente.";
-  await setState(from, "INIT");
-} else {
+        if (!result.success) {
+          reply = result.message ?? "Error al crear la reserva.";
+          await setState(from, "INIT");
+        } else {
 
           reply =
             `🎉 Reserva confirmada\n\n` +
             `📅 ${temp.date}\n` +
             `⏰ ${temp.time}\n` +
             `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}\n\n` +
-            `Gracias por elegirnos 🙌`;
+            `🔐 Código: ${result.reservation.reservation_code}`;
 
           await setTemp(from, {});
           await setState(from, "INIT");
@@ -283,9 +258,6 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
       }
     }
 
-    // =========================
-    // CONSULTA
-    // =========================
     else if (session.state === "ASK_CODE") {
 
       const { data } = await supabase
@@ -297,37 +269,14 @@ if (ai && (ai.intent === "greeting" || ai.intent === "create_reservation" || ai.
       if (!data) {
         reply = "No encontré una reserva con ese código.";
       } else {
-
         reply =
           `📅 ${data.date}\n` +
           `⏰ ${data.time}\n` +
-          `👥 ${data.people}\n\n` +
-          `¿Querés modificarla? (si/no)`;
-
-        await setTemp(from, { reservation_code: text });
-        await setState(from, "CONFIRM_MODIFY");
+          `👥 ${data.people}`;
       }
     }
 
-    // =========================
-    // RESPUESTA WHATSAPP
-    // =========================
-    await fetch(
-      `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: from,
-          type: "text",
-          text: { body: reply },
-        }),
-      }
-    );
+    await sendReply(from, reply);
 
     return new Response("EVENT_RECEIVED", { status: 200 });
 
