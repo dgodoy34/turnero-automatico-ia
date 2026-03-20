@@ -92,8 +92,9 @@ export async function POST(req: Request) {
     }
 
     // 👉 SI DETECTA INTENCIÓN → ROMPE FLUJO
-    const isInitialState =
-  !session.state || session.state === "INIT";
+   const isInitialState =
+  !session.state ||
+  ["INIT", "NEW_USER", "MENU"].includes(session.state);
 
 if (
   ai &&
