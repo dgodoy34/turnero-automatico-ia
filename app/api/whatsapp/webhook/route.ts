@@ -1,9 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
-import { updateReservation } from "@/lib/updateReservation";
 import { interpretMessage } from "@/lib/ai";
-import { getRestaurantId } from "@/lib/getRestaurantId";
 
 function formatDateToISO(input: string) {
   const today = new Date();
@@ -78,7 +76,7 @@ export async function POST(req: Request) {
     let reply = "No entendí 🤔";
 
     // =========================
-    // IA GLOBAL (UNA SOLA)
+    // IA (UNA SOLA)
     // =========================
 
     let ai: any = null;
@@ -87,21 +85,18 @@ export async function POST(req: Request) {
       ai = await interpretMessage(text);
       console.log("AI:", ai);
       console.log("STATE:", session.state);
-    } catch (e) {
+    } catch {
       console.error("IA error");
     }
 
-    // 👉 SI DETECTA INTENCIÓN → ROMPE FLUJO
-   const isInitialState =
-  !session.state ||
-  ["INIT", "NEW_USER", "MENU"].includes(session.state);
+    const isInitial =
+      !session.state || ["INIT", "NEW_USER", "MENU"].includes(session.state);
 
-if (
-  ai &&
-  ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
-  isInitialState
-) {
-
+    if (
+      ai &&
+      ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
+      isInitial
+    ) {
       await setState(from, "INIT");
 
       if (ai.intent === "greeting") {
@@ -111,7 +106,6 @@ if (
       else if (ai.intent === "create_reservation") {
 
         await setTemp(from, {
-          ...session.temp_data,
           date: ai.date,
           time: ai.time,
           people: ai.people,
@@ -121,17 +115,14 @@ if (
           reply = "📅 ¿Para qué día querés la reserva?";
           await setState(from, "ASK_DATE");
         }
-
         else if (!ai.time) {
           reply = "⏰ ¿A qué hora?";
           await setState(from, "ASK_TIME");
         }
-
         else if (!ai.people) {
           reply = "👥 ¿Para cuántas personas?";
           await setState(from, "ASK_PEOPLE");
         }
-
         else {
           reply = "Perfecto 👍 Solo necesito tu DNI.";
           await setState(from, "ASK_DNI");
@@ -148,11 +139,10 @@ if (
     }
 
     // =========================
-    // FLUJO NORMAL
+    // FLUJO
     // =========================
 
     if (session.state === "ASK_DATE") {
-
       const date = formatDateToISO(text);
 
       await setTemp(from, {
@@ -165,7 +155,6 @@ if (
     }
 
     else if (session.state === "ASK_TIME") {
-
       const time = text.includes(":") ? text : `${text}:00`;
 
       await setTemp(from, {
@@ -178,7 +167,6 @@ if (
     }
 
     else if (session.state === "ASK_PEOPLE") {
-
       const people = parseInt(text);
 
       await setTemp(from, {
@@ -198,10 +186,10 @@ if (
 
         await setDNI(from, text);
 
-await setTemp(from, {
-  ...session.temp_data,
-  dni: text,
-});
+        await setTemp(from, {
+          ...session.temp_data,
+          dni: text,
+        });
 
         const { data: client } = await supabase
           .from("clients")
@@ -210,86 +198,70 @@ await setTemp(from, {
           .maybeSingle();
 
         if (!client) {
-
-          await supabase.from("clients").upsert({
+          await supabase.from("clients").insert({
             dni: text,
             phone: from,
           });
 
           reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
           await setState(from, "REGISTER_NAME");
-
         } else {
-
-          reply = `Perfecto ${client.name} 👍 ¿Confirmamos la reserva? (si/no)`;
+          reply = `Perfecto ${client.name || ""} 👍 ¿Confirmamos la reserva? (si/no)`;
           await setState(from, "CONFIRM_RESERVATION");
         }
       }
     }
 
     else if (session.state === "REGISTER_NAME") {
-
       await supabase
         .from("clients")
-        .update({ name: text })
-        .eq("dni", session.dni);
+        .upsert({
+          dni: session.temp_data?.dni,
+          name: text,
+        });
 
       reply = "Perfecto 🎉 Ahora tu email.";
       await setState(from, "ASK_EMAIL");
     }
 
     else if (session.state === "ASK_EMAIL") {
-
       await supabase
         .from("clients")
         .update({ email: text })
-        .eq("dni", session.dni);
+        .eq("dni", session.temp_data?.dni);
 
       reply = "🎂 Tu fecha de cumpleaños (ej: 15/08)";
       await setState(from, "ASK_BIRTHDAY");
     }
 
     else if (session.state === "ASK_BIRTHDAY") {
-
       const birthday = formatDateToISO(text);
 
       await supabase
         .from("clients")
         .update({ birthday })
-        .eq("dni", session.dni);
+        .eq("dni", session.temp_data?.dni);
 
       reply = "Listo 🙌 ¿Confirmamos la reserva? (si/no)";
       await setState(from, "CONFIRM_RESERVATION");
     }
 
-    
-
     else if (session.state === "CONFIRM_RESERVATION") {
 
-      if (lower === "si" || lower === "sí")
-        
-        {
-
-          // 🔥 ASEGURAR QUE EL CLIENTE EXISTE
-const { data: existingClient } = await supabase
-  .from("clients")
-  .select("dni")
-  .eq("dni", session.dni)
-  .maybeSingle();
-
-if (!existingClient) {
-  await supabase.from("clients").insert({
-    dni: session.temp_data?.dni || session.dni,
-    name: session.temp_data?.name || "Cliente",
-    phone: from,
-  });
-}
+      if (lower === "si" || lower === "sí") {
 
         const temp = session.temp_data;
+        const finalDNI = temp?.dni;
+
+        // 🔥 GARANTIZAR CLIENTE
+        await supabase.from("clients").upsert({
+          dni: finalDNI,
+          phone: from,
+        });
 
         const result = await createReservation({
           restaurant_id: restaurant.id,
-          dni: session.dni,
+          dni: finalDNI,
           date: temp.date,
           time: temp.time,
           people: temp.people,
@@ -299,13 +271,12 @@ if (!existingClient) {
           reply = result.message ?? "No se pudo crear la reserva.";
           await setState(from, "INIT");
         } else {
-
           reply =
             `🎉 Reserva confirmada\n\n` +
             `📅 ${temp.date}\n` +
             `⏰ ${temp.time}\n` +
             `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation.reservation_code}`;
+            `🔐 Código: ${result.reservation?.reservation_code}`;
 
           await setTemp(from, {});
           await setState(from, "INIT");
@@ -318,7 +289,6 @@ if (!existingClient) {
     }
 
     else if (session.state === "ASK_CODE") {
-
       const { data } = await supabase
         .from("appointments")
         .select("*")
@@ -328,16 +298,10 @@ if (!existingClient) {
       if (!data) {
         reply = "No encontré una reserva con ese código.";
       } else {
-
         reply =
           `📅 ${data.date}\n` +
           `⏰ ${data.time}\n` +
           `👥 ${data.people}`;
-
-        await setTemp(from, {
-          ...session.temp_data,
-          reservation_code: text,
-        });
       }
     }
 
