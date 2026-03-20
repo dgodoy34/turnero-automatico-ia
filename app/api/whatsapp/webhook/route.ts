@@ -248,24 +248,34 @@ export async function POST(req: Request) {
 
     else if (session.state === "CONFIRM_RESERVATION") {
 
-      if (lower === "si" || lower === "sí") {
+  if (lower === "si" || lower === "sí") {
 
-        const temp = session.temp_data;
-        const finalDNI = temp?.dni;
+    const temp = session.temp_data;
 
-        // 🔥 GARANTIZAR CLIENTE
-        await supabase.from("clients").upsert({
-          dni: finalDNI,
-          phone: from,
-        });
+    const finalDNI = session.temp_data?.dni;
 
-        const result = await createReservation({
-          restaurant_id: restaurant.id,
-          dni: finalDNI,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-        });
+    // 🔥 INSERT CLIENTE CON LOG
+    const { error: clientError } = await supabase
+      .from("clients")
+      .upsert({
+        dni: finalDNI,
+        name: "Cliente",
+        phone: from,
+        restaurant_id: restaurant.id,
+      });
+
+    if (clientError) {
+      console.error("❌ ERROR INSERT CLIENT:", clientError);
+    }
+
+    // 🔥 CREAR RESERVA
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: finalDNI,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+    });
 
         if (!result.success) {
           reply = result.message ?? "No se pudo crear la reserva.";
