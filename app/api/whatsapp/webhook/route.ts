@@ -78,16 +78,23 @@ export async function POST(req: Request) {
 
     const session = await getSession(from);
 
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
-      .single();
+    const { data: restaurant, error: restaurantError } = await supabase
+  .from("restaurants")
+  .select("id")
+  .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
+  .single();
 
-    if (!restaurant) {
-      console.error("❌ Restaurante no encontrado");
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+// 🔴 VALIDAR PRIMERO
+if (!restaurant || restaurantError) {
+  console.error("❌ Restaurante no encontrado", restaurantError);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// ✅ RECIÉN ACÁ LO USÁS
+await supabase
+  .from("conversation_state")
+  .update({ restaurant_id: restaurant.id })
+  .eq("phone", from);
 
     let reply = "No entendí 🤔";
 
@@ -217,36 +224,26 @@ else if (session.state === "POST_RESERVATION_MENU") {
 // =========================
 else if (session.state === "ADD_NOTE") {
 
-  const note = text;
+  const reservationCode = session.temp_data?.reservation_code;
 
-  // 🔥 1. Buscar última reserva del cliente
-  const { data: lastReservation, error: fetchError } = await supabase
-    .from("appointments")
-    .select("id")
-    .eq("reservation_code", session.temp_data?.reservation_code)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchError || !lastReservation) {
-    console.error("❌ ERROR FETCH RESERVATION:", fetchError);
-    reply = "No encontré tu reserva 😕";
+  if (!reservationCode) {
+    reply = "No encontré la reserva.";
   } else {
 
-    // 🔥 2. Actualizar esa reserva
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from("appointments")
-      .update({ notes: note })
-      .eq("id", lastReservation.id);
+      .update({ notes: text })
+      .eq("reservation_code", reservationCode);
 
-    if (updateError) {
-      console.error("❌ ERROR ADD NOTE:", updateError);
-      reply = "No pude guardar la nota 😕";
+    if (error) {
+      console.error("❌ ERROR NOTA:", error);
+      reply = "Error al guardar la nota.";
     } else {
-      reply = "✅ Nota agregada a tu reserva.";
+      reply = "✅ Nota agregada a tu reserva.\n\n" + getMenu();
     }
   }
 
+  // 🔥 CLAVE: volver al menú
   await setState(from, "POST_RESERVATION_MENU");
 
   await sendReply(from, reply);
