@@ -28,6 +28,8 @@ function formatDateToISO(input: string) {
   return input;
 }
 
+
+
 async function sendReply(to: string, reply: string) {
   await fetch(
     `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
@@ -76,39 +78,53 @@ export async function POST(req: Request) {
     let reply = "No entendí 🤔";
 
     // =====================================
-    // 🔥 CONFIRM RESERVATION (PRIORIDAD)
+// 🤖 IA SOLO EN ESTADOS INICIALES
+// =====================================
+let ai: any = null;
+
+try {
+  ai = await interpretMessage(text);
+  console.log("AI:", ai);
+  console.log("STATE:", session.state);
+} catch {
+  console.error("IA error");
+}
+
+    
+
+    // =====================================
+    // 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
+      console.log("👉 ENTRANDO A CONFIRM_RESERVATION");
 
       if (lower === "si" || lower === "sí") {
+        console.log("✅ CONFIRMADO");
 
         const temp = session.temp_data;
         const finalDNI = temp?.dni;
 
         if (!finalDNI) {
-          reply = "Error con el DNI.";
+          reply = "Error con el DNI. Intentá nuevamente.";
           await setState(from, "ASK_DNI");
           await sendReply(from, reply);
           return new Response("EVENT_RECEIVED", { status: 200 });
         }
 
-        // 🔥 VALIDACIÓN NUEVA (CLAVE)
-        if (!temp.time || !/^\d{2}:\d{2}$/.test(temp.time)) {
-          console.error("❌ TIME INVALIDO:", temp.time);
+        // ✅ asegurar cliente
+        const { error: clientError } = await supabase
+          .from("clients")
+          .upsert({
+            dni: finalDNI,
+            phone: from,
+            restaurant_id: restaurant.id,
+          });
 
-          reply = "Hora inválida 😕 Probá 21 o 21:00";
-          await setState(from, "ASK_TIME");
-
-          await sendReply(from, reply);
-          return new Response("EVENT_RECEIVED", { status: 200 });
+        if (clientError) {
+          console.error("❌ CLIENT ERROR:", clientError);
         }
 
-        await supabase.from("clients").upsert({
-          dni: finalDNI,
-          phone: from,
-          restaurant_id: restaurant.id,
-        });
-
+        // ✅ crear reserva
         const result = await createReservation({
           restaurant_id: restaurant.id,
           dni: finalDNI,
@@ -117,28 +133,27 @@ export async function POST(req: Request) {
           people: temp.people,
         });
 
+        console.log("📦 RESULT:", result);
+
         if (!result.success) {
           reply = result.message;
         } else {
           reply =
-            `🎉 *¡Reserva confirmada!*\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
-            `¿Qué querés hacer ahora?\n\n` +
-            `1️⃣ Ver la carta 📖\n` +
-            `2️⃣ Agregar una nota ✍️\n` +
-            `3️⃣ Modificar esta reserva 🔄\n` +
-            `4️⃣ Finalizar`;
-
-          await setState(from, "POST_RESERVATION_MENU");
-          await setTemp(from, {});
+  `🎉 *¡Reserva confirmada!*\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
+  `¿Qué querés hacer ahora?\n\n` +
+  `1️⃣ Ver la carta 📖\n` +
+  `2️⃣ Agregar una nota ✍️\n` +
+  `3️⃣ Modificar esta reserva 🔄\n` +
+  `4️⃣ Finalizar`;
         }
-
+        await setState(from, "POST_RESERVATION_MENU");
+        await setTemp(from, {});
         await sendReply(from, reply);
         return new Response("EVENT_RECEIVED", { status: 200 });
-
       } else {
         reply = "Perfecto 👍 Avísame si necesitás algo.";
         await setState(from, "INIT");
@@ -147,176 +162,184 @@ export async function POST(req: Request) {
       }
     }
 
-    // =========================
-    // MENÚ POST RESERVA
-    // =========================
-    else if (session.state === "POST_RESERVATION_MENU") {
 
-      if (text === "1") {
-        reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
-      }
+// =========================
+// MENÚ POST RESERVA
+// =========================
+else if (session.state === "POST_RESERVATION_MENU") {
 
-      else if (text === "2") {
-        reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
-        await setState(from, "ADD_NOTE");
-      }
+  if (text === "1") {
+    reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
+  }
 
-      else if (text === "3") {
-        reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
-        await setState(from, "MODIFY_RESERVATION");
-      }
+  else if (text === "2") {
+    reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
+    await setState(from, "ADD_NOTE");
+  }
 
-      else if (text === "4") {
-        reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
-        await setState(from, "INIT");
-      }
+  else if (text === "3") {
+    reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
+    await setState(from, "MODIFY_RESERVATION");
+  }
 
-      else {
-        reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
-      }
+  else if (text === "4") {
+    reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
+    await setState(from, "INIT");
+  }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  else {
+    reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
+  }
 
-    // =========================
-    // AGREGAR NOTA
-    // =========================
-    else if (session.state === "ADD_NOTE") {
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      const { error } = await supabase
-        .from("appointments")
-        .update({ notes: text })
-        .eq("client_dni", session.temp_data?.dni)
-        .order("created_at", { ascending: false })
-        .limit(1);
+// =========================
+// AGREGAR NOTA
+// =========================
+else if (session.state === "ADD_NOTE") {
 
-      if (error) {
-        console.error("❌ ERROR ADD NOTE:", error);
-        reply = "No pude guardar la nota 😕";
-      } else {
-        reply = "✅ Nota agregada a tu reserva.";
-      }
+  const note = text;
 
-      await setState(from, "POST_RESERVATION_MENU");
+  const { error } = await supabase
+    .from("appointments")
+    .update({ notes: note })
+    .eq("client_dni", session.temp_data?.dni)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  if (error) {
+    console.error("❌ ERROR ADD NOTE:", error);
+    reply = "No pude guardar la nota 😕";
+  } else {
+    reply = "✅ Nota agregada a tu reserva.";
+  }
 
-    // =========================
-    // MODIFICAR RESERVA
-    // =========================
-    else if (session.state === "MODIFY_RESERVATION") {
+  await setState(from, "POST_RESERVATION_MENU");
 
-      if (text.toLowerCase().includes("fecha")) {
-        reply = "📅 Decime la nueva fecha";
-        await setState(from, "MODIFY_DATE");
-      }
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      else if (text.toLowerCase().includes("hora")) {
-        reply = "⏰ Decime la nueva hora";
-        await setState(from, "MODIFY_TIME");
-      }
+// =========================
+// MODIFICAR RESERVA
+// =========================
+else if (session.state === "MODIFY_RESERVATION") {
 
-      else if (text.toLowerCase().includes("personas")) {
-        reply = "👥 ¿Cuántas personas?";
-        await setState(from, "MODIFY_PEOPLE");
-      }
+  if (text.toLowerCase().includes("fecha")) {
+    reply = "📅 Decime la nueva fecha (ej: 25/04)";
+    await setState(from, "MODIFY_DATE");
+  }
 
-      else {
-        reply = "Decime fecha, hora o personas";
-      }
+  else if (text.toLowerCase().includes("hora")) {
+    reply = "⏰ Decime la nueva hora";
+    await setState(from, "MODIFY_TIME");
+  }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  else if (text.toLowerCase().includes("personas")) {
+    reply = "👥 ¿Cuántas personas ahora?";
+    await setState(from, "MODIFY_PEOPLE");
+  }
 
-    // =====================================
-    // IA INICIAL
-    // =====================================
-    let ai: any = null;
+  else {
+    reply = "Decime qué querés cambiar: fecha, hora o personas";
+  }
 
-    try {
-      ai = await interpretMessage(text);
-    } catch {}
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+
 
     if (
-      ai &&
-      ["greeting", "create_reservation"].includes(ai.intent) &&
-      (!session.state || ["INIT", "NEW_USER"].includes(session.state))
-    ) {
+  ai &&
+  ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
+  (!session.state || ["INIT", "NEW_USER"].includes(session.state))
+) {
+      await setState(from, "INIT");
 
-      await setTemp(from, {
-        date: ai.date,
-        time: ai.time,
-        people: ai.people,
-      });
+      if (ai.intent === "greeting") {
+        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+      }
 
-      if (!ai.date) {
-        reply = "📅 ¿Para qué día?";
-        await setState(from, "ASK_DATE");
+      else if (ai.intent === "create_reservation") {
+        await setTemp(from, {
+          date: ai.date,
+          time: ai.time,
+          people: ai.people,
+        });
+
+        if (!ai.date) {
+          reply = "📅 ¿Para qué día querés la reserva?";
+          await setState(from, "ASK_DATE");
+        }
+        else if (!ai.time) {
+          reply = "⏰ ¿A qué hora?";
+          await setState(from, "ASK_TIME");
+        }
+        else if (!ai.people) {
+          reply = "👥 ¿Para cuántas personas?";
+          await setState(from, "ASK_PEOPLE");
+        }
+        else {
+          reply = "Perfecto 👍 Solo necesito tu DNI.";
+          await setState(from, "ASK_DNI");
+        }
       }
-      else if (!ai.time) {
-        reply = "⏰ ¿Hora?";
-        await setState(from, "ASK_TIME");
-      }
-      else if (!ai.people) {
-        reply = "👥 ¿Cuántas personas?";
-        await setState(from, "ASK_PEOPLE");
-      }
-      else {
-        reply = "DNI?";
-        await setState(from, "ASK_DNI");
+
+      else if (ai.intent === "consult_reservation") {
+        reply = "🔐 Pasame el código de reserva.";
+        await setState(from, "ASK_CODE");
       }
 
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // =========================
-    // FLUJO NORMAL
-    // =========================
+    // =====================================
+    // 🔁 FLUJO NORMAL
+    // =====================================
 
     if (session.state === "ASK_DATE") {
       const date = formatDateToISO(text);
 
-      await setTemp(from, { ...session.temp_data, date });
+      await setTemp(from, {
+        ...session.temp_data,
+        date,
+      });
 
-      reply = "⏰ ¿Hora?";
+      reply = "⏰ ¿A qué hora?";
       await setState(from, "ASK_TIME");
     }
 
     else if (session.state === "ASK_TIME") {
+    let time = text;
 
-      let time = text.trim();
+if (/^\d{1,2}$/.test(time)) {
+  time = `${time.padStart(2, "0")}:00`;
+}
 
-      if (/^\d{1,2}$/.test(time)) {
-        time = `${time.padStart(2, "0")}:00`;
-      }
-
-      else if (/^\d{1,2}:\d{1}$/.test(time)) {
-        const [h, m] = time.split(":");
-        time = `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
-      }
-
-      if (!/^\d{2}:\d{2}$/.test(time)) {
-        reply = "Hora inválida 😕 Probá 21 o 21:00";
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      }
-
-      await setTemp(from, { ...session.temp_data, time });
+if (!/^\d{2}:\d{2}$/.test(time)) {
+  reply = "Hora inválida 😕 Ej: 21 o 21:00";
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+      await setTemp(from, {
+        ...session.temp_data,
+        time,
+      });
 
       reply = "👥 ¿Para cuántas personas?";
       await setState(from, "ASK_PEOPLE");
     }
 
     else if (session.state === "ASK_PEOPLE") {
+      const people = parseInt(text);
 
       await setTemp(from, {
         ...session.temp_data,
-        people: parseInt(text),
+        people,
       });
 
       reply = "Perfecto 👍 Ahora necesito tu DNI.";
@@ -326,7 +349,7 @@ export async function POST(req: Request) {
     else if (session.state === "ASK_DNI") {
 
       if (!/^\d{7,8}$/.test(text)) {
-        reply = "DNI inválido";
+        reply = "El DNI debe tener 7 u 8 números.";
       } else {
 
         await setDNI(from, text);
@@ -344,11 +367,15 @@ export async function POST(req: Request) {
 
         if (!client) {
 
-          await supabase.from("clients").insert({
+          const { error } = await supabase.from("clients").insert({
             dni: text,
             phone: from,
             restaurant_id: restaurant.id,
           });
+
+          if (error) {
+            console.error("❌ ERROR INSERT DNI:", error);
+          }
 
           reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
           await setState(from, "REGISTER_NAME");
@@ -362,29 +389,27 @@ export async function POST(req: Request) {
     }
 
     else if (session.state === "REGISTER_NAME") {
-
-      await supabase
-        .from("clients")
-        .update({ name: text })
-        .eq("dni", session.temp_data?.dni);
+      await supabase.from("clients").upsert({
+        dni: session.temp_data?.dni,
+        name: text,
+        restaurant_id: restaurant.id,
+      });
 
       reply = "Perfecto 🎉 Ahora tu email.";
       await setState(from, "ASK_EMAIL");
     }
 
     else if (session.state === "ASK_EMAIL") {
-
       await supabase
         .from("clients")
         .update({ email: text })
         .eq("dni", session.temp_data?.dni);
 
-      reply = "🎂 Tu fecha de cumpleaños";
+      reply = "🎂 Tu fecha de cumpleaños (ej: 15/08)";
       await setState(from, "ASK_BIRTHDAY");
     }
 
     else if (session.state === "ASK_BIRTHDAY") {
-
       const birthday = formatDateToISO(text);
 
       await supabase
@@ -394,6 +419,23 @@ export async function POST(req: Request) {
 
       reply = "Listo 🙌 ¿Confirmamos la reserva? (si/no)";
       await setState(from, "CONFIRM_RESERVATION");
+    }
+
+    else if (session.state === "ASK_CODE") {
+      const { data } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("reservation_code", text)
+        .maybeSingle();
+
+      if (!data) {
+        reply = "No encontré una reserva con ese código.";
+      } else {
+        reply =
+          `📅 ${data.date}\n` +
+          `⏰ ${data.time}\n` +
+          `👥 ${data.people}`;
+      }
     }
 
     await sendReply(from, reply);
