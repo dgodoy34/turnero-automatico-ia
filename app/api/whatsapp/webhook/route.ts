@@ -122,15 +122,19 @@ export async function POST(req: Request) {
           reply = result.message;
         } else {
           reply =
-            `🎉 Reserva confirmada\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation?.reservation_code}`;
+  `🎉 *¡Reserva confirmada!*\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
+  `¿Qué querés hacer ahora?\n\n` +
+  `1️⃣ Ver la carta 📖\n` +
+  `2️⃣ Agregar una nota ✍️\n` +
+  `3️⃣ Modificar esta reserva 🔄\n` +
+  `4️⃣ Finalizar`;
         }
-
+        await setState(from, "POST_RESERVATION_MENU");
         await setTemp(from, {});
-        await setState(from, "INIT");
         await sendReply(from, reply);
         return new Response("EVENT_RECEIVED", { status: 200 });
       } else {
