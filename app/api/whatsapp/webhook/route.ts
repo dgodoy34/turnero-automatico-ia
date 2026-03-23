@@ -149,6 +149,7 @@ export async function POST(req: Request) {
       }
     }
 
+
 // =========================
 // MENÚ POST RESERVA
 // =========================
@@ -158,18 +159,49 @@ else if (session.state === "POST_RESERVATION_MENU") {
     reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
   }
 
-  else if (session.state === "ADD_NOTE") {
+  else if (text === "2") {
+    reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
+    await setState(from, "ADD_NOTE");
+  }
+
+  else if (text === "3") {
+    reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
+    await setState(from, "MODIFY_RESERVATION");
+  }
+
+  else if (text === "4") {
+    reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
+    await setState(from, "INIT");
+  }
+
+  else {
+    reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// =========================
+// AGREGAR NOTA
+// =========================
+else if (session.state === "ADD_NOTE") {
 
   const note = text;
 
-  await supabase
+  const { error } = await supabase
     .from("appointments")
     .update({ notes: note })
     .eq("client_dni", session.temp_data?.dni)
     .order("created_at", { ascending: false })
     .limit(1);
 
-  reply = "✅ Nota agregada a tu reserva.";
+  if (error) {
+    console.error("❌ ERROR ADD NOTE:", error);
+    reply = "No pude guardar la nota 😕";
+  } else {
+    reply = "✅ Nota agregada a tu reserva.";
+  }
 
   await setState(from, "POST_RESERVATION_MENU");
 
@@ -177,19 +209,22 @@ else if (session.state === "POST_RESERVATION_MENU") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-  else if (session.state === "MODIFY_RESERVATION") {
+// =========================
+// MODIFICAR RESERVA
+// =========================
+else if (session.state === "MODIFY_RESERVATION") {
 
-  if (text.includes("fecha")) {
+  if (text.toLowerCase().includes("fecha")) {
     reply = "📅 Decime la nueva fecha (ej: 25/04)";
     await setState(from, "MODIFY_DATE");
   }
 
-  else if (text.includes("hora")) {
+  else if (text.toLowerCase().includes("hora")) {
     reply = "⏰ Decime la nueva hora";
     await setState(from, "MODIFY_TIME");
   }
 
-  else if (text.includes("personas")) {
+  else if (text.toLowerCase().includes("personas")) {
     reply = "👥 ¿Cuántas personas ahora?";
     await setState(from, "MODIFY_PEOPLE");
   }
@@ -202,19 +237,7 @@ else if (session.state === "POST_RESERVATION_MENU") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-  else if (text === "4") {
-    reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
-    await setState(from, "INIT");
-  }
 
-  else {
-    reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
-  }
-
-  // 🔥 ESTO ES LO QUE TE FALTABA
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
     // =====================================
     // 🤖 IA SOLO EN ESTADOS INICIALES
     // =====================================
