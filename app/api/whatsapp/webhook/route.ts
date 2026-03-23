@@ -3,12 +3,26 @@ import { getSession, setState, setDNI, setTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 
+// 👇 PEGÁ ESTO ACÁ
+function getMenu() {
+  return (
+    "¿Qué querés hacer ahora?\n\n" +
+    "1️⃣ Ver la carta 📖\n" +
+    "2️⃣ Agregar una nota ✍️\n" +
+    "3️⃣ Modificar esta reserva 🔄\n" +
+    "4️⃣ Finalizar"
+  );
+}
+
+
 function formatDateToISO(input: string) {
   const today = new Date();
   const currentYear = today.getFullYear();
 
   const clean = input.replace(/-/g, "/").trim();
   const parts = clean.split("/");
+
+  
 
   if (parts.length === 2) {
     const day = parts[0].padStart(2, "0");
@@ -93,76 +107,79 @@ try {
     
 
     // =====================================
-    // 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
-    // =====================================
-    if (session.state === "CONFIRM_RESERVATION") {
-      console.log("👉 ENTRANDO A CONFIRM_RESERVATION");
+// 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
+// =====================================
+if (session.state === "CONFIRM_RESERVATION") {
+  console.log("👉 ENTRANDO A CONFIRM_RESERVATION");
 
-      if (lower === "si" || lower === "sí") {
-        console.log("✅ CONFIRMADO");
+  if (lower === "si" || lower === "sí") {
+    console.log("✅ CONFIRMADO");
 
-        const temp = session.temp_data;
-        const finalDNI = temp?.dni;
+    const temp = session.temp_data;
+    const finalDNI = temp?.dni;
 
-        if (!finalDNI) {
-          reply = "Error con el DNI. Intentá nuevamente.";
-          await setState(from, "ASK_DNI");
-          await sendReply(from, reply);
-          return new Response("EVENT_RECEIVED", { status: 200 });
-        }
-
-        // ✅ asegurar cliente
-        const { error: clientError } = await supabase
-          .from("clients")
-          .upsert({
-            dni: finalDNI,
-            phone: from,
-            restaurant_id: restaurant.id,
-          });
-
-        if (clientError) {
-          console.error("❌ CLIENT ERROR:", clientError);
-        }
-
-        // ✅ crear reserva
-        const result = await createReservation({
-          restaurant_id: restaurant.id,
-          dni: finalDNI,
-          date: temp.date,
-          time: temp.time,
-          people: temp.people,
-        });
-
-        console.log("📦 RESULT:", result);
-
-        if (!result.success) {
-          reply = result.message;
-        } else {
-          reply =
-  `🎉 *¡Reserva confirmada!*\n\n` +
-  `📅 ${temp.date}\n` +
-  `⏰ ${temp.time}\n` +
-  `👥 ${temp.people}\n\n` +
-  `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
-  `¿Qué querés hacer ahora?\n\n` +
-  `1️⃣ Ver la carta 📖\n` +
-  `2️⃣ Agregar una nota ✍️\n` +
-  `3️⃣ Modificar esta reserva 🔄\n` +
-  `4️⃣ Finalizar`;
-        }
-        await setState(from, "POST_RESERVATION_MENU");
-        await setTemp(from, {});
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      } else {
-        reply = "Perfecto 👍 Avísame si necesitás algo.";
-        await setState(from, "INIT");
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      }
+    if (!finalDNI) {
+      reply = "Error con el DNI. Intentá nuevamente.";
+      await setState(from, "ASK_DNI");
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
+    // ✅ asegurar cliente
+    const { error: clientError } = await supabase
+      .from("clients")
+      .upsert({
+        dni: finalDNI,
+        phone: from,
+        restaurant_id: restaurant.id,
+      });
 
+    if (clientError) {
+      console.error("❌ CLIENT ERROR:", clientError);
+    }
+
+    // ✅ crear reserva
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: finalDNI,
+      date: temp.date,
+      time: temp.time,
+      people: temp.people,
+    });
+
+    console.log("📦 RESULT:", result);
+
+    if (!result.success) {
+      reply = result.message;
+    } else {
+
+      // 🔥 GUARDAR reservation_code (CLAVE PARA NOTAS)
+      await setTemp(from, {
+        reservation_code: result.reservation?.reservation_code,
+      });
+
+      reply =
+        `🎉 *¡Reserva confirmada!*\n\n` +
+        `📅 ${temp.date}\n` +
+        `⏰ ${temp.time}\n` +
+        `👥 ${temp.people}\n\n` +
+        `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
+        getMenu();
+    }
+
+    await setState(from, "POST_RESERVATION_MENU");
+    await sendReply(from, reply);
+
+    return new Response("EVENT_RECEIVED", { status: 200 });
+
+  } else {
+    reply = "Perfecto 👍 Avísame si necesitás algo.";
+    await setState(from, "INIT");
+    await sendReply(from, reply);
+
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+}
 // =========================
 // MENÚ POST RESERVA
 // =========================
@@ -202,18 +219,32 @@ else if (session.state === "ADD_NOTE") {
 
   const note = text;
 
-  const { error } = await supabase
+  // 🔥 1. Buscar última reserva del cliente
+  const { data: lastReservation, error: fetchError } = await supabase
     .from("appointments")
-    .update({ notes: note })
-    .eq("client_dni", session.temp_data?.dni)
+    .select("id")
+    .eq("reservation_code", session.temp_data?.reservation_code)
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(1)
+    .maybeSingle();
 
-  if (error) {
-    console.error("❌ ERROR ADD NOTE:", error);
-    reply = "No pude guardar la nota 😕";
+  if (fetchError || !lastReservation) {
+    console.error("❌ ERROR FETCH RESERVATION:", fetchError);
+    reply = "No encontré tu reserva 😕";
   } else {
-    reply = "✅ Nota agregada a tu reserva.";
+
+    // 🔥 2. Actualizar esa reserva
+    const { error: updateError } = await supabase
+      .from("appointments")
+      .update({ notes: note })
+      .eq("id", lastReservation.id);
+
+    if (updateError) {
+      console.error("❌ ERROR ADD NOTE:", updateError);
+      reply = "No pude guardar la nota 😕";
+    } else {
+      reply = "✅ Nota agregada a tu reserva.";
+    }
   }
 
   await setState(from, "POST_RESERVATION_MENU");
@@ -221,7 +252,6 @@ else if (session.state === "ADD_NOTE") {
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
-
 // =========================
 // MODIFICAR RESERVA
 // =========================
