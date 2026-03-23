@@ -158,15 +158,49 @@ else if (session.state === "POST_RESERVATION_MENU") {
     reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
   }
 
-  else if (text === "2") {
-    reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
-    await setState(from, "ADD_NOTE");
+  else if (session.state === "ADD_NOTE") {
+
+  const note = text;
+
+  await supabase
+    .from("appointments")
+    .update({ notes: note })
+    .eq("client_dni", session.temp_data?.dni)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  reply = "✅ Nota agregada a tu reserva.";
+
+  await setState(from, "POST_RESERVATION_MENU");
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+  else if (session.state === "MODIFY_RESERVATION") {
+
+  if (text.includes("fecha")) {
+    reply = "📅 Decime la nueva fecha (ej: 25/04)";
+    await setState(from, "MODIFY_DATE");
   }
 
-  else if (text === "3") {
-    reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
-    await setState(from, "MODIFY_RESERVATION");
+  else if (text.includes("hora")) {
+    reply = "⏰ Decime la nueva hora";
+    await setState(from, "MODIFY_TIME");
   }
+
+  else if (text.includes("personas")) {
+    reply = "👥 ¿Cuántas personas ahora?";
+    await setState(from, "MODIFY_PEOPLE");
+  }
+
+  else {
+    reply = "Decime qué querés cambiar: fecha, hora o personas";
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
   else if (text === "4") {
     reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
