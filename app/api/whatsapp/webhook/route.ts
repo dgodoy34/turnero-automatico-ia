@@ -192,30 +192,45 @@ if (session.state === "CONFIRM_RESERVATION") {
 // =========================
 else if (session.state === "POST_RESERVATION_MENU") {
 
-  if (text === "1") {
-  reply =
-    "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu\n\n" +
-    getMenu();
+  const msg = text.toLowerCase();
 
-  await setState(from, "POST_RESERVATION_MENU");
-}
-  else if (text === "2") {
-    reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
+  if (msg.includes("carta") || msg.includes("menu") || msg === "1") {
+    reply =
+      "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu\n\n" +
+      getMenu();
+  }
+
+  else if (
+    msg.includes("nota") ||
+    msg.includes("agregar") ||
+    msg === "2"
+  ) {
+    reply = "✍️ Dale, decime qué nota querés agregar.";
     await setState(from, "ADD_NOTE");
   }
 
-  else if (text === "3") {
-    reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
+  else if (
+    msg.includes("modificar") ||
+    msg.includes("cambiar") ||
+    msg === "3"
+  ) {
+    reply = "🔄 ¿Qué te gustaría cambiar? (fecha, hora o personas)";
     await setState(from, "MODIFY_RESERVATION");
   }
 
-  else if (text === "4") {
+  else if (
+    msg.includes("listo") ||
+    msg.includes("finalizar") ||
+    msg === "4"
+  ) {
     reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
     await setState(from, "INIT");
   }
 
   else {
-    reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
+    reply =
+      "Perdón 😅 no te entendí.\n\n" +
+      getMenu();
   }
 
   await sendReply(from, reply);
