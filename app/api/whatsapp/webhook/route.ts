@@ -75,10 +75,75 @@ export async function POST(req: Request) {
 
     let reply = "No entendí 🤔";
 
-    // =========================
-    // IA (UNA SOLA)
-    // =========================
+    // =====================================
+    // 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
+    // =====================================
+    if (session.state === "CONFIRM_RESERVATION") {
+      console.log("👉 ENTRANDO A CONFIRM_RESERVATION");
 
+      if (lower === "si" || lower === "sí") {
+        console.log("✅ CONFIRMADO");
+
+        const temp = session.temp_data;
+        const finalDNI = temp?.dni;
+
+        if (!finalDNI) {
+          reply = "Error con el DNI. Intentá nuevamente.";
+          await setState(from, "ASK_DNI");
+          await sendReply(from, reply);
+          return new Response("EVENT_RECEIVED", { status: 200 });
+        }
+
+        // ✅ asegurar cliente
+        const { error: clientError } = await supabase
+          .from("clients")
+          .upsert({
+            dni: finalDNI,
+            phone: from,
+            restaurant_id: restaurant.id,
+          });
+
+        if (clientError) {
+          console.error("❌ CLIENT ERROR:", clientError);
+        }
+
+        // ✅ crear reserva
+        const result = await createReservation({
+          restaurant_id: restaurant.id,
+          dni: finalDNI,
+          date: temp.date,
+          time: temp.time,
+          people: temp.people,
+        });
+
+        console.log("📦 RESULT:", result);
+
+        if (!result.success) {
+          reply = result.message;
+        } else {
+          reply =
+            `🎉 Reserva confirmada\n\n` +
+            `📅 ${temp.date}\n` +
+            `⏰ ${temp.time}\n` +
+            `👥 ${temp.people}\n\n` +
+            `🔐 Código: ${result.reservation?.reservation_code}`;
+        }
+
+        await setTemp(from, {});
+        await setState(from, "INIT");
+        await sendReply(from, reply);
+        return new Response("EVENT_RECEIVED", { status: 200 });
+      } else {
+        reply = "Perfecto 👍 Avísame si necesitás algo.";
+        await setState(from, "INIT");
+        await sendReply(from, reply);
+        return new Response("EVENT_RECEIVED", { status: 200 });
+      }
+    }
+
+    // =====================================
+    // 🤖 IA SOLO EN ESTADOS INICIALES
+    // =====================================
     let ai: any = null;
 
     try {
@@ -89,13 +154,10 @@ export async function POST(req: Request) {
       console.error("IA error");
     }
 
-    const isInitial =
-      !session.state || ["INIT", "NEW_USER", "MENU"].includes(session.state);
-
     if (
       ai &&
       ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
-      isInitial
+      (!session.state || ["INIT", "NEW_USER", "MENU"].includes(session.state))
     ) {
       await setState(from, "INIT");
 
@@ -104,7 +166,6 @@ export async function POST(req: Request) {
       }
 
       else if (ai.intent === "create_reservation") {
-
         await setTemp(from, {
           date: ai.date,
           time: ai.time,
@@ -138,9 +199,9 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // =========================
-    // FLUJO
-    // =========================
+    // =====================================
+    // 🔁 FLUJO NORMAL
+    // =====================================
 
     if (session.state === "ASK_DATE") {
       const date = formatDateToISO(text);
@@ -198,14 +259,22 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (!client) {
-          await supabase.from("clients").insert({
+
+          const { error } = await supabase.from("clients").insert({
             dni: text,
             phone: from,
+            restaurant_id: restaurant.id,
           });
+
+          if (error) {
+            console.error("❌ ERROR INSERT DNI:", error);
+          }
 
           reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
           await setState(from, "REGISTER_NAME");
+
         } else {
+
           reply = `Perfecto ${client.name || ""} 👍 ¿Confirmamos la reserva? (si/no)`;
           await setState(from, "CONFIRM_RESERVATION");
         }
@@ -213,12 +282,11 @@ export async function POST(req: Request) {
     }
 
     else if (session.state === "REGISTER_NAME") {
-      await supabase
-        .from("clients")
-        .upsert({
-          dni: session.temp_data?.dni,
-          name: text,
-        });
+      await supabase.from("clients").upsert({
+        dni: session.temp_data?.dni,
+        name: text,
+        restaurant_id: restaurant.id,
+      });
 
       reply = "Perfecto 🎉 Ahora tu email.";
       await setState(from, "ASK_EMAIL");
@@ -244,58 +312,6 @@ export async function POST(req: Request) {
 
       reply = "Listo 🙌 ¿Confirmamos la reserva? (si/no)";
       await setState(from, "CONFIRM_RESERVATION");
-    }
-
-    else if (session.state === "CONFIRM_RESERVATION") {
-
-  if (lower === "si" || lower === "sí") {
-
-    const temp = session.temp_data;
-
-    const finalDNI = session.temp_data?.dni;
-
-    // 🔥 INSERT CLIENTE CON LOG
-    const { error: clientError } = await supabase
-      .from("clients")
-      .upsert({
-        dni: finalDNI,
-        name: "Cliente",
-        phone: from,
-        restaurant_id: restaurant.id,
-      });
-
-    if (clientError) {
-      console.error("❌ ERROR INSERT CLIENT:", clientError);
-    }
-
-    // 🔥 CREAR RESERVA
-    const result = await createReservation({
-      restaurant_id: restaurant.id,
-      dni: finalDNI,
-      date: temp.date,
-      time: temp.time,
-      people: temp.people,
-    });
-
-        if (!result.success) {
-          reply = result.message ?? "No se pudo crear la reserva.";
-          await setState(from, "INIT");
-        } else {
-          reply =
-            `🎉 Reserva confirmada\n\n` +
-            `📅 ${temp.date}\n` +
-            `⏰ ${temp.time}\n` +
-            `👥 ${temp.people}\n\n` +
-            `🔐 Código: ${result.reservation?.reservation_code}`;
-
-          await setTemp(from, {});
-          await setState(from, "INIT");
-        }
-
-      } else {
-        reply = "Perfecto 👍 Avísame si necesitás algo.";
-        await setState(from, "INIT");
-      }
     }
 
     else if (session.state === "ASK_CODE") {
