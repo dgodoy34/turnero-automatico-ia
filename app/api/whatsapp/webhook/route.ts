@@ -28,6 +28,8 @@ function formatDateToISO(input: string) {
   return input;
 }
 
+
+
 async function sendReply(to: string, reply: string) {
   await fetch(
     `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
@@ -74,6 +76,8 @@ export async function POST(req: Request) {
     }
 
     let reply = "No entendí 🤔";
+
+    
 
     // =====================================
     // 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
@@ -145,6 +149,38 @@ export async function POST(req: Request) {
       }
     }
 
+// =========================
+// MENÚ POST RESERVA
+// =========================
+else if (session.state === "POST_RESERVATION_MENU") {
+
+  if (text === "1") {
+    reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
+  }
+
+  else if (text === "2") {
+    reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
+    await setState(from, "ADD_NOTE");
+  }
+
+  else if (text === "3") {
+    reply = "🔄 ¿Qué querés modificar? (fecha / hora / personas)";
+    await setState(from, "MODIFY_RESERVATION");
+  }
+
+  else if (text === "4") {
+    reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
+    await setState(from, "INIT");
+  }
+
+  else {
+    reply = "Elegí una opción válida:\n1, 2, 3 o 4 🙏";
+  }
+
+  // 🔥 ESTO ES LO QUE TE FALTABA
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
     // =====================================
     // 🤖 IA SOLO EN ESTADOS INICIALES
     // =====================================
