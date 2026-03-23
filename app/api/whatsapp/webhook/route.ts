@@ -193,9 +193,12 @@ if (session.state === "CONFIRM_RESERVATION") {
 else if (session.state === "POST_RESERVATION_MENU") {
 
   if (text === "1") {
-    reply = "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu";
-  }
+  reply =
+    "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu\n\n" +
+    getMenu();
 
+  await setState(from, "POST_RESERVATION_MENU");
+}
   else if (text === "2") {
     reply = "✍️ Escribí la nota que querés agregar a tu reserva.";
     await setState(from, "ADD_NOTE");
@@ -254,30 +257,33 @@ else if (session.state === "ADD_NOTE") {
 // =========================
 else if (session.state === "MODIFY_RESERVATION") {
 
-  if (text.toLowerCase().includes("fecha")) {
+  const msg = text.toLowerCase().trim();
+
+  if (msg.includes("fecha")) {
     reply = "📅 Decime la nueva fecha (ej: 25/04)";
     await setState(from, "MODIFY_DATE");
   }
 
-  else if (text.toLowerCase().includes("hora")) {
+  else if (msg.includes("hora")) {
     reply = "⏰ Decime la nueva hora";
     await setState(from, "MODIFY_TIME");
   }
 
-  else if (text.toLowerCase().includes("personas")) {
+  else if (msg.includes("persona") || msg.includes("gente")) {
     reply = "👥 ¿Cuántas personas ahora?";
     await setState(from, "MODIFY_PEOPLE");
   }
 
   else {
-    reply = "Decime qué querés cambiar: fecha, hora o personas";
+    reply =
+      "No entendí 🤔\n\n" +
+      "Podés escribir:\n" +
+      "👉 fecha\n👉 hora\n👉 personas";
   }
 
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
-
-
 
     if (
   ai &&
@@ -449,25 +455,35 @@ if (!/^\d{2}:\d{2}$/.test(time)) {
     }
 
     else if (session.state === "ASK_CODE") {
-      const { data } = await supabase
-        .from("appointments")
-        .select("*")
-        .eq("reservation_code", text)
-        .maybeSingle();
 
-      if (!data) {
-        reply = "No encontré una reserva con ese código.";
-      } else {
-        reply =
-          `📅 ${data.date}\n` +
-          `⏰ ${data.time}\n` +
-          `👥 ${data.people}`;
-      }
-    }
+  const { data } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("reservation_code", text)
+    .maybeSingle();
 
-    await sendReply(from, reply);
+  if (!data) {
+    reply = "No encontré una reserva con ese código.";
+  } else {
 
-    return new Response("EVENT_RECEIVED", { status: 200 });
+    // 🔥 guardar código para después modificar o nota
+    await setTemp(from, {
+      reservation_code: data.reservation_code,
+    });
+
+    reply =
+      `📅 ${data.date}\n` +
+      `⏰ ${data.time}\n` +
+      `👥 ${data.people}\n\n` +
+      getMenu();
+
+    // 🔥 CLAVE
+    await setState(from, "POST_RESERVATION_MENU");
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
   } catch (err) {
     console.error("❌ ERROR:", err);
