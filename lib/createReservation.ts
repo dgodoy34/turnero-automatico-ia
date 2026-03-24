@@ -2,6 +2,30 @@ import { supabase } from "./supabaseClient";
 import { generateReservationCode } from "./reservationCode";
 import { checkLicense } from "./licenses/checkLicense";
 
+function generateTimeSlots(
+  start = "12:00",
+  end = "23:30",
+  interval = 30
+) {
+  const slots: string[] = [];
+
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+
+  let current = new Date();
+  current.setHours(startH, startM, 0);
+
+  const endTime = new Date();
+  endTime.setHours(endH, endM, 0);
+
+  while (current <= endTime) {
+    slots.push(current.toTimeString().slice(0, 5));
+    current.setMinutes(current.getMinutes() + interval);
+  }
+
+  return slots;
+}
+
 type CreateReservationParams = {
   restaurant_id: string;
   dni: string;
@@ -183,12 +207,29 @@ export async function createReservation({
       assignedCapacity = availableTables.find((t) => t >= 6) || null;
     }
 
-    if (!assignedCapacity) {
-      return {
-        success: false,
-        message: "No hay mesas disponibles para ese horario.",
-      };
+   if (!assignedCapacity) {
+
+  // 🔥 generar horarios dinámicos (mediodía + noche)
+  const possibleTimes = generateTimeSlots("12:00", "23:30", 30);
+
+  let nextTime: string | null = null;
+
+  const currentIndex = possibleTimes.indexOf(start_time);
+
+  if (currentIndex !== -1) {
+    for (let i = currentIndex + 1; i < possibleTimes.length; i++) {
+      nextTime = possibleTimes[i];
+      break; // primer siguiente horario
     }
+  }
+
+  return {
+    success: false,
+    message: nextTime
+      ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible ${nextTime}\n¿Te sirve?`
+      : "No hay disponibilidad en ese horario.",
+  };
+}
 
     // =========================
     // 9️⃣ Control capacidad global
