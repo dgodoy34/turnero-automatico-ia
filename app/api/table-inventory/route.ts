@@ -1,153 +1,138 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { getRestaurantId } from "@/lib/getRestaurantId";
 
-export async function GET(req: Request){
-
-  try{
-
+// =========================
+// GET INVENTARIO
+// =========================
+export async function GET(req: Request) {
+  try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
 
-    // obtener restaurante
-    const { data: restaurant, error: restaurantError } = await supabase
-      .from("restaurants")
-      .select("id")
-      .limit(1)
-      .single();
+    // ✅ obtener restaurant correcto
+    const restaurant_id = await getRestaurantId(
+      process.env.WHATSAPP_PHONE_NUMBER_ID!
+    );
 
-    if(restaurantError || !restaurant){
-      return NextResponse.json({
-        success:false,
-        error:"Restaurante no encontrado"
-      },{ status:400 });
+    if (!restaurant_id) {
+      return NextResponse.json(
+        { success: false, error: "Restaurante no encontrado" },
+        { status: 400 }
+      );
     }
 
-    // inventario base
+    // 🔹 inventario base
     const { data: baseTables, error: baseError } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity,quantity")
-      .eq("restaurant_id", restaurant.id)
-      .order("capacity",{ ascending:true });
+      .eq("restaurant_id", restaurant_id)
+      .order("capacity", { ascending: true });
 
-    if(baseError){
+    if (baseError) {
       return NextResponse.json({
-        success:false,
-        error: baseError.message
+        success: false,
+        error: baseError.message,
       });
     }
 
-    // override del día
-    let override:any[] = [];
+    // 🔹 override del día
+    let override: any[] = [];
 
-    if(date){
-
-      const { data: overrideData, error: overrideError } = await supabase
+    if (date) {
+      const { data: overrideData } = await supabase
         .from("restaurant_daily_table_override")
         .select("capacity,quantity")
-        .eq("restaurant_id", restaurant.id)
+        .eq("restaurant_id", restaurant_id)
         .eq("date", date);
 
-      if(!overrideError && overrideData){
+      if (overrideData) {
         override = overrideData;
       }
-
     }
 
-    // aplicar override
-    const tables = (baseTables || []).map((t:any) => {
-
-      const o = override.find(x => x.capacity === t.capacity);
+    // 🔹 aplicar override
+    const tables = (baseTables || []).map((t: any) => {
+      const o = override.find((x) => x.capacity === t.capacity);
 
       return {
         capacity: t.capacity,
-        quantity: o ? o.quantity : t.quantity
+        quantity: o ? o.quantity : t.quantity,
       };
-
     });
 
     return NextResponse.json({
-      success:true,
-      tables
+      success: true,
+      tables,
     });
-
-  }catch(err:any){
-
+  } catch (err: any) {
     return NextResponse.json({
-      success:false,
-      error: err.message
+      success: false,
+      error: err.message,
     });
-
   }
-
 }
 
-
-
-export async function POST(req: Request){
-
-  try{
-
+// =========================
+// POST OVERRIDE
+// =========================
+export async function POST(req: Request) {
+  try {
     const body = await req.json();
     const { date, tables } = body;
 
-    if(!date){
+    if (!date) {
       return NextResponse.json({
-        success:false,
-        error:"Fecha requerida"
+        success: false,
+        error: "Fecha requerida",
       });
     }
 
-    // obtener restaurante
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("id")
-      .limit(1)
-      .single();
+    // ✅ obtener restaurant correcto
+    const restaurant_id = await getRestaurantId(
+      process.env.WHATSAPP_PHONE_NUMBER_ID!
+    );
 
-    if(!restaurant){
-      return NextResponse.json({
-        success:false,
-        error:"Restaurante no encontrado"
-      });
+    if (!restaurant_id) {
+      return NextResponse.json(
+        { success: false, error: "Restaurante no encontrado" },
+        { status: 400 }
+      );
     }
 
-    // borrar override previo
+    // 🔹 borrar override previo
     await supabase
       .from("restaurant_daily_table_override")
       .delete()
-      .eq("restaurant_id", restaurant.id)
+      .eq("restaurant_id", restaurant_id)
       .eq("date", date);
 
-    // insertar nuevo override
-    const rows = tables.map((t:any)=>({
-      restaurant_id: restaurant.id,
+    // 🔹 insertar nuevo override
+    const rows = tables.map((t: any) => ({
+      restaurant_id,
       date,
       capacity: t.capacity,
-      quantity: t.quantity
+      quantity: t.quantity,
     }));
 
     const { error } = await supabase
       .from("restaurant_daily_table_override")
       .insert(rows);
 
-    if(error){
+    if (error) {
       return NextResponse.json({
-        success:false,
-        error:error.message
+        success: false,
+        error: error.message,
       });
     }
 
     return NextResponse.json({
-      success:true
+      success: true,
     });
-
-  }catch(err:any){
-
+  } catch (err: any) {
     return NextResponse.json({
-      success:false,
-      error:err.message
+      success: false,
+      error: err.message,
     });
-
   }
-
 }
