@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DailyTableSetup from "@/components/DailyTableSetup";
 
 type Settings = {
 open_time: string
@@ -206,4 +207,20 @@ Configuración guardada
 )
 
 }
+
+{/* CONFIGURACIÓN POR DÍA */}
+
+<div className="bg-white rounded-xl shadow p-6 space-y-4">
+
+  <h2 className="font-semibold">
+    Configuración de mesas por día
+  </h2>
+
+  <p className="text-sm text-gray-500">
+    Podés ajustar la cantidad de mesas solo para una fecha específica.
+  </p>
+
+  <DailyTableSetup />
+
+</div>
 
