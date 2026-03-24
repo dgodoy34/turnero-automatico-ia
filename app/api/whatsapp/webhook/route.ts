@@ -361,26 +361,46 @@ else if (session.state === "MODIFY_RESERVATION") {
       await setState(from, "ASK_TIME");
     }
 
-    else if (session.state === "ASK_TIME") {
-    let time = text;
+else if (session.state === "ASK_TIME") {
 
-if (/^\d{1,2}$/.test(time)) {
-  time = `${time.padStart(2, "0")}:00`;
-}
+  // 👉 detectar si mandó fecha por error
+  if (text.includes("/") || text.includes("-")) {
 
-if (!/^\d{2}:\d{2}$/.test(time)) {
-  reply = "Hora inválida 😕 Ej: 21 o 21:00";
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
-      await setTemp(from, {
-        ...session.temp_data,
-        time,
-      });
+    const date = formatDateToISO(text);
 
-      reply = "👥 ¿Para cuántas personas?";
-      await setState(from, "ASK_PEOPLE");
+    await setTemp(from, {
+      ...session.temp_data,
+      date,
+    });
+
+    reply = "Perfecto 👍 ¿A qué hora?";
+    await setState(from, "ASK_TIME");
+
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 👉 normal (hora)
+  let time = text.trim();
+
+  if (!time.includes(":")) {
+    if (/^\d{1,2}$/.test(time)) {
+      time = `${time}:00`;
+    } else {
+      reply = "Hora inválida 😕 Ej: 21 o 21:00";
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
     }
+  }
+
+  await setTemp(from, {
+    ...session.temp_data,
+    time,
+  });
+
+  reply = "👥 ¿Para cuántas personas?";
+  await setState(from, "ASK_PEOPLE");
+}
 
     else if (session.state === "ASK_PEOPLE") {
       const people = parseInt(text);
