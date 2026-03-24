@@ -300,50 +300,168 @@ else if (session.state === "MODIFY_RESERVATION") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-    if (
-  ai &&
-  ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
-  (!session.state || ["INIT", "NEW_USER"].includes(session.state))
-) {
-      await setState(from, "INIT");
+// =========================
+// MODIFICAR HORA
+// =========================
+// =========================
+// MODIFICAR HORA (FIX REAL)
+// =========================
+else if (session.state === "MODIFY_TIME") {
 
-      if (ai.intent === "greeting") {
-        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-      }
+  let time = text.trim();
 
-      else if (ai.intent === "create_reservation") {
-        await setTemp(from, {
-          date: ai.date,
-          time: ai.time,
-          people: ai.people,
-        });
-
-        if (!ai.date) {
-          reply = "📅 ¿Para qué día querés la reserva?";
-          await setState(from, "ASK_DATE");
-        }
-        else if (!ai.time) {
-          reply = "⏰ ¿A qué hora?";
-          await setState(from, "ASK_TIME");
-        }
-        else if (!ai.people) {
-          reply = "👥 ¿Para cuántas personas?";
-          await setState(from, "ASK_PEOPLE");
-        }
-        else {
-          reply = "Perfecto 👍 Solo necesito tu DNI.";
-          await setState(from, "ASK_DNI");
-        }
-      }
-
-      else if (ai.intent === "consult_reservation") {
-        reply = "🔐 Pasame el código de reserva.";
-        await setState(from, "ASK_CODE");
-      }
-
+  // 👉 validar formato
+  if (!time.includes(":")) {
+    if (/^\d{1,2}$/.test(time)) {
+      time = `${time}:00`;
+    } else {
+      reply = "Hora inválida 😕 Ej: 21 o 21:00";
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
+  }
+
+  const code = session.temp_data?.reservation_code;
+
+  if (!code) {
+    reply = "No encontré la reserva 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
+      time,
+      start_time: `${time}:00`,
+    })
+    .eq("reservation_code", code);
+
+  if (error) {
+    console.error("❌ ERROR MODIFY TIME:", error);
+    reply = "Error al modificar la hora 😕";
+  } else {
+    reply =
+      "✅ Hora actualizada correctamente\n\n" +
+      getMenu();
+  }
+
+  await setState(from, "POST_RESERVATION_MENU");
+
+  await sendReply(from, reply);
+
+  // 🔥 ESTO TE FALTABA EN ALGÚN CAMINO
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// =========================
+// MODIFICAR DATE
+// =========================
+
+else if (session.state === "MODIFY_DATE") {
+
+  const date = formatDateToISO(text);
+  const code = session.temp_data?.reservation_code;
+
+  if (!code) {
+    reply = "No encontré la reserva 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({ date })
+    .eq("reservation_code", code);
+
+  if (error) {
+    console.error("❌ ERROR MODIFY DATE:", error);
+    reply = "Error al modificar la fecha 😕";
+  } else {
+    reply = "✅ Fecha actualizada\n\n" + getMenu();
+  }
+
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// =========================
+// MODIFICAR PEOPLE
+// =========================
+
+else if (session.state === "MODIFY_PEOPLE") {
+
+  const people = parseInt(text);
+  const code = session.temp_data?.reservation_code;
+
+  if (isNaN(people) || people <= 0) {
+    reply = "Cantidad inválida 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({ people })
+    .eq("reservation_code", code);
+
+  if (error) {
+    console.error("❌ ERROR MODIFY PEOPLE:", error);
+    reply = "Error al modificar 😕";
+  } else {
+    reply = "✅ Personas actualizadas\n\n" + getMenu();
+  }
+
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+if (
+  ai &&
+  ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
+  ["INIT", "NEW_USER"].includes(session.state)
+) {
+  await setState(from, "INIT");
+
+  if (ai.intent === "greeting") {
+    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+  }
+
+  else if (ai.intent === "create_reservation") {
+    await setTemp(from, {
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+    });
+
+    if (!ai.date) {
+      reply = "📅 ¿Para qué día querés la reserva?";
+      await setState(from, "ASK_DATE");
+    }
+    else if (!ai.time) {
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    }
+    else if (!ai.people) {
+      reply = "👥 ¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    }
+    else {
+      reply = "Perfecto 👍 Solo necesito tu DNI.";
+      await setState(from, "ASK_DNI");
+    }
+  }
+
+  else if (ai.intent === "consult_reservation") {
+    reply = "🔐 Pasame el código de reserva.";
+    await setState(from, "ASK_CODE");
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 }); // 🔥 ESTO ES CLAVE
+}
 
     // =====================================
 // 🔁 FLUJO NORMAL
@@ -539,7 +657,13 @@ else if (session.state === "ASK_CODE") {
 
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
-}} catch (err) {
+}
+
+// 🔥 FALLBACK FINAL (ACÁ VA)
+reply = "No entendí 😕";
+await sendReply(from, reply);
+return new Response("EVENT_RECEIVED", { status: 200 });
+  } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
   }}
