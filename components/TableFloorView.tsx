@@ -21,14 +21,46 @@ type TableType = {
   quantity: number
 }
 
+type Settings = {
+  open_time: string
+  close_time: string
+  slot_interval: number
+}
+
 type Props = {
   appointments?: Appointment[]
   date: string
 }
 
+// 🔥 GENERADOR DE HORARIOS DINÁMICOS
+function generateTimeSlots(open:string, close:string, interval:number){
+
+  const times:string[] = []
+
+  let [h,m] = open.split(":").map(Number)
+  const [ch,cm] = close.split(":").map(Number)
+
+  const start = new Date()
+  start.setHours(h,m,0,0)
+
+  const end = new Date()
+  end.setHours(ch,cm,0,0)
+
+  while(start <= end){
+    const hh = String(start.getHours()).padStart(2,"0")
+    const mm = String(start.getMinutes()).padStart(2,"0")
+    times.push(`${hh}:${mm}`)
+
+    start.setMinutes(start.getMinutes() + interval)
+  }
+
+  return times
+}
+
 export default function TableFloorView({appointments = [],date}:Props){
 
   const [tables,setTables] = useState<TableType[]>([])
+  const [hours,setHours] = useState<string[]>([])
 
   async function loadTables(){
 
@@ -36,18 +68,26 @@ export default function TableFloorView({appointments = [],date}:Props){
     const data = await res.json()
 
     setTables(data.tables || [])
+  }
 
+  async function loadSettings(){
+
+    const res = await fetch("/api/settings")
+    const data = await res.json()
+
+    const open = data?.settings?.open_time || "12:00"
+    const close = data?.settings?.close_time || "23:30"
+    const interval = data?.settings?.slot_interval || 30
+
+    const slots = generateTimeSlots(open, close, interval)
+
+    setHours(slots)
   }
 
   useEffect(()=>{
     loadTables()
+    loadSettings()
   },[date])
-
-  const hours = [
-    "18:00","18:30","19:00","19:30",
-    "20:00","20:30","21:00","21:30",
-    "22:00","22:30","23:00"
-  ]
 
   function reservationsAtHour(time:string){
 
@@ -114,7 +154,6 @@ let label = "🟢 Libre"
 if(reservation){
 
 const index = reservations.indexOf(reservation)
-
 usedReservations.push(index)
 
 if(reservation.status === "confirmed"){
@@ -131,16 +170,16 @@ label = "🔴 Ocupada"
 
 else{
 
-  const activeReservations = appointments.filter(a=>{
-    if(a.date !== date) return false
-    if(a.assigned_table_capacity !== t.capacity) return false
-    return isOccupied(h,a)
-  })
+const activeReservations = appointments.filter(a=>{
+if(a.date !== date) return false
+if(a.assigned_table_capacity !== t.capacity) return false
+return isOccupied(h,a)
+})
 
-  if(i < activeReservations.length){
-    color = "bg-gray-300 border border-gray-500"
-    label = "⚫ En uso"
-  }
+if(i < activeReservations.length){
+color = "bg-gray-300 border border-gray-500"
+label = "⚫ En uso"
+}
 
 }
 
@@ -188,4 +227,3 @@ Mesa {t.capacity === 6 ? "6+" : t.capacity}
 )
 
 }
-
