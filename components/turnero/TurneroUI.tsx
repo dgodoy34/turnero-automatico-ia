@@ -8,8 +8,6 @@ import type { Appointment, AppointmentStatus } from "@/types/Appointment";
 import { getDateISOInTimezone } from "@/lib/time";
 import RestaurantClock from "@/components/RestaurantClock";
 
-const timezone = "America/Argentina/Buenos_Aires";
-
 function statusColor(status: AppointmentStatus) {
   switch (status) {
     case "confirmed":
@@ -31,12 +29,12 @@ export default function TurneroUI() {
   const [searchCode,setSearchCode] = useState("");
 
   const [clientId,setClientId] = useState("");
-  const [date,setDate] = useState(getDateISOInTimezone(timezone));
+  const [date,setDate] = useState("");
   const [time,setTime] = useState("");
   const [people,setPeople] = useState(2);
   const [notes,setNotes] = useState("");
 
-  const [selectedDate,setSelectedDate] = useState(getDateISOInTimezone(timezone));
+  const [selectedDate,setSelectedDate] = useState("");
 
   async function loadAll(){
 
@@ -57,10 +55,14 @@ export default function TurneroUI() {
 const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-  fetch("/api/settings")
-    .then(res => res.json())
-    .then(data => setSettings(data.settings));
-}, []);
+  if (settings?.timezone) {
+    const today = getDateISOInTimezone(settings.timezone);
+    setDate(today);
+    setSelectedDate(today);
+  }
+}, [settings]);
+
+const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
   async function addAppointment(){
 
