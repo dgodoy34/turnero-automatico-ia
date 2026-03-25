@@ -210,25 +210,45 @@ export async function createReservation({
    if (!assignedCapacity) {
 
   // 🔥 generar horarios dinámicos (mediodía + noche)
-  const possibleTimes = generateTimeSlots("12:00", "23:30", 30);
+  // 🔥 traer configuración real
+const { data: settings } = await supabase
+  .from("settings")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .single();
 
-  let nextTime: string | null = null;
+// fallback
+const open_time = settings?.open_time || "12:00";
+const close_time = settings?.close_time || "23:30";
+const interval = settings?.slot_interval || 30;
 
-  const currentIndex = possibleTimes.indexOf(start_time);
+// 🔥 generar horarios dinámicos
+const possibleTimes = generateTimeSlots(
+  open_time,
+  close_time,
+  interval
+);
 
-  if (currentIndex !== -1) {
-    for (let i = currentIndex + 1; i < possibleTimes.length; i++) {
-      nextTime = possibleTimes[i];
-      break; // primer siguiente horario
-    }
+// 🔥 calcular siguiente horario
+let nextTime: string | null = null;
+
+const currentIndex = possibleTimes.indexOf(start_time);
+
+if (currentIndex !== -1) {
+  for (let i = currentIndex + 1; i < possibleTimes.length; i++) {
+    nextTime = possibleTimes[i];
+    break;
   }
+}
 
-  return {
-    success: false,
-    message: nextTime
-      ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible ${nextTime}\n¿Te sirve?`
-      : "No hay disponibilidad en ese horario.",
-  };
+// 🔥 RESPUESTA
+return {
+  success: false,
+  message: nextTime
+    ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible ${nextTime}\n¿Te sirve?`
+    : "No hay disponibilidad en ese horario.",
+};
+  
 }
 
     // =========================
