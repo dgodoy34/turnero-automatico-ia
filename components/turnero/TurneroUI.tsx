@@ -54,6 +54,14 @@ export default function TurneroUI() {
     loadAll();
   },[]);
 
+const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+  fetch("/api/settings")
+    .then(res => res.json())
+    .then(data => setSettings(data.settings));
+}, []);
+
   async function addAppointment(){
 
     const res = await fetch("/api/appointments",{
