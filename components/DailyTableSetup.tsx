@@ -7,7 +7,7 @@ type TableType = {
   quantity: number;
 };
 
-// 🔥 ACA ESTÁ LA CLAVE → RECIBE DATE
+// 🔥 RECIBE DATE DESDE AFUERA
 export default function DailyTableSetup({ date }: { date: string }) {
 
   const [tables,setTables] = useState<TableType[]>([]);
@@ -31,7 +31,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
   }
 
-  // 🔥 DEPENDE DE DATE (no de state interno)
+  // 🔥 REACCIONA AL CAMBIO DE FECHA
   useEffect(()=>{
     if(date){
       loadInventory();
@@ -62,8 +62,6 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
       const data = await res.json();
 
-      console.log("override response:",data);
-
       if(!res.ok || data.success === false){
         alert("Error guardando configuración");
         return;
@@ -90,8 +88,6 @@ export default function DailyTableSetup({ date }: { date: string }) {
       <h2 className="font-semibold">
         Configuración de mesas para el día
       </h2>
-
-      {/* 🔥 YA NO HAY INPUT DATE ACA */}
 
       <div className="space-y-3">
 

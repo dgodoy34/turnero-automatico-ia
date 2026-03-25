@@ -232,7 +232,12 @@ const possibleTimes = generateTimeSlots(
 // 🔥 calcular siguiente horario
 let nextTime: string | null = null;
 
-const currentIndex = possibleTimes.indexOf(start_time);
+// 🔥 normalizar hora (clave)
+const normalizedStart = start_time.includes(":")
+  ? start_time
+  : `${start_time}:00`;
+
+const currentIndex = possibleTimes.indexOf(normalizedStart);
 
 if (currentIndex !== -1) {
   for (let i = currentIndex + 1; i < possibleTimes.length; i++) {

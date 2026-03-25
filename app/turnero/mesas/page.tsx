@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import TableFloorView from "@/components/TableFloorView";
 import TableInventoryView from "@/components/TableInventoryView";
+import DailyTableSetup from "@/components/DailyTableSetup";
 import type { Appointment } from "@/types/Appointment";
 
-function todayISO(){
-  return new Date().toISOString().split("T")[0];
+// 🔥 FECHA LOCAL (ARGENTINA)
+function todayLocalISO(){
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60000);
+  return local.toISOString().split("T")[0];
 }
 
 export default function Mesas(){
 
   const [appointments,setAppointments] = useState<Appointment[]>([]);
-  const [date,setDate] = useState(todayISO());
+  const [date,setDate] = useState(todayLocalISO());
 
   async function load(){
     const res = await fetch("/api/appointments");
@@ -56,6 +61,9 @@ export default function Mesas(){
         appointments={appointments}
         date={date}
       />
+
+      {/* 🔥 CONFIGURACIÓN POR DÍA (UNIFICADA) */}
+      <DailyTableSetup date={date} />
 
     </div>
 
