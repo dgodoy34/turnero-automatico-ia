@@ -156,11 +156,9 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
 {/* HEADER */}
 
-<RestaurantClock timezone={timezone} />
-
-<button className="ml-2 text-gray-500 hover:text-black">
-  ⚙️
-</button>
+<div className="flex justify-end text-sm text-gray-600">
+  <RestaurantClock timezone={timezone} />
+</div>
 
 <div className="flex justify-between items-center">
 
