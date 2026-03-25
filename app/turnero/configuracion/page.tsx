@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import DailyTableSetup from "@/components/DailyTableSetup";
 
 type Settings = {
-  open_time: string;
-  close_time: string;
-  slot_interval: number;
-  reservation_duration: number;
-  buffer_time: number;
-};
+  open_time: string
+  close_time: string
+  slot_interval: number
+  reservation_duration: number
+  buffer_time: number
+  timezone?: string // 👈 AGREGAR ESTO
+}
 
 export default function Configuracion() {
 
@@ -154,6 +155,28 @@ export default function Configuracion() {
           </div>
 
         </div>
+
+        {/* ZONA HORARIA */}
+
+<div>
+
+  <label className="block text-sm font-semibold mb-1">
+    Zona horaria
+  </label>
+
+  <select
+    value={settings.timezone || "America/Argentina/Buenos_Aires"}
+    onChange={(e)=>updateField("timezone", e.target.value)}
+    className="border rounded p-2 w-full"
+  >
+    <option value="America/Argentina/Buenos_Aires">Argentina</option>
+    <option value="America/Santiago">Chile</option>
+    <option value="America/Sao_Paulo">Brasil</option>
+    <option value="America/Mexico_City">México</option>
+    <option value="Europe/Madrid">España</option>
+  </select>
+
+</div>
 
         {/* BOTON */}
         <div className="flex gap-4 items-center pt-4">

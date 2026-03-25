@@ -5,10 +5,10 @@ import CalendarView from "../../components/CalendarView";
 import CapacityTimeline from "@/components/ui/CapacityTimeline";
 import DayAgenda from "@/components/ui/DayAgenda";
 import type { Appointment, AppointmentStatus } from "@/types/Appointment";
+import { getDateISOInTimezone } from "@/lib/time";
+import RestaurantClock from "@/components/RestaurantClock";
 
-function todayISO() {
-  return new Date().toISOString().split("T")[0];
-}
+const timezone = "America/Argentina/Buenos_Aires";
 
 function statusColor(status: AppointmentStatus) {
   switch (status) {
@@ -31,12 +31,12 @@ export default function TurneroUI() {
   const [searchCode,setSearchCode] = useState("");
 
   const [clientId,setClientId] = useState("");
-  const [date,setDate] = useState(todayISO());
+  const [date,setDate] = useState(getDateISOInTimezone(timezone));
   const [time,setTime] = useState("");
   const [people,setPeople] = useState(2);
   const [notes,setNotes] = useState("");
 
-  const [selectedDate,setSelectedDate] = useState(todayISO());
+  const [selectedDate,setSelectedDate] = useState(getDateISOInTimezone(timezone));
 
   async function loadAll(){
 
@@ -131,7 +131,7 @@ export default function TurneroUI() {
 
   const upcoming = useMemo(()=>{
 
-    const today = todayISO();
+    const today = getDateISOInTimezone(timezone);
 
     return appointments
       .filter(a=>a.date >= today)
@@ -145,6 +145,12 @@ export default function TurneroUI() {
 <div className="min-h-screen bg-gray-50 text-gray-900 p-8 space-y-10">
 
 {/* HEADER */}
+
+<RestaurantClock timezone={timezone} />
+
+<button className="ml-2 text-gray-500 hover:text-black">
+  ⚙️
+</button>
 
 <div className="flex justify-between items-center">
 
