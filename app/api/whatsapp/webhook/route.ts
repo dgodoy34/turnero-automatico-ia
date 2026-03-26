@@ -80,6 +80,14 @@ if (phoneId === process.env.HOTEL_PHONE_ID) {
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
+    // 🏨 MODO TEST HOTEL
+const testText = message?.text?.body?.toLowerCase() || "";
+
+if (testText.includes("hotel")) {
+  await hotelFlow(body);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
     if (!message || message.type !== "text") {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
