@@ -1,4 +1,5 @@
 import { getSession, setState, setTemp } from "@/lib/conversation"
+import { createBooking } from "@/lib/hotel/createBooking"
 
 // =========================
 // 🧠 PARSEAR FECHAS
@@ -104,13 +105,28 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_CONFIRM") {
 
-      if (lower === "si" || lower === "sí") {
-        reply = "🏨 Reserva registrada (modo demo)"
-        await setState(from, "INIT")
-      } else {
-        reply = "Ok 👍 cancelado"
-        await setState(from, "INIT")
-      }
+      const temp = session.temp_data
+
+const result = await createBooking({
+  phone: from,
+  checkIn: temp.checkIn,
+  checkOut: temp.checkOut,
+  guests: temp.guests,
+  roomType: temp.room
+})
+
+if (!result.success) {
+  reply = "❌ Error al guardar la reserva"
+} else {
+  reply =
+    `🏨 *Reserva confirmada*\n\n` +
+    `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
+    `👥 ${temp.guests}\n` +
+    `🛏️ ${temp.room}\n\n` +
+    `ID: ${result.booking.id}`
+}
+
+await setState(from, "INIT")
     }
 
     // =========================
@@ -126,7 +142,7 @@ export async function hotelFlow(body: any) {
   } catch (error) {
     console.error("❌ hotelFlow error:", error)
   }
-}
+  }
 
 
 // =========================
