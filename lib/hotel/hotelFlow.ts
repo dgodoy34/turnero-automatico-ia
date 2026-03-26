@@ -6,15 +6,22 @@ import { checkAvailability } from "@/lib/hotel/checkAvailability"
 // 🧠 PARSEAR FECHAS
 // =========================
 function parseDateRange(input: string) {
-  const match = input.match(/(\d{1,2}\/\d{1,2}).*(\d{1,2}\/\d{1,2})/)
+  const clean = input.toLowerCase().trim()
+
+  const match = clean.match(
+    /(\d{1,2}\/\d{1,2})\s*(al|-|a)\s*(\d{1,2}\/\d{1,2})/
+  )
+
+  console.log("PARSED:", match)
 
   if (!match) return null
 
   return {
     checkIn: match[1],
-    checkOut: match[2]
+    checkOut: match[3]
   }
 }
+
 
 export async function hotelFlow(body: any) {
   try {
