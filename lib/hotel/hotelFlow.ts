@@ -1,5 +1,19 @@
 import { getSession, setState, setTemp } from "@/lib/conversation"
 
+// =========================
+// 🧠 PARSEAR FECHAS
+// =========================
+function parseDateRange(input: string) {
+  const match = input.match(/(\d{1,2}\/\d{1,2}).*(\d{1,2}\/\d{1,2})/)
+
+  if (!match) return null
+
+  return {
+    checkIn: match[1],
+    checkOut: match[2]
+  }
+}
+
 export async function hotelFlow(body: any) {
   try {
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
@@ -28,9 +42,18 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_ASK_DATES") {
 
+      const parsed = parseDateRange(text)
+
+      if (!parsed) {
+        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
+        await sendReply(body, from, reply)
+        return
+      }
+
       await setTemp(from, {
         ...session.temp_data,
-        dates: text
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut
       })
 
       reply = "👥 ¿Cuántas personas?"
@@ -61,13 +84,16 @@ export async function hotelFlow(body: any) {
         room: text
       })
 
-      const temp = session.temp_data
+      const temp = {
+        ...session.temp_data,
+        room: text
+      }
 
       reply =
         `Confirmo:\n` +
-        `📅 ${temp.dates}\n` +
+        `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
         `👥 ${temp.guests}\n` +
-        `🛏️ ${text}\n\n` +
+        `🛏️ ${temp.room}\n\n` +
         `¿Confirmás? (si/no)`
 
       await setState(from, "HOTEL_CONFIRM")
@@ -103,7 +129,9 @@ export async function hotelFlow(body: any) {
 }
 
 
-// 🔌 enviar mensaje dinámico (IMPORTANTE)
+// =========================
+// 📤 ENVIAR MENSAJE
+// =========================
 async function sendReply(body: any, to: string, reply: string) {
 
   const phoneId =
