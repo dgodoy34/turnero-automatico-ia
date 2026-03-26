@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { generateTimeSlots } from "@/lib/generateTimeSlots";
 
 type Appointment = {
   id: number
@@ -32,30 +33,6 @@ type Props = {
   date: string
 }
 
-// 🔥 GENERADOR DE HORARIOS DINÁMICOS
-function generateTimeSlots(open:string, close:string, interval:number){
-
-  const times:string[] = []
-
-  let [h,m] = open.split(":").map(Number)
-  const [ch,cm] = close.split(":").map(Number)
-
-  const start = new Date()
-  start.setHours(h,m,0,0)
-
-  const end = new Date()
-  end.setHours(ch,cm,0,0)
-
-  while(start <= end){
-    const hh = String(start.getHours()).padStart(2,"0")
-    const mm = String(start.getMinutes()).padStart(2,"0")
-    times.push(`${hh}:${mm}`)
-
-    start.setMinutes(start.getMinutes() + interval)
-  }
-
-  return times
-}
 
 export default function TableFloorView({appointments = [],date}:Props){
 
@@ -79,15 +56,22 @@ export default function TableFloorView({appointments = [],date}:Props){
     const close = data?.settings?.close_time || "23:30"
     const interval = data?.settings?.slot_interval || 30
 
-    const slots = generateTimeSlots(open, close, interval)
+    const slots = generateTimeSlots({
+  open_time: open,
+  close_time: close,
+  slot_interval: interval
+});
 
     setHours(slots)
   }
 
-  useEffect(()=>{
-    loadTables()
-    loadSettings()
-  },[date])
+ useEffect(()=>{
+  loadTables()
+},[date])
+
+useEffect(()=>{
+  loadSettings()
+},[])
 
   function reservationsAtHour(time:string){
 
