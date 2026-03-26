@@ -1,5 +1,6 @@
 import { getSession, setState, setTemp } from "@/lib/conversation"
 import { createBooking } from "@/lib/hotel/createBooking"
+import { checkAvailability } from "@/lib/hotel/checkAvailability"
 
 // =========================
 // 🧠 PARSEAR FECHAS
@@ -105,30 +106,43 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_CONFIRM") {
 
-      const temp = session.temp_data
+  const temp = session.temp_data
 
-const result = await createBooking({
-  phone: from,
-  checkIn: temp.checkIn,
-  checkOut: temp.checkOut,
-  guests: temp.guests,
-  roomType: temp.room
-})
+  // 🔥 VALIDAR DISPONIBILIDAD ANTES
+  const availability = await checkAvailability({
+    checkIn: temp.checkIn,
+    checkOut: temp.checkOut,
+    roomType: temp.room
+  })
 
-if (!result.success) {
-  reply = "❌ Error al guardar la reserva"
-} else {
-  reply =
-    `🏨 *Reserva confirmada*\n\n` +
-    `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
-    `👥 ${temp.guests}\n` +
-    `🛏️ ${temp.room}\n\n` +
-    `ID: ${result.booking.id}`
+  if (availability.available <= 0) {
+    reply = "❌ No hay disponibilidad para esas fechas"
+    await sendReply(body, from, reply)
+    return
+  }
+
+  // 🔥 SI HAY DISPONIBILIDAD → CREA
+  const result = await createBooking({
+    phone: from,
+    checkIn: temp.checkIn,
+    checkOut: temp.checkOut,
+    guests: temp.guests,
+    roomType: temp.room
+  })
+
+  if (!result.success) {
+    reply = "❌ Error al guardar la reserva"
+  } else {
+    reply =
+      `🏨 *Reserva confirmada*\n\n` +
+      `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
+      `👥 ${temp.guests}\n` +
+      `🛏️ ${temp.room}\n\n` +
+      `ID: ${result.booking.id}`
+  }
+
+  await setState(from, "INIT")
 }
-
-await setState(from, "INIT")
-    }
-
     // =========================
     // DEFAULT
     // =========================
