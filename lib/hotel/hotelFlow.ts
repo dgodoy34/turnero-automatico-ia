@@ -5,14 +5,26 @@ import { checkAvailability } from "@/lib/hotel/checkAvailability"
 // =========================
 // 🧠 PARSEAR FECHAS
 // =========================
+
+
 function parseDateRange(input: string) {
-  const clean = input.toLowerCase().trim()
+console.log("RAW:", input)
 
+  if (!input) return null
+
+  // 🔥 limpiar texto (clave)
+  const clean = input
+    .toLowerCase()
+    .replace(/\s+/g, " ")   // espacios múltiples → uno
+    .replace(/–|—/g, "-")   // guiones raros
+    .trim()
+
+  console.log("INPUT LIMPIO:", clean)
+
+  // 🔥 regex mejorada
   const match = clean.match(
-    /(\d{1,2}\/\d{1,2})\s*(al|-|a)\s*(\d{1,2}\/\d{1,2})/
+    /(\d{1,2}\/\d{1,2})\s*(al|a|-)\s*(\d{1,2}\/\d{1,2})/
   )
-
-  console.log("PARSED:", match)
 
   if (!match) return null
 
@@ -21,7 +33,6 @@ function parseDateRange(input: string) {
     checkOut: match[3]
   }
 }
-
 
 export async function hotelFlow(body: any) {
   try {
