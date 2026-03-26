@@ -5,49 +5,45 @@ import { supabase } from "@/lib/supabaseClient"
 // GET LICENSES
 // =========================
 
-export async function GET(req:Request){
+export async function GET(req: Request) {
 
-const { searchParams } = new URL(req.url)
-const restaurant_id = searchParams.get("id")
+  const { searchParams } = new URL(req.url)
+  const restaurant_id = searchParams.get("id")
 
-let query = supabase
-.from("restaurant_licenses")
-.select(`
-id,
-status,
-expires_at,
-restaurants(name),
-subscription_plans(
-name,
-max_users,
-max_reservations,
-price
-)
-`)
-.order("expires_at",{ ascending:false })
+  let query = supabase
+    .from("restaurant_licenses")
+    .select(`
+      id,
+      status,
+      expires_at,
+      restaurants(name),
+      subscription_plans(
+        name,
+        max_users,
+        max_reservations,
+        price
+      )
+    `)
+    .order("expires_at", { ascending: false })
 
-if(!restaurant_id){
+  // 🔥 SOLO FILTRA SI VIENE ID
+  if (restaurant_id) {
+    query = query.eq("restaurant_id", restaurant_id)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message
+    })
+  }
+
   return NextResponse.json({
-    success:false,
-    error:"restaurant_id requerido"
+    success: true,
+    licenses: data
   })
-}
-
-query = query.eq("restaurant_id",restaurant_id)
-const { data, error } = await query
-
-if(error){
-return NextResponse.json({
-success:false,
-error:error.message
-})
-}
-
-return NextResponse.json({
-success:true,
-licenses:data
-})
-
 }
 
 
