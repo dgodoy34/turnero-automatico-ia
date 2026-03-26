@@ -34,7 +34,9 @@ export async function hotelFlow(body: any) {
 // 🔌 enviar mensaje
 async function sendReply(to: string, reply: string) {
   await fetch(
-    `https://graph.facebook.com/v21.0/${process.env.HOTEL_PHONE_ID}/messages`,
+    //`https://graph.facebook.com/v21.0/${process.env.HOTEL_PHONE_ID}/messages`,
+    `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    
     {
       method: "POST",
       headers: {
