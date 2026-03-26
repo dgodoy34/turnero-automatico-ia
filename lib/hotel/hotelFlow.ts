@@ -8,29 +8,24 @@ import { checkAvailability } from "@/lib/hotel/checkAvailability"
 
 
 function parseDateRange(input: string) {
-console.log("RAW:", input)
-
   if (!input) return null
 
-  // 🔥 limpiar texto (clave)
   const clean = input
     .toLowerCase()
-    .replace(/\s+/g, " ")   // espacios múltiples → uno
-    .replace(/–|—/g, "-")   // guiones raros
+    .replace(/\u00A0/g, " ") // 🔥 elimina espacios invisibles
+    .replace(/\s+/g, " ")
     .trim()
 
-  console.log("INPUT LIMPIO:", clean)
+  const parts = clean.split(" ")
 
-  // 🔥 regex mejorada
-  const match = clean.match(
-    /(\d{1,2}\/\d{1,2})\s*(al|a|-)\s*(\d{1,2}\/\d{1,2})/
-  )
+  // buscar fechas manualmente
+  const dates = parts.filter(p => p.includes("/"))
 
-  if (!match) return null
+  if (dates.length < 2) return null
 
   return {
-    checkIn: match[1],
-    checkOut: match[3]
+    checkIn: dates[0],
+    checkOut: dates[1]
   }
 }
 
