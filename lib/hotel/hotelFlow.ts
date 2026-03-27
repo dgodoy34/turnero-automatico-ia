@@ -2,28 +2,37 @@ import { getSession, setState, setTemp } from "@/lib/conversation"
 import { createBooking } from "@/lib/hotel/createBooking"
 import { checkAvailability } from "@/lib/hotel/checkAvailability"
 
+
+
 // =========================
 // 🧠 PARSEAR FECHAS
 // =========================
-function parseDateRange(input: string) {
-  if (!input) return null
 
-  const clean = input
+  function parseDateRange(text: string) {
+  const clean = text
     .toLowerCase()
-    .replace(/\u00A0/g, " ")
+    .replace("desde", "")
+    .replace("hasta", "")
+    .replace(/\s+/g, " ")
     .trim()
 
-  // 🔥 buscar TODAS las fechas dentro del texto
-  const matches = clean.match(/\d{1,2}\/\d{1,2}/g)
+  const match = clean.match(/(\d{1,2}\/\d{1,2})\s*(al|-|a)\s*(\d{1,2}\/\d{1,2})/)
 
-  if (!matches || matches.length < 2) return null
+  if (!match) return null
+
+  const today = new Date()
+  const year = today.getFullYear()
+
+  const [_, start, __, end] = match
+
+  const [d1, m1] = start.split("/")
+  const [d2, m2] = end.split("/")
 
   return {
-    checkIn: matches[0],
-    checkOut: matches[1]
+    checkIn: `${year}-${m1.padStart(2, "0")}-${d1.padStart(2, "0")}`,
+    checkOut: `${year}-${m2.padStart(2, "0")}-${d2.padStart(2, "0")}`
   }
 }
-
 // =========================
 // 🏨 HOTEL FLOW
 // =========================
