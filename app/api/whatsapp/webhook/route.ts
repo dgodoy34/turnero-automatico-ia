@@ -73,10 +73,10 @@ const phoneId =
   body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
 
 // 👉 SI ES HOTEL → SALE POR ACÁ
-if (phoneId === process.env.HOTEL_PHONE_ID) {
-  await hotelFlow(body)
-  return new Response("EVENT_RECEIVED", { status: 200 })
-}
+//if (phoneId === process.env.HOTEL_PHONE_ID) {
+  //await hotelFlow(body)
+  //return new Response("EVENT_RECEIVED", { status: 200 })
+//}
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
