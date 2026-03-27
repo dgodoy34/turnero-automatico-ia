@@ -672,6 +672,8 @@ else if (session.state === "ASK_CODE") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+
+return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
