@@ -79,7 +79,6 @@ if (phoneId === process.env.HOTEL_PHONE_ID) {
 }
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    
 
     if (!message || message.type !== "text") {
       return new Response("EVENT_RECEIVED", { status: 200 });
@@ -672,7 +671,9 @@ else if (session.state === "ASK_CODE") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-
+// 🔥 FALLBACK FINAL (ACÁ VA)
+reply = "No entendí 😕";
+await sendReply(from, reply);
 return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
