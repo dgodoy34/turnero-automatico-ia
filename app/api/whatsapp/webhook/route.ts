@@ -68,43 +68,18 @@ async function sendReply(to: string, reply: string) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
+    const body = await req.json();
+const phoneId =
+  body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
 
-    const phoneId =
-      body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
-
-    // =========================
-    // 🏨 HOTEL FLOW
-    // =========================
-    if (phoneId === process.env.HOTEL_PHONE_ID) {
-
-      const messages =
-        body?.entry?.[0]?.changes?.[0]?.value?.messages || []
-
-      if (messages.length === 0) {
-        return new Response("EVENT_RECEIVED", { status: 200 })
-      }
-
-      for (const msg of messages) {
-
-        if (!msg || msg.type !== "text") continue
-
-        console.log("🏨 HOTEL MSG:", msg.text?.body)
-
-        await hotelFlow({
-          ...body,
-          currentMessage: msg
-        })
-      }
-
-      return new Response("EVENT_RECEIVED", { status: 200 })
-    }
-
-    // =========================
-    // 🍽️ RESTAURANT (NO TOCAR)
-    // =========================
+// 👉 SI ES HOTEL → SALE POR ACÁ
+if (phoneId === process.env.HOTEL_PHONE_ID) {
+  await hotelFlow(body)
+  return new Response("EVENT_RECEIVED", { status: 200 })
+}
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    
 
     if (!message || message.type !== "text") {
       return new Response("EVENT_RECEIVED", { status: 200 });
@@ -117,32 +92,36 @@ export async function POST(req: Request) {
     const session = await getSession(from);
 
     const { data: restaurant, error: restaurantError } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
-      .single();
+  .from("restaurants")
+  .select("id")
+  .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
+  .single();
 
-    if (!restaurant || restaurantError) {
-      console.error("❌ Restaurante no encontrado", restaurantError);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+// 🔴 VALIDAR PRIMERO
+if (!restaurant || restaurantError) {
+  console.error("❌ Restaurante no encontrado", restaurantError);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-    await supabase
-      .from("conversation_state")
-      .update({ restaurant_id: restaurant.id })
-      .eq("phone", from);
+// ✅ RECIÉN ACÁ LO USÁS
+await supabase
+  .from("conversation_state")
+  .update({ restaurant_id: restaurant.id })
+  .eq("phone", from);
 
     let reply = "No entendí 🤔";
 
-    // 👇 ACÁ SIGUE TODO TU CÓDIGO ORIGINAL
-    // NO TOCAR NADA DE LO QUE YA TENÍAS
+    // =====================================
+// 🤖 IA SOLO EN ESTADOS INICIALES
+// =====================================
+let ai: any = null;
 
-    return new Response("EVENT_RECEIVED", { status: 200 });
-
-  } catch (err) {
-    console.error("❌ ERROR GENERAL:", err);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
+try {
+  ai = await interpretMessage(text);
+  console.log("AI:", ai);
+  console.log("STATE:", session.state);
+} catch {
+  console.error("IA error");
 }
 
     
@@ -693,10 +672,6 @@ else if (session.state === "ASK_CODE") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-// 🔥 FALLBACK FINAL (ACÁ VA)
-reply = "No entendí 😕";
-await sendReply(from, reply);
-return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
