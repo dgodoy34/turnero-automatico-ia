@@ -5,21 +5,16 @@ import { checkAvailability } from "@/lib/hotel/checkAvailability"
 // =========================
 // 🧠 PARSEAR FECHAS
 // =========================
-
-
 function parseDateRange(input: string) {
   if (!input) return null
 
   const clean = input
     .toLowerCase()
-    .replace(/\u00A0/g, " ") // 🔥 elimina espacios invisibles
+    .replace(/\u00A0/g, " ")
     .replace(/\s+/g, " ")
     .trim()
 
-  const parts = clean.split(" ")
-
-  // buscar fechas manualmente
-  const dates = parts.filter(p => p.includes("/"))
+  const dates = clean.split(" ").filter(p => p.includes("/"))
 
   if (dates.length < 2) return null
 
@@ -29,6 +24,9 @@ function parseDateRange(input: string) {
   }
 }
 
+// =========================
+// 🏨 HOTEL FLOW
+// =========================
 export async function hotelFlow(body: any) {
   try {
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
@@ -57,27 +55,35 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_ASK_DATES") {
 
-  console.log("RAW:", text)
+      console.log("RAW:", text)
 
-  const parsed = parseDateRange(text)
+      // 🔥 ignorar trigger inicial
+      if (lower === "hotel" || lower.includes("hola")) {
+        reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  console.log("PARSED:", parsed)
+      const parsed = parseDateRange(text)
 
-  if (!parsed) {
-    reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
-    await sendReply(body, from, reply)
-    return
-  }
+      console.log("PARSED:", parsed)
 
-  await setTemp(from, {
-    ...session.temp_data,
-    checkIn: parsed.checkIn,
-    checkOut: parsed.checkOut
-  })
+      if (!parsed) {
+        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  reply = "👥 ¿Cuántas personas?"
-  await setState(from, "HOTEL_ASK_GUESTS")
-}
+      await setTemp(from, {
+        ...session.temp_data,
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut
+      })
+
+      reply = "👥 ¿Cuántas personas?"
+      await setState(from, "HOTEL_ASK_GUESTS")
+    }
+
     // =========================
     // PERSONAS
     // =========================
@@ -122,43 +128,44 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_CONFIRM") {
 
-  const temp = session.temp_data
+      const temp = session.temp_data
 
-  // 🔥 VALIDAR DISPONIBILIDAD ANTES
-  const availability = await checkAvailability({
-    checkIn: temp.checkIn,
-    checkOut: temp.checkOut,
-    roomType: temp.room
-  })
+      // 🔥 validar disponibilidad
+      const availability = await checkAvailability({
+        checkIn: temp.checkIn,
+        checkOut: temp.checkOut,
+        roomType: temp.room
+      })
 
-  if (availability.available <= 0) {
-    reply = "❌ No hay disponibilidad para esas fechas"
-    await sendReply(body, from, reply)
-    return
-  }
+      if (availability.available <= 0) {
+        reply = "❌ No hay disponibilidad para esas fechas"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  // 🔥 SI HAY DISPONIBILIDAD → CREA
-  const result = await createBooking({
-    phone: from,
-    checkIn: temp.checkIn,
-    checkOut: temp.checkOut,
-    guests: temp.guests,
-    roomType: temp.room
-  })
+      // 🔥 crear booking
+      const result = await createBooking({
+        phone: from,
+        checkIn: temp.checkIn,
+        checkOut: temp.checkOut,
+        guests: temp.guests,
+        roomType: temp.room
+      })
 
-  if (!result.success) {
-    reply = "❌ Error al guardar la reserva"
-  } else {
-    reply =
-      `🏨 *Reserva confirmada*\n\n` +
-      `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
-      `👥 ${temp.guests}\n` +
-      `🛏️ ${temp.room}\n\n` +
-      `ID: ${result.booking.id}`
-  }
+      if (!result.success) {
+        reply = "❌ Error al guardar la reserva"
+      } else {
+        reply =
+          `🏨 *Reserva confirmada*\n\n` +
+          `📅 ${temp.checkIn} → ${temp.checkOut}\n` +
+          `👥 ${temp.guests}\n` +
+          `🛏️ ${temp.room}\n\n` +
+          `ID: ${result.booking.id}`
+      }
 
-  await setState(from, "INIT")
-}
+      await setState(from, "INIT")
+    }
+
     // =========================
     // DEFAULT
     // =========================
@@ -172,8 +179,7 @@ export async function hotelFlow(body: any) {
   } catch (error) {
     console.error("❌ hotelFlow error:", error)
   }
-  }
-
+}
 
 // =========================
 // 📤 ENVIAR MENSAJE
