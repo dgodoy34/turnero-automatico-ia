@@ -57,24 +57,27 @@ export async function hotelFlow(body: any) {
     // =========================
     else if (session.state === "HOTEL_ASK_DATES") {
 
-      const parsed = parseDateRange(text)
+  console.log("RAW:", text)
 
-      if (!parsed) {
-        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
-        await sendReply(body, from, reply)
-        return
-      }
+  const parsed = parseDateRange(text)
 
-      await setTemp(from, {
-        ...session.temp_data,
-        checkIn: parsed.checkIn,
-        checkOut: parsed.checkOut
-      })
+  console.log("PARSED:", parsed)
 
-      reply = "👥 ¿Cuántas personas?"
-      await setState(from, "HOTEL_ASK_GUESTS")
-    }
+  if (!parsed) {
+    reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
+    await sendReply(body, from, reply)
+    return
+  }
 
+  await setTemp(from, {
+    ...session.temp_data,
+    checkIn: parsed.checkIn,
+    checkOut: parsed.checkOut
+  })
+
+  reply = "👥 ¿Cuántas personas?"
+  await setState(from, "HOTEL_ASK_GUESTS")
+}
     // =========================
     // PERSONAS
     // =========================
