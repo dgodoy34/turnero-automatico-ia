@@ -29,7 +29,7 @@ function parseDateRange(input: string) {
 // =========================
 export async function hotelFlow(body: any) {
   try {
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
+    const message = body.currentMessage
     if (!message || message.type !== "text") return
 
     const from = message.from

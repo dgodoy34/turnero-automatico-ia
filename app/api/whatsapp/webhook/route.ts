@@ -79,13 +79,27 @@ if (phoneId === process.env.HOTEL_PHONE_ID) {
 }
 
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const messages: any[] =
+  body?.entry?.[0]?.changes?.[0]?.value?.messages || []
 
-    // 🏨 MODO TEST HOTEL
-const testText = message?.text?.body?.toLowerCase() || "";
+if (messages.length === 0) {
+  return new Response("EVENT_RECEIVED", { status: 200 })
+}
 
-if (testText.includes("hotel")) {
-  await hotelFlow(body);
-  return new Response("EVENT_RECEIVED", { status: 200 });
+for (const msg of messages) {
+
+  if (!msg || msg.type !== "text") continue
+
+  const text = msg.text?.body || ""
+  console.log("📩 MENSAJE:", text)
+
+  // 👇 SOLO PARA HOTEL (NO TOCA RESTAURANT)
+  if (text.toLowerCase().includes("hotel")) {
+    await hotelFlow({
+      ...body,
+      currentMessage: msg
+    })
+  }
 }
 
     if (!message || message.type !== "text") {
