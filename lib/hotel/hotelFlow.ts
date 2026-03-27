@@ -11,16 +11,16 @@ function parseDateRange(input: string) {
   const clean = input
     .toLowerCase()
     .replace(/\u00A0/g, " ")
-    .replace(/\s+/g, " ")
     .trim()
 
-  const dates = clean.split(" ").filter(p => p.includes("/"))
+  // 🔥 buscar TODAS las fechas dentro del texto
+  const matches = clean.match(/\d{1,2}\/\d{1,2}/g)
 
-  if (dates.length < 2) return null
+  if (!matches || matches.length < 2) return null
 
   return {
-    checkIn: dates[0],
-    checkOut: dates[1]
+    checkIn: matches[0],
+    checkOut: matches[1]
   }
 }
 
