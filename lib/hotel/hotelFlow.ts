@@ -53,37 +53,30 @@ export async function hotelFlow(body: any) {
     // =========================
     // FECHAS
     // =========================
-    else if (session.state === "HOTEL_ASK_DATES") {
+   else if (session.state === "HOTEL_ASK_DATES") {
 
-      console.log("RAW:", text)
+  console.log("RAW:", text)
 
-      // 🔥 ignorar trigger inicial
-      if (lower === "hotel" || lower.includes("hola")) {
-        reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
-        await sendReply(body, from, reply)
-        return
-      }
+  const parsed = parseDateRange(text)
 
-      const parsed = parseDateRange(text)
+  console.log("PARSED:", parsed)
 
-      console.log("PARSED:", parsed)
+  // 🔥 SI NO HAY FECHAS → NO ROMPAS, SOLO VOLVÉ A PEDIR
+  if (!parsed) {
+    reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
+    await sendReply(body, from, reply)
+    return
+  }
 
-      if (!parsed) {
-        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
-        await sendReply(body, from, reply)
-        return
-      }
+  await setTemp(from, {
+    ...session.temp_data,
+    checkIn: parsed.checkIn,
+    checkOut: parsed.checkOut
+  })
 
-      await setTemp(from, {
-        ...session.temp_data,
-        checkIn: parsed.checkIn,
-        checkOut: parsed.checkOut
-      })
-
-      reply = "👥 ¿Cuántas personas?"
-      await setState(from, "HOTEL_ASK_GUESTS")
-    }
-
+  reply = "👥 ¿Cuántas personas?"
+  await setState(from, "HOTEL_ASK_GUESTS")
+}
     // =========================
     // PERSONAS
     // =========================
