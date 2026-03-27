@@ -2,43 +2,64 @@ import { getSession, setState, setTemp } from "@/lib/conversation"
 import { createBooking } from "@/lib/hotel/createBooking"
 import { checkAvailability } from "@/lib/hotel/checkAvailability"
 
-
-
 // =========================
-// 🧠 PARSEAR FECHAS
+// 🧠 PARSE FECHAS ROBUSTO
 // =========================
-
-  function parseDateRange(text: string) {
+function parseDateRange(text: string) {
   const clean = text
     .toLowerCase()
-    .replace("desde", "")
-    .replace("hasta", "")
+    .replace(/desde|del/g, "")
+    .replace(/hasta|al/g, "a")
     .replace(/\s+/g, " ")
     .trim()
 
-  const match = clean.match(/(\d{1,2}\/\d{1,2})\s*(al|-|a)\s*(\d{1,2}\/\d{1,2})/)
+  const regex = /(\d{1,2})\/(\d{1,2})\s*a\s*(\d{1,2})\/(\d{1,2})/
+  const match = clean.match(regex)
 
   if (!match) return null
 
   const today = new Date()
   const year = today.getFullYear()
 
-  const [_, start, __, end] = match
+  const checkIn = `${year}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`
+  const checkOut = `${year}-${match[4].padStart(2, "0")}-${match[3].padStart(2, "0")}`
 
-  const [d1, m1] = start.split("/")
-  const [d2, m2] = end.split("/")
-
-  return {
-    checkIn: `${year}-${m1.padStart(2, "0")}-${d1.padStart(2, "0")}`,
-    checkOut: `${year}-${m2.padStart(2, "0")}-${d2.padStart(2, "0")}`
-  }
+  return { checkIn, checkOut }
 }
+
+// =========================
+// 📤 RESPUESTA
+// =========================
+async function sendReply(body: any, to: string, reply: string) {
+  const phoneId =
+    body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
+
+  await fetch(
+    `https://graph.facebook.com/v21.0/${phoneId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body: reply },
+      }),
+    }
+  )
+}
+
 // =========================
 // 🏨 HOTEL FLOW
 // =========================
 export async function hotelFlow(body: any) {
   try {
-    const message = body.currentMessage
+    const message =
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
+
     if (!message || message.type !== "text") return
 
     const from = message.from
@@ -50,11 +71,12 @@ export async function hotelFlow(body: any) {
     let reply = ""
 
     console.log("🏨 HOTEL STATE:", session.state)
+    console.log("RAW:", text)
 
     // =========================
     // INICIO
     // =========================
-    if (session.state === "INIT") {
+    if (session.state === "HOTEL_INIT") {
       reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
       await setState(from, "HOTEL_ASK_DATES")
     }
@@ -62,41 +84,53 @@ export async function hotelFlow(body: any) {
     // =========================
     // FECHAS
     // =========================
-   else if (session.state === "HOTEL_ASK_DATES") {
+    else if (session.state === "HOTEL_ASK_DATES") {
 
-  console.log("RAW:", text)
+      if (lower.includes("hotel") || lower.includes("hola")) {
+        reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  const parsed = parseDateRange(text)
+      const parsed = parseDateRange(text)
 
-  console.log("PARSED:", parsed)
+      console.log("PARSED:", parsed)
 
-  // 🔥 SI NO HAY FECHAS → NO ROMPAS, SOLO VOLVÉ A PEDIR
-  if (!parsed) {
-    reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
-    await sendReply(body, from, reply)
-    return
-  }
+      if (!parsed) {
+        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  await setTemp(from, {
-    ...session.temp_data,
-    checkIn: parsed.checkIn,
-    checkOut: parsed.checkOut
-  })
+      await setTemp(from, {
+        ...session.temp_data,
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut
+      })
 
-  reply = "👥 ¿Cuántas personas?"
-  await setState(from, "HOTEL_ASK_GUESTS")
-}
+      reply = "👥 ¿Cuántas personas?"
+      await setState(from, "HOTEL_ASK_GUESTS")
+    }
+
     // =========================
     // PERSONAS
     // =========================
     else if (session.state === "HOTEL_ASK_GUESTS") {
 
+      const guests = parseInt(text)
+
+      if (isNaN(guests) || guests <= 0) {
+        reply = "Cantidad inválida 😕"
+        await sendReply(body, from, reply)
+        return
+      }
+
       await setTemp(from, {
         ...session.temp_data,
-        guests: text
+        guests
       })
 
-      reply = "🛏️ ¿Tipo de habitación? (single / doble / suite)"
+      reply = "🛏️ Tipo de habitación (single / doble / suite)"
       await setState(from, "HOTEL_ASK_ROOM")
     }
 
@@ -132,7 +166,13 @@ export async function hotelFlow(body: any) {
 
       const temp = session.temp_data
 
-      // 🔥 validar disponibilidad
+      if (lower !== "si" && lower !== "sí") {
+        reply = "Cancelado 👍"
+        await setState(from, "INIT")
+        await sendReply(body, from, reply)
+        return
+      }
+
       const availability = await checkAvailability({
         checkIn: temp.checkIn,
         checkOut: temp.checkOut,
@@ -140,12 +180,11 @@ export async function hotelFlow(body: any) {
       })
 
       if (availability.available <= 0) {
-        reply = "❌ No hay disponibilidad para esas fechas"
+        reply = "❌ No hay disponibilidad"
         await sendReply(body, from, reply)
         return
       }
 
-      // 🔥 crear booking
       const result = await createBooking({
         phone: from,
         checkIn: temp.checkIn,
@@ -155,7 +194,7 @@ export async function hotelFlow(body: any) {
       })
 
       if (!result.success) {
-        reply = "❌ Error al guardar la reserva"
+        reply = "❌ Error al guardar"
       } else {
         reply =
           `🏨 *Reserva confirmada*\n\n` +
@@ -179,32 +218,6 @@ export async function hotelFlow(body: any) {
     await sendReply(body, from, reply)
 
   } catch (error) {
-    console.error("❌ hotelFlow error:", error)
+    console.error("❌ HOTEL ERROR:", error)
   }
-}
-
-// =========================
-// 📤 ENVIAR MENSAJE
-// =========================
-async function sendReply(body: any, to: string, reply: string) {
-
-  const phoneId =
-    body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
-
-  await fetch(
-    `https://graph.facebook.com/v21.0/${phoneId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: reply },
-      }),
-    }
-  )
 }
