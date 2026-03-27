@@ -68,21 +68,27 @@ async function sendReply(to: string, reply: string) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-const phoneId =
-  body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
+    const body = await req.json()
 
-// 👉 SI ES HOTEL → SALE POR ACÁ
-//if (phoneId === process.env.HOTEL_PHONE_ID) {
-  //await hotelFlow(body)
-  //return new Response("EVENT_RECEIVED", { status: 200 })
-//}
-
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const message =
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
 
     if (!message || message.type !== "text") {
-      return new Response("EVENT_RECEIVED", { status: 200 });
+      return new Response("EVENT_RECEIVED", { status: 200 })
     }
+
+    const incomingText = message.text.body.toLowerCase()
+
+    // 🏨 HOTEL FLOW (NO TOCA RESTAURANT)
+    if (incomingText.includes("hotel")) {
+      console.log("🏨 ENTRANDO A HOTEL FLOW")
+
+      await hotelFlow(body)
+
+      return new Response("EVENT_RECEIVED", { status: 200 })
+    }
+
+    // 👉 ACÁ SIGUE TODO TU RESTAURANT (NO LO TOQUES)
 
     const from = message.from;
     const text = message.text.body.trim();
