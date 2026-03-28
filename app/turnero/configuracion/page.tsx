@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import DailyTableSetup from "@/components/DailyTableSetup";
+import { supabase } from "@/lib/supabaseClient";
+
+
 
 type Settings = {
   open_time: string
@@ -23,6 +26,7 @@ export default function Configuracion() {
   });
 
   const [saved,setSaved] = useState(false);
+  const [shifts, setShifts] = useState<any[]>([]);
 
   // 🔥 NUEVO → fecha para config diaria
   const [date,setDate] = useState(
@@ -49,6 +53,11 @@ export default function Configuracion() {
     loadSettings();
   },[]);
 
+  useEffect(()=>{
+  loadSettings();
+  loadShifts();
+},[]);
+
   async function saveSettings(){
     setSaved(false);
 
@@ -62,6 +71,32 @@ export default function Configuracion() {
 
     setSaved(true);
   }
+
+  async function loadShifts() {
+  const { data } = await supabase
+    .from("restaurant_table_schedule")
+    .select("*");
+
+  if (data) setShifts(data);
+}
+
+async function saveShifts() {
+
+  await supabase
+    .from("restaurant_table_schedule")
+    .delete();
+
+  const toInsert = shifts.map(s => ({
+    ...s,
+    restaurant_id: "1" // ⚠️ después lo hacemos dinámico
+  }));
+
+  await supabase
+    .from("restaurant_table_schedule")
+    .insert(toInsert);
+
+  alert("Turnos guardados 🚀");
+}
 
   function updateField(field:string,value:any){
     setSettings(prev=>({
@@ -197,6 +232,105 @@ export default function Configuracion() {
         </div>
 
       </div>
+
+      {/* 🔥 CONFIGURACIÓN DE TURNOS */}
+
+<div className="bg-white rounded-xl shadow p-6 space-y-4">
+
+  <h2 className="font-semibold">
+    Turnos del restaurante (día / noche)
+  </h2>
+
+  <div className="flex gap-3">
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 }
+      ])}
+      className="bg-blue-500 text-white px-4 py-2 rounded"
+    >
+      🌞 Día
+    </button>
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+      ])}
+      className="bg-purple-600 text-white px-4 py-2 rounded"
+    >
+      🌙 Noche
+    </button>
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 },
+        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+      ])}
+      className="bg-indigo-600 text-white px-4 py-2 rounded"
+    >
+      Día + Noche
+    </button>
+
+  </div>
+
+  {shifts.map((shift, i) => (
+    <div key={i} className="border p-3 rounded flex gap-3">
+
+      <input
+        type="time"
+        value={shift.start_time}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].start_time = e.target.value;
+          setShifts(updated);
+        }}
+        className="border p-2 rounded"
+      />
+
+      <input
+        type="time"
+        value={shift.end_time}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].end_time = e.target.value;
+          setShifts(updated);
+        }}
+        className="border p-2 rounded"
+      />
+
+      <input
+        type="number"
+        value={shift.capacity}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].capacity = Number(e.target.value);
+          setShifts(updated);
+        }}
+        className="border p-2 rounded w-20"
+      />
+
+      <input
+        type="number"
+        value={shift.quantity}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].quantity = Number(e.target.value);
+          setShifts(updated);
+        }}
+        className="border p-2 rounded w-20"
+      />
+
+    </div>
+  ))}
+
+  <button
+    onClick={saveShifts}
+    className="bg-green-600 text-white px-6 py-2 rounded"
+  >
+    Guardar turnos
+  </button>
+
+</div>
 
       {/* 🔹 CONFIG MESAS POR DÍA */}
       <div className="bg-white rounded-xl shadow p-6 space-y-4">
