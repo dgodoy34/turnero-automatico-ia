@@ -75,7 +75,7 @@ export async function hotelFlow(body: any) {
 // =========================
 // INICIO
 // =========================
-    if (!session.state || session.state === "HOTEL_INIT") {
+    if (!session.state || session.state === "INIT") {
   reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
   await setState(from, "HOTEL_ASK_DATES")
 
