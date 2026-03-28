@@ -7,6 +7,7 @@ import DayAgenda from "@/components/ui/DayAgenda";
 import type { Appointment, AppointmentStatus } from "@/types/Appointment";
 import { getDateISOInTimezone } from "@/lib/time";
 import RestaurantClock from "@/components/RestaurantClock";
+import { supabase } from "@/lib/supabaseClient";
 
 function statusColor(status: AppointmentStatus) {
   switch (status) {
@@ -23,7 +24,10 @@ function statusColor(status: AppointmentStatus) {
 
 export default function TurneroUI() {
 
+ 
+
   const [appointments,setAppointments] = useState<Appointment[]>([]);
+  
   const [loading,setLoading] = useState(true);
 
   const [searchCode,setSearchCode] = useState("");
@@ -35,6 +39,8 @@ export default function TurneroUI() {
   const [notes,setNotes] = useState("");
 
   const [selectedDate,setSelectedDate] = useState("");
+
+  const [shifts, setShifts] = useState<any[]>([]);
 
   async function loadAll(){
 
@@ -48,9 +54,26 @@ export default function TurneroUI() {
 
   }
 
+  async function loadShifts() {
+  if (!selectedDate) return;
+
+  const { data } = await supabase
+    .from("restaurant_table_schedule")
+    .select("*")
+    .eq("date", selectedDate);
+
+  if (data) setShifts(data);
+}  
+
   useEffect(()=>{
     loadAll();
   },[]);
+
+  useEffect(() => {
+  if (selectedDate) {
+    loadShifts();
+  }
+}, [selectedDate]);
 
 const [settings, setSettings] = useState<any>(null);
 
@@ -115,6 +138,40 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
     await loadAll();
 
   }
+
+  async function saveShifts() {
+
+  if (!selectedDate) {
+    alert("Seleccioná una fecha primero");
+    return;
+  }
+
+  // 🧹 borrar turnos existentes
+  await supabase
+    .from("restaurant_table_schedule")
+    .delete()
+    .eq("date", selectedDate);
+
+  // 📦 preparar datos
+  const toInsert = shifts.map(s => ({
+    start_time: s.start_time,
+    end_time: s.end_time,
+    capacity: s.capacity,
+    quantity: s.quantity,
+    date: selectedDate,
+    restaurant_id: "1" // ⚠️ temporal (después lo hacemos dinámico)
+  }));
+
+  // 💾 insertar nuevos
+  await supabase
+    .from("restaurant_table_schedule")
+    .insert(toInsert);
+
+  alert("Turnos guardados 🚀");
+
+  // 🔄 recargar
+  loadShifts();
+}
 
   const todayReservations = useMemo(
  ()=>appointments.filter(a=>a.date===selectedDate),
@@ -203,6 +260,109 @@ Buscar
 </button>
 
 </div>
+
+</div>
+
+{/* 🔥 TURNOS DÍA / NOCHE */}
+
+<div className="bg-white rounded-xl shadow p-6 space-y-4">
+
+  <h2 className="text-lg font-semibold">Configuración de turnos</h2>
+
+  {/* BOTONES RÁPIDOS */}
+
+  <div className="flex gap-3">
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 }
+      ])}
+      className="bg-blue-500 text-white px-4 py-2 rounded"
+    >
+      🌞 Día
+    </button>
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+      ])}
+      className="bg-purple-600 text-white px-4 py-2 rounded"
+    >
+      🌙 Noche
+    </button>
+
+    <button
+      onClick={() => setShifts([
+        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 },
+        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+      ])}
+      className="bg-indigo-600 text-white px-4 py-2 rounded"
+    >
+      Día + Noche
+    </button>
+
+  </div>
+
+  {/* EDITOR */}
+
+  {shifts.map((shift, i) => (
+    <div key={i} className="border p-3 rounded flex gap-3 items-center">
+
+      <input
+        type="time"
+        value={shift.start_time}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].start_time = e.target.value;
+          setShifts(updated);
+        }}
+        className="border p-2 rounded"
+      />
+
+      <input
+        type="time"
+        value={shift.end_time}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].end_time = e.target.value;
+          setShifts(updated);
+        }}
+        className="border p-2 rounded"
+      />
+
+      <input
+        type="number"
+        value={shift.capacity}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].capacity = Number(e.target.value);
+          setShifts(updated);
+        }}
+        className="border p-2 rounded w-20"
+        placeholder="Cap"
+      />
+
+      <input
+        type="number"
+        value={shift.quantity}
+        onChange={(e)=>{
+          const updated = [...shifts];
+          updated[i].quantity = Number(e.target.value);
+          setShifts(updated);
+        }}
+        className="border p-2 rounded w-20"
+        placeholder="Cant"
+      />
+
+    </div>
+  ))}
+
+  <button
+    onClick={saveShifts}
+    className="bg-green-600 text-white px-6 py-2 rounded"
+  >
+    Guardar turnos
+  </button>
 
 </div>
 

@@ -129,6 +129,60 @@ try {
   console.error("IA error");
 }
 
+// =========================
+// 🎯 ELECCIÓN DE HORARIO SUGERIDO
+// =========================
+if (session.state === "SUGGEST_ALTERNATIVES") {
+
+  let time = text.trim();
+
+  // normalizar
+  if (!time.includes(":")) {
+    if (/^\d{1,2}$/.test(time)) {
+      time = `${time}:00`;
+    } else {
+      reply = "Elegí un horario válido 😕 Ej: 21:30";
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+  }
+
+  const temp = session.temp_data;
+
+  const result = await createReservation({
+    restaurant_id: restaurant.id,
+    dni: temp.dni,
+    date: temp.date,
+    time,
+    people: temp.people,
+  });
+
+  if (!result.success) {
+    reply = result.message;
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // ✅ guardar código
+ // ✅ éxito real
+await setTemp(from, {
+  reservation_code: result.reservation?.reservation_code,
+});
+
+  reply =
+  `🎉 *¡Reserva confirmada!*\n\n` +
+  `📅 ${temp.date}\n` +
+  `⏰ ${temp.time}\n` +
+  `👥 ${temp.people}\n\n` +
+  `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
+  getMenu();
+
+  await setState(from, "POST_RESERVATION_MENU");
+await sendReply(from, reply);
+
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
     
 
     // =====================================
@@ -174,23 +228,22 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     console.log("📦 RESULT:", result);
 
-    if (!result.success) {
-      reply = result.message;
-    } else {
+if (!result.success) {
 
-      // 🔥 GUARDAR reservation_code (CLAVE PARA NOTAS)
-      await setTemp(from, {
-        reservation_code: result.reservation?.reservation_code,
-      });
+  // 👉 detectar si hay sugerencias
+  if (result.message.includes("👉")) {
 
-      reply =
-        `🎉 *¡Reserva confirmada!*\n\n` +
-        `📅 ${temp.date}\n` +
-        `⏰ ${temp.time}\n` +
-        `👥 ${temp.people}\n\n` +
-        `🔐 Código: ${result.reservation?.reservation_code}\n\n` +
-        getMenu();
-    }
+    await setState(from, "SUGGEST_ALTERNATIVES");
+
+    // 🔥 guardar contexto
+    await setTemp(from, {
+      ...session.temp_data,
+      last_suggestions: result.message,
+    });
+  }
+
+  reply = result.message;
+}
 
     await setState(from, "POST_RESERVATION_MENU");
     await sendReply(from, reply);
@@ -681,7 +734,9 @@ else if (session.state === "ASK_CODE") {
 reply = "No entendí 😕";
 await sendReply(from, reply);
 return new Response("EVENT_RECEIVED", { status: 200 });
-  } catch (err) {
-    console.error("❌ ERROR GENERAL:", err);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }}
+
+} catch (err) {
+  console.error("❌ ERROR GENERAL:", err);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+}
