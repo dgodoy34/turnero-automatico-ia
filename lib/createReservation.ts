@@ -265,14 +265,56 @@ export async function createReservation({
       };
     }
 
-    // =========================
-    // 5️⃣ INVENTARIO DE MESAS
-    // =========================
+    
+   // =========================
+// 5️⃣ MESAS DINÁMICAS (override > schedule > inventory)
+// =========================
+
+let tables: number[] = [];
+
+// 1️⃣ override del día
+const { data: dailyOverride } = await supabase
+  .from("restaurant_daily_table_override")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .eq("date", date);
+
+if (dailyOverride && dailyOverride.length > 0) {
+
+  dailyOverride.forEach((t) => {
+    for (let i = 0; i < t.quantity; i++) {
+      tables.push(t.capacity);
+    }
+  });
+
+} else {
+
+  // 2️⃣ schedule (turnos)
+  const { data: schedule } = await supabase
+    .from("restaurant_table_schedule")
+    .select("*")
+    .eq("restaurant_id", restaurant.id)
+    .eq("date", date);
+
+  if (schedule && schedule.length > 0) {
+
+    const shift = schedule.filter((s) => {
+      return start_time >= s.start_time && start_time <= s.end_time;
+    });
+
+    shift.forEach((t) => {
+      for (let i = 0; i < t.quantity; i++) {
+        tables.push(t.capacity);
+      }
+    });
+
+  } else {
+
+    // 3️⃣ fallback inventory
     const { data: tableInventory } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("capacity", { ascending: true });
+      .eq("restaurant_id", restaurant.id);
 
     if (!tableInventory || tableInventory.length === 0) {
       return {
@@ -281,17 +323,14 @@ export async function createReservation({
       };
     }
 
-    // =========================
-    // 6️⃣ Expandir mesas
-    // =========================
-    const tables: number[] = [];
-
     tableInventory.forEach((t) => {
       for (let i = 0; i < t.quantity; i++) {
         tables.push(t.capacity);
       }
     });
-
+  }
+}
+    
     // =========================
     // 7️⃣ Ver ocupación
     // =========================
