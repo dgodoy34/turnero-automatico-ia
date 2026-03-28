@@ -2,6 +2,19 @@ import { supabase } from "./supabaseClient";
 import { generateReservationCode } from "./reservationCode";
 import { checkLicense } from "./licenses/checkLicense";
 
+type AvailabilityParams = {
+  restaurant: any;
+  date: string;
+  time: string;
+  people: number;
+};
+
+type BestSlotsParams = {
+  restaurant: any;
+  date: string;
+  people: number;
+  requestedTime: string;
+};
 function generateTimeSlots(
   start = "12:00",
   end = "23:30",
@@ -31,7 +44,7 @@ async function simulateAvailability({
   date,
   time,
   people,
-}) {
+}: AvailabilityParams) {
   const SLOT_DURATION = restaurant.slot_duration_minutes || 90;
 
   const start = new Date(`${date}T${time}:00`);
@@ -90,7 +103,7 @@ async function getBestAvailableSlots({
   date,
   people,
   requestedTime,
-}) {
+}: BestSlotsParams) {
   const { data: settings } = await supabase
     .from("settings")
     .select("*")
