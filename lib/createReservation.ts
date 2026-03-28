@@ -54,9 +54,10 @@ async function simulateAvailability({
   const end_time = end.toTimeString().slice(0, 5);
 
   const { data: tableInventory } = await supabase
-    .from("restaurant_table_inventory")
+    .from("restaurant_table_schedule")
     .select("*")
-    .eq("restaurant_id", restaurant.id);
+    .eq("restaurant_id", restaurant.id)
+    .eq("date", date);
 
   if (!tableInventory || tableInventory.length === 0) return false;
 
@@ -266,71 +267,46 @@ export async function createReservation({
     }
 
     
-   // =========================
-// 5️⃣ MESAS DINÁMICAS (override > schedule > inventory)
+// =========================
+// 5️⃣ MESAS DESDE SCHEDULE (NUEVO MODELO)
 // =========================
 
 let tables: number[] = [];
 
-// 1️⃣ override del día
-const { data: dailyOverride } = await supabase
-  .from("restaurant_daily_table_override")
+// 1️⃣ traer configuración del día
+const { data: schedule } = await supabase
+  .from("restaurant_table_schedule")
   .select("*")
   .eq("restaurant_id", restaurant.id)
   .eq("date", date);
 
-if (dailyOverride && dailyOverride.length > 0) {
-
-  dailyOverride.forEach((t) => {
-    for (let i = 0; i < t.quantity; i++) {
-      tables.push(t.capacity);
-    }
-  });
-
-} else {
-
-  // 2️⃣ schedule (turnos)
-  const { data: schedule } = await supabase
-    .from("restaurant_table_schedule")
-    .select("*")
-    .eq("restaurant_id", restaurant.id)
-    .eq("date", date);
-
-  if (schedule && schedule.length > 0) {
-
-    const shift = schedule.filter((s) => {
-      return start_time >= s.start_time && start_time <= s.end_time;
-    });
-
-    shift.forEach((t) => {
-      for (let i = 0; i < t.quantity; i++) {
-        tables.push(t.capacity);
-      }
-    });
-
-  } else {
-
-    // 3️⃣ fallback inventory
-    const { data: tableInventory } = await supabase
-      .from("restaurant_table_inventory")
-      .select("*")
-      .eq("restaurant_id", restaurant.id);
-
-    if (!tableInventory || tableInventory.length === 0) {
-      return {
-        success: false,
-        message: "Inventario de mesas no configurado.",
-      };
-    }
-
-    tableInventory.forEach((t) => {
-      for (let i = 0; i < t.quantity; i++) {
-        tables.push(t.capacity);
-      }
-    });
-  }
+// 2️⃣ validar que exista
+if (!schedule || schedule.length === 0) {
+  return {
+    success: false,
+    message: "No hay configuración de mesas para ese día.",
+  };
 }
-    
+
+// 3️⃣ filtrar turno correcto
+const shift = schedule.filter((s) => {
+  return start_time >= s.start_time && start_time < s.end_time;
+});
+
+// 4️⃣ validar turno
+if (!shift || shift.length === 0) {
+  return {
+    success: false,
+    message: "No hay servicio en ese horario 😕",
+  };
+}
+
+// 5️⃣ expandir mesas
+shift.forEach((t) => {
+  for (let i = 0; i < t.quantity; i++) {
+    tables.push(t.capacity);
+  }
+});
     // =========================
     // 7️⃣ Ver ocupación
     // =========================

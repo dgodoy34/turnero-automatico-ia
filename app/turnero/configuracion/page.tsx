@@ -4,69 +4,100 @@ import { useEffect, useState } from "react";
 import DailyTableSetup from "@/components/DailyTableSetup";
 import { supabase } from "@/lib/supabaseClient";
 
-
-
 type Settings = {
-  open_time: string
-  close_time: string
-  slot_interval: number
-  reservation_duration: number
-  buffer_time: number
-  timezone?: string // 👈 AGREGAR ESTO
-}
+  open_time: string;
+  close_time: string;
+  slot_interval: number;
+  reservation_duration: number;
+  buffer_time: number;
+  timezone?: string;
+};
+
+// 🔥 TIPOS NUEVOS (CLAVE)
+type TableConfig = {
+  capacity: number;
+  quantity: number;
+};
+
+type Shift = {
+  name: string;
+  start_time: string;
+  end_time: string;
+  tables: TableConfig[];
+};
 
 export default function Configuracion() {
 
-  const [settings,setSettings] = useState<Settings>({
-    open_time:"18:00",
-    close_time:"23:30",
-    slot_interval:30,
-    reservation_duration:120,
-    buffer_time:15
+  const [settings, setSettings] = useState<Settings>({
+    open_time: "18:00",
+    close_time: "23:30",
+    slot_interval: 30,
+    reservation_duration: 120,
+    buffer_time: 15
   });
 
-  const [saved,setSaved] = useState(false);
-  const [shifts, setShifts] = useState<any[]>([]);
+  const [saved, setSaved] = useState(false);
 
-  // 🔥 NUEVO → fecha para config diaria
-  const [date,setDate] = useState(
+  // ✅ TIPADO CORRECTO
+  const [shifts, setShifts] = useState<Shift[]>([
+    {
+      name: "Día",
+      start_time: "12:00",
+      end_time: "16:00",
+      tables: [
+        { capacity: 2, quantity: 6 },
+        { capacity: 4, quantity: 2 },
+        { capacity: 6, quantity: 1 }
+      ]
+    },
+    {
+      name: "Noche",
+      start_time: "20:00",
+      end_time: "23:30",
+      tables: [
+        { capacity: 2, quantity: 10 },
+        { capacity: 4, quantity: 5 },
+        { capacity: 6, quantity: 2 }
+      ]
+    }
+  ]);
+
+  // 🔥 fecha config
+  const [date, setDate] = useState(
     new Date().toISOString().split("T")[0]
   );
 
-  async function loadSettings(){
-    try{
+  async function loadSettings() {
+    try {
       const res = await fetch("/api/settings");
-      if(!res.ok) return;
+      if (!res.ok) return;
 
       const data = await res.json();
 
-      if(data.settings){
+      if (data.settings) {
         setSettings(data.settings);
       }
 
-    }catch(e){
+    } catch (e) {
       console.log("no settings yet");
     }
   }
 
-  useEffect(()=>{
+
+  useEffect(() => {
     loadSettings();
-  },[]);
+    loadShifts();
+  }, []);
 
-  useEffect(()=>{
-  loadSettings();
-  loadShifts();
-},[]);
-
-  async function saveSettings(){
+  async function saveSettings() {
     setSaved(false);
 
-    await fetch("/api/settings",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json"
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
       },
-      body:JSON.stringify(settings)
+      body: JSON.stringify(settings)
     });
 
     setSaved(true);
@@ -75,37 +106,76 @@ export default function Configuracion() {
   async function loadShifts() {
   const { data } = await supabase
     .from("restaurant_table_schedule")
-    .select("*");
+    .select("*")
+    .eq("restaurant_id", "1")
+    .eq("date", date);
 
-  if (data) setShifts(data);
+  if (!data || data.length === 0) return;
+
+  // agrupar por turno
+  const grouped: any = {};
+
+  data.forEach((row) => {
+    const key = `${row.start_time}-${row.end_time}`;
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        name: row.start_time < "17:00" ? "Día" : "Noche",
+        start_time: row.start_time,
+        end_time: row.end_time,
+        tables: []
+      };
+    }
+
+    grouped[key].tables.push({
+      capacity: row.capacity,
+      quantity: row.quantity
+    });
+  });
+
+  setShifts(Object.values(grouped));
 }
 
-async function saveShifts() {
+  async function saveShifts() {
 
-  await supabase
-    .from("restaurant_table_schedule")
-    .delete();
+    await supabase
+      .from("restaurant_table_schedule")
+      .delete()
+      .eq("restaurant_id", "1")
+      .eq("date", date);
 
-  const toInsert = shifts.map(s => ({
-    ...s,
-    restaurant_id: "1" // ⚠️ después lo hacemos dinámico
-  }));
+    const rows: any[] = [];
 
-  await supabase
-    .from("restaurant_table_schedule")
-    .insert(toInsert);
+    shifts.forEach(shift => {
+      shift.tables.forEach(t => {
+        rows.push({
+          restaurant_id: "1",
+          date,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          capacity: t.capacity,
+          quantity: t.quantity
+        });
+      });
+    });
 
-  alert("Turnos guardados 🚀");
-}
+    await supabase
+      .from("restaurant_table_schedule")
+      .insert(rows);
 
-  function updateField(field:string,value:any){
-    setSettings(prev=>({
+    console.log("INSERT:", rows);
+
+    alert("Turnos guardados 🚀");
+  }
+
+  function updateField(field: string, value: any) {
+    setSettings(prev => ({
       ...prev,
-      [field]:value
+      [field]: value
     }));
   }
 
-  return(
+  return (
 
     <div className="space-y-6">
 
@@ -245,7 +315,16 @@ async function saveShifts() {
 
     <button
       onClick={() => setShifts([
-        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 }
+        {
+          name: "Día",
+          start_time: "12:00",
+          end_time: "16:00",
+          tables: [
+            { capacity: 2, quantity: 6 },
+            { capacity: 4, quantity: 2 },
+            { capacity: 6, quantity: 1 }
+          ]
+        }
       ])}
       className="bg-blue-500 text-white px-4 py-2 rounded"
     >
@@ -254,7 +333,16 @@ async function saveShifts() {
 
     <button
       onClick={() => setShifts([
-        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+        {
+          name: "Noche",
+          start_time: "20:00",
+          end_time: "23:30",
+          tables: [
+            { capacity: 2, quantity: 10 },
+            { capacity: 4, quantity: 5 },
+            { capacity: 6, quantity: 2 }
+          ]
+        }
       ])}
       className="bg-purple-600 text-white px-4 py-2 rounded"
     >
@@ -263,8 +351,26 @@ async function saveShifts() {
 
     <button
       onClick={() => setShifts([
-        { start_time: "12:00", end_time: "16:00", capacity: 2, quantity: 6 },
-        { start_time: "20:00", end_time: "23:30", capacity: 2, quantity: 10 }
+        {
+          name: "Día",
+          start_time: "12:00",
+          end_time: "16:00",
+          tables: [
+            { capacity: 2, quantity: 6 },
+            { capacity: 4, quantity: 2 },
+            { capacity: 6, quantity: 1 }
+          ]
+        },
+        {
+          name: "Noche",
+          start_time: "20:00",
+          end_time: "23:30",
+          tables: [
+            { capacity: 2, quantity: 10 },
+            { capacity: 4, quantity: 5 },
+            { capacity: 6, quantity: 2 }
+          ]
+        }
       ])}
       className="bg-indigo-600 text-white px-4 py-2 rounded"
     >
@@ -274,51 +380,54 @@ async function saveShifts() {
   </div>
 
   {shifts.map((shift, i) => (
-    <div key={i} className="border p-3 rounded flex gap-3">
+    <div key={i} className="border p-3 rounded space-y-3">
 
-      <input
-        type="time"
-        value={shift.start_time}
-        onChange={(e)=>{
-          const updated = [...shifts];
-          updated[i].start_time = e.target.value;
-          setShifts(updated);
-        }}
-        className="border p-2 rounded"
-      />
+      {/* 🔹 HORARIO */}
+      <div className="flex gap-2">
+        <input
+          type="time"
+          value={shift.start_time}
+          onChange={(e)=>{
+            const updated = [...shifts];
+            updated[i].start_time = e.target.value;
+            setShifts(updated);
+          }}
+          className="border p-2 rounded"
+        />
 
-      <input
-        type="time"
-        value={shift.end_time}
-        onChange={(e)=>{
-          const updated = [...shifts];
-          updated[i].end_time = e.target.value;
-          setShifts(updated);
-        }}
-        className="border p-2 rounded"
-      />
+        <input
+          type="time"
+          value={shift.end_time}
+          onChange={(e)=>{
+            const updated = [...shifts];
+            updated[i].end_time = e.target.value;
+            setShifts(updated);
+          }}
+          className="border p-2 rounded"
+        />
+      </div>
 
-      <input
-        type="number"
-        value={shift.capacity}
-        onChange={(e)=>{
-          const updated = [...shifts];
-          updated[i].capacity = Number(e.target.value);
-          setShifts(updated);
-        }}
-        className="border p-2 rounded w-20"
-      />
+      {/* 🔥 MESAS POR TURNO */}
+      {shift.tables.map((table, j) => (
+        <div key={j} className="flex gap-2 items-center">
 
-      <input
-        type="number"
-        value={shift.quantity}
-        onChange={(e)=>{
-          const updated = [...shifts];
-          updated[i].quantity = Number(e.target.value);
-          setShifts(updated);
-        }}
-        className="border p-2 rounded w-20"
-      />
+          <span className="w-24">
+            Mesa {table.capacity}
+          </span>
+
+          <input
+            type="number"
+            value={table.quantity}
+            onChange={(e)=>{
+              const updated = [...shifts];
+              updated[i].tables[j].quantity = Number(e.target.value);
+              setShifts(updated);
+            }}
+            className="border p-2 rounded w-20"
+          />
+
+        </div>
+      ))}
 
     </div>
   ))}
@@ -331,29 +440,6 @@ async function saveShifts() {
   </button>
 
 </div>
-
-      {/* 🔹 CONFIG MESAS POR DÍA */}
-      <div className="bg-white rounded-xl shadow p-6 space-y-4">
-
-        <h2 className="font-semibold">
-          Configuración de mesas por día
-        </h2>
-
-        {/* 🔥 SELECTOR DE FECHA */}
-        <input
-          type="date"
-          value={date}
-          onChange={(e)=>setDate(e.target.value)}
-          className="border p-2 rounded"
-        />
-
-        {/* 🔥 COMPONENTE CON FECHA */}
-        <DailyTableSetup date={date} />
-
-      </div>
-
     </div>
-
   );
 }
-
