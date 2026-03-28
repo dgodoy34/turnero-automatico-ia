@@ -177,11 +177,32 @@ export default function Configuracion() {
 
   return (
 
+    
+
     <div className="space-y-6">
 
       <h1 className="text-2xl font-bold">
         Configuración del restaurante
       </h1>
+
+      {/* 🔹 CONFIG MESAS POR DÍA */}
+
+<div className="bg-white rounded-xl shadow p-6 space-y-4">
+
+  <h2 className="font-semibold">
+    Configuración de mesas por día
+  </h2>
+
+  <input
+    type="date"
+    value={date}
+    onChange={(e)=>setDate(e.target.value)}
+    className="border p-2 rounded"
+  />
+
+  <DailyTableSetup key={date} date={date} />
+
+</div>
 
       {/* 🔹 CONFIG GENERAL */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">
@@ -443,3 +464,4 @@ export default function Configuracion() {
     </div>
   );
 }
+

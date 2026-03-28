@@ -53,21 +53,21 @@ async function simulateAvailability({
   const start_time = time;
   const end_time = end.toTimeString().slice(0, 5);
 
-  const { data: tableInventory } = await supabase
-    .from("restaurant_table_schedule")
-    .select("*")
-    .eq("restaurant_id", restaurant.id)
-    .eq("date", date);
+  const { data: dailyOverride } = await supabase
+  .from("restaurant_daily_table_override")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .eq("date", date);
 
-  if (!tableInventory || tableInventory.length === 0) return false;
+if (!dailyOverride || dailyOverride.length === 0) return false;
 
-  const tables: number[] = [];
+const tables: number[] = [];
 
-  tableInventory.forEach((t) => {
-    for (let i = 0; i < t.quantity; i++) {
-      tables.push(t.capacity);
-    }
-  });
+dailyOverride.forEach((t) => {
+  for (let i = 0; i < t.quantity; i++) {
+    tables.push(t.capacity);
+  }
+});
 
   const { data: overlappingTables } = await supabase
     .from("appointments")
@@ -268,41 +268,28 @@ export async function createReservation({
 
     
 // =========================
-// 5️⃣ MESAS DESDE SCHEDULE (ESTABLE)
+// 5️⃣ MESAS DESDE OVERRIDE (ESTABLE)
 // =========================
 
 let tables: number[] = [];
 
-// traer config del día
-const { data: schedule } = await supabase
-  .from("restaurant_table_schedule")
+// 1️⃣ override del día
+const { data: dailyOverride } = await supabase
+  .from("restaurant_daily_table_override")
   .select("*")
   .eq("restaurant_id", restaurant.id)
   .eq("date", date);
 
-// validar existencia
-if (!schedule || schedule.length === 0) {
+// validar
+if (!dailyOverride || dailyOverride.length === 0) {
   return {
     success: false,
     message: "No hay mesas configuradas para ese día.",
   };
 }
 
-// filtrar turno correcto
-const shift = schedule.filter((s) => {
-  return start_time >= s.start_time && start_time < s.end_time;
-});
-
-// validar turno
-if (!shift || shift.length === 0) {
-  return {
-    success: false,
-    message: "El restaurante está cerrado en ese horario.",
-  };
-}
-
 // expandir mesas
-shift.forEach((t) => {
+dailyOverride.forEach((t) => {
   for (let i = 0; i < t.quantity; i++) {
     tables.push(t.capacity);
   }
