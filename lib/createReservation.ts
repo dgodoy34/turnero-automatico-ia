@@ -26,6 +26,112 @@ function generateTimeSlots(
   return slots;
 }
 
+async function simulateAvailability({
+  restaurant,
+  date,
+  time,
+  people,
+}) {
+  const SLOT_DURATION = restaurant.slot_duration_minutes || 90;
+
+  const start = new Date(`${date}T${time}:00`);
+  const end = new Date(start.getTime() + SLOT_DURATION * 60000);
+
+  const start_time = time;
+  const end_time = end.toTimeString().slice(0, 5);
+
+  const { data: tableInventory } = await supabase
+    .from("restaurant_table_inventory")
+    .select("*")
+    .eq("restaurant_id", restaurant.id);
+
+  if (!tableInventory || tableInventory.length === 0) return false;
+
+  const tables: number[] = [];
+
+  tableInventory.forEach((t) => {
+    for (let i = 0; i < t.quantity; i++) {
+      tables.push(t.capacity);
+    }
+  });
+
+  const { data: overlappingTables } = await supabase
+    .from("appointments")
+    .select("assigned_table_capacity")
+    .eq("restaurant_id", restaurant.id)
+    .eq("date", date)
+    .eq("status", "confirmed")
+    .lt("start_time", end_time)
+    .gt("end_time", start_time);
+
+  const used =
+    overlappingTables?.map((r) => r.assigned_table_capacity) || [];
+
+  const availableTables = [...tables];
+
+  used.forEach((cap) => {
+    const i = availableTables.indexOf(cap);
+    if (i !== -1) availableTables.splice(i, 1);
+  });
+
+  availableTables.sort((a, b) => a - b);
+
+  if (people <= 2) {
+    return availableTables.some((t) => t >= 2);
+  } else if (people <= 4) {
+    return availableTables.some((t) => t >= 4);
+  } else {
+    return availableTables.some((t) => t >= 6);
+  }
+}
+
+async function getBestAvailableSlots({
+  restaurant,
+  date,
+  people,
+  requestedTime,
+}) {
+  const { data: settings } = await supabase
+    .from("settings")
+    .select("*")
+    .eq("restaurant_id", restaurant.id)
+    .single();
+
+  const open_time = settings?.open_time || "12:00";
+  const close_time = settings?.close_time || "23:30";
+  const interval = settings?.slot_interval || 30;
+
+  const slots = generateTimeSlots(open_time, close_time, interval);
+
+  const available: string[] = [];
+
+  for (const slot of slots) {
+    const ok = await simulateAvailability({
+      restaurant,
+      date,
+      time: slot,
+      people,
+    });
+
+    if (ok) available.push(slot);
+  }
+
+  // ordenar por cercanía
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  available.sort((a, b) => {
+    return (
+      Math.abs(toMin(a) - toMin(requestedTime)) -
+      Math.abs(toMin(b) - toMin(requestedTime))
+    );
+  });
+
+  return available.slice(0, 3);
+}
+
 type CreateReservationParams = {
   restaurant_id: string;
   dni: string;
@@ -209,53 +315,29 @@ export async function createReservation({
 
    if (!assignedCapacity) {
 
-  // 🔥 generar horarios dinámicos (mediodía + noche)
-  // 🔥 traer configuración real
-const { data: settings } = await supabase
-  .from("settings")
-  .select("*")
-  .eq("restaurant_id", restaurant.id)
-  .single();
+  const alternatives = await getBestAvailableSlots({
+    restaurant,
+    date,
+    people,
+    requestedTime: start_time,
+  });
 
-// fallback
-const open_time = settings?.open_time || "12:00";
-const close_time = settings?.close_time || "23:30";
-const interval = settings?.slot_interval || 30;
-
-// 🔥 generar horarios dinámicos
-const possibleTimes = generateTimeSlots(
-  open_time,
-  close_time,
-  interval
-);
-
-// 🔥 calcular siguiente horario
-let nextTime: string | null = null;
-
-// 🔥 normalizar hora (clave)
-const normalizedStart = start_time.includes(":")
-  ? start_time
-  : `${start_time}:00`;
-
-const currentIndex = possibleTimes.indexOf(normalizedStart);
-
-if (currentIndex !== -1) {
-  for (let i = currentIndex + 1; i < possibleTimes.length; i++) {
-    nextTime = possibleTimes[i];
-    break;
+  if (alternatives.length > 0) {
+    return {
+      success: false,
+      message:
+        `No hay lugar a las ${start_time} 😕\n\n` +
+        `Te puedo ofrecer:\n` +
+        alternatives.map((t) => `👉 ${t}`).join("\n") +
+        `\n\n¿Te sirve alguno?`,
+    };
   }
-}
 
-// 🔥 RESPUESTA
-return {
-  success: false,
-  message: nextTime
-    ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible ${nextTime}\n¿Te sirve?`
-    : "No hay disponibilidad en ese horario.",
-};
-  
+  return {
+    success: false,
+    message: "No hay disponibilidad en ese horario.",
+  };
 }
-
     // =========================
     // 9️⃣ Control capacidad global
     // =========================
