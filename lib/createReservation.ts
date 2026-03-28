@@ -268,40 +268,40 @@ export async function createReservation({
 
     
 // =========================
-// 5️⃣ MESAS DESDE SCHEDULE (NUEVO MODELO)
+// 5️⃣ MESAS DESDE SCHEDULE (ESTABLE)
 // =========================
 
 let tables: number[] = [];
 
-// 1️⃣ traer configuración del día
+// traer config del día
 const { data: schedule } = await supabase
   .from("restaurant_table_schedule")
   .select("*")
   .eq("restaurant_id", restaurant.id)
   .eq("date", date);
 
-// 2️⃣ validar que exista
+// validar existencia
 if (!schedule || schedule.length === 0) {
   return {
     success: false,
-    message: "No hay configuración de mesas para ese día.",
+    message: "No hay mesas configuradas para ese día.",
   };
 }
 
-// 3️⃣ filtrar turno correcto
+// filtrar turno correcto
 const shift = schedule.filter((s) => {
   return start_time >= s.start_time && start_time < s.end_time;
 });
 
-// 4️⃣ validar turno
+// validar turno
 if (!shift || shift.length === 0) {
   return {
     success: false,
-    message: "No hay servicio en ese horario 😕",
+    message: "El restaurante está cerrado en ese horario.",
   };
 }
 
-// 5️⃣ expandir mesas
+// expandir mesas
 shift.forEach((t) => {
   for (let i = 0; i < t.quantity; i++) {
     tables.push(t.capacity);
