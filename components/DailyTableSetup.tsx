@@ -79,6 +79,24 @@ export default function DailyTableSetup({ date }: { date: string }) {
     }
 
   }
+  {/* 🔥 MAPA DE MESAS */}
+<div className="mt-6 grid grid-cols-6 gap-3">
+
+  {tables.flatMap((t) =>
+    Array.from({ length: t.quantity }).map((_, i) => (
+      <div
+        key={`${t.capacity}-${i}`}
+        className="bg-indigo-500 text-white rounded-lg p-3 text-center shadow"
+      >
+        <div className="text-sm">Mesa</div>
+        <div className="text-lg font-bold">
+          {t.capacity}
+        </div>
+      </div>
+    ))
+  )}
+
+</div>
 
 
   return(
@@ -127,3 +145,4 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
   );
 }
+
