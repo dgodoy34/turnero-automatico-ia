@@ -87,64 +87,69 @@ async function loadTables() {
     });
   }
 
-  return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4">Plano de mesas</h2>
-
-      {/* 🔥 SOLO MOSTRAR ERROR SI REALMENTE NO HAY */}
-      {tables.length === 0 ? (
-        <div className="text-red-500">
-          ⚠️ No hay mesas cargadas
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {hours.map((h) => {
-            const reservations = reservationsAtHour(h);
-            let used = 0;
-
-            return (
-              <div key={h} className="border p-3 rounded">
-                <div className="font-semibold mb-2">{h}</div>
-
-                <div className="grid grid-cols-4 gap-2">
-                  {tables.flatMap((t) =>
-                    Array.from({ length: t.quantity }).map((_, i) => {
-                      const reservation = reservations[used];
-
-                      let color = "bg-green-200 border border-green-500";
-                      let label = "🟢 Libre";
-
-                      if (reservation && reservation.assigned_table_capacity === t.capacity) {
-                        used++;
-
-                        if (reservation.status === "confirmed") {
-                          color = "bg-yellow-200 border border-yellow-500";
-                          label = "🟡 Reservada";
-                        } else {
-                          color = "bg-red-200 border border-red-500";
-                          label = "🔴 Ocupada";
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={`${t.capacity}-${i}-${h}`}
-                          className={`p-2 rounded text-sm ${color}`}
-                        >
-                          <div className="font-semibold">
-                            Mesa {t.capacity}
-                          </div>
-                          <div className="text-xs">{label}</div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+ return (
+  <div className="bg-white rounded-xl shadow p-6">
+    <h2 className="font-semibold mb-4">Plano de mesas</h2>
+    
+    <div className="mb-4 text-sm text-gray-600">
+      Fecha actual: <strong>{date || "SIN FECHA"}</strong>
     </div>
-  );
+
+    <div className="mb-4">
+      Mesas recibidas: <strong>{tables.length}</strong>
+      <pre className="bg-gray-100 p-3 text-xs mt-2 overflow-auto">
+        {JSON.stringify(tables, null, 2)}
+      </pre>
+    </div>
+
+    {tables.length === 0 ? (
+      <div className="text-red-500 p-4 border border-red-200 rounded">
+        ⚠️ No hay mesas cargadas para esta fecha
+      </div>
+    ) : (
+      <div className="space-y-6">
+        {hours.map((h) => {
+          const reservations = reservationsAtHour(h);
+          let used = 0;
+
+          return (
+            <div key={h} className="border p-4 rounded-lg">
+              <div className="font-semibold mb-3 text-lg">{h}</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {tables.flatMap((t) =>
+                  Array.from({ length: t.quantity }).map((_, i) => {
+                    const reservation = reservations[used];
+                    let color = "bg-green-100 border-green-400 text-green-800";
+                    let label = "Libre";
+
+                    if (reservation && reservation.assigned_table_capacity === t.capacity) {
+                      used++;
+                      if (reservation.status === "confirmed") {
+                        color = "bg-yellow-100 border-yellow-400 text-yellow-800";
+                        label = "Reservada";
+                      } else {
+                        color = "bg-red-100 border-red-400 text-red-800";
+                        label = "Ocupada";
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={`${t.capacity}-${i}-${h}`}
+                        className={`p-4 rounded-lg border-2 text-center ${color}`}
+                      >
+                        <div className="font-bold text-lg">Mesa {t.capacity}p</div>
+                        <div className="text-sm mt-1">{label}</div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
 }
