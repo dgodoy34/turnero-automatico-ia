@@ -10,11 +10,7 @@ type Appointment = {
   end_time: string;
   people: number;
   assigned_table_capacity?: number;
-  tables_used?: number;
   status: string;
-  clients?: {
-    name?: string;
-  };
 };
 
 type TableType = {
@@ -31,13 +27,13 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [hours, setHours] = useState<string[]>([]);
 
-  // ✅ 🔥 CARGAR MESAS (ARREGLADO)
+  // ✅ 🔥 FIX REAL: usar date
   async function loadTables() {
     try {
-      const res = await fetch(`/api/table-inventory`);
+      const res = await fetch(`/api/table-inventory?date=${date}`);
       const data = await res.json();
 
-      console.log("TABLE INVENTORY:", data);
+      console.log("🔥 TABLES:", data);
 
       setTables(data.tables || []);
     } catch (err) {
@@ -46,7 +42,6 @@ export default function TableFloorView({ appointments = [], date }: Props) {
     }
   }
 
-  // 🔹 cargar horarios
   async function loadSettings() {
     const res = await fetch("/api/settings");
     const data = await res.json();
@@ -65,14 +60,13 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   }
 
   useEffect(() => {
-    loadTables();
+    if (date) loadTables();
   }, [date]);
 
   useEffect(() => {
     loadSettings();
   }, []);
 
-  // 🔥 reservas por rango horario
   function reservationsAtHour(time: string) {
     const slot = new Date(`${date}T${time}:00`);
 
@@ -86,96 +80,64 @@ export default function TableFloorView({ appointments = [], date }: Props) {
     });
   }
 
-  function isOccupied(time: string, reservation: Appointment) {
-    const slot = new Date(`${date}T${time}:00`);
-    const start = new Date(`${date}T${reservation.start_time}`);
-    const end = new Date(`${date}T${reservation.end_time}`);
-
-    return slot > start && slot < end;
-  }
-
   return (
     <div className="bg-white rounded-xl shadow p-6">
       <h2 className="font-semibold mb-4">Plano de mesas</h2>
 
-      {/* 🔥 DEBUG VISUAL */}
-      {tables.length === 0 && (
+      {/* 🔥 SOLO MOSTRAR ERROR SI REALMENTE NO HAY */}
+      {tables.length === 0 ? (
         <div className="text-red-500">
           ⚠️ No hay mesas cargadas
         </div>
-      )}
+      ) : (
+        <div className="space-y-4">
+          {hours.map((h) => {
+            const reservations = reservationsAtHour(h);
+            let used = 0;
 
-      <div className="space-y-4">
-        {hours.map((h) => {
-          const reservations = reservationsAtHour(h);
-          const usedReservations: number[] = [];
+            return (
+              <div key={h} className="border p-3 rounded">
+                <div className="font-semibold mb-2">{h}</div>
 
-          return (
-            <div key={h} className="border p-3 rounded">
-              <div className="font-semibold mb-2">{h}</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {tables.flatMap((t) =>
+                    Array.from({ length: t.quantity }).map((_, i) => {
+                      const reservation = reservations[used];
 
-              <div className="grid grid-cols-4 gap-2">
-                {tables.flatMap((t) =>
-                  Array.from({ length: t.quantity }).map((_, i) => {
-                    let reservation = reservations.find((r, index) => {
-                      if (usedReservations.includes(index)) return false;
-                      if (!r.assigned_table_capacity) return false;
-                      return r.assigned_table_capacity === t.capacity;
-                    });
+                      let color = "bg-green-200 border border-green-500";
+                      let label = "🟢 Libre";
 
-                    let color = "bg-green-200 border border-green-500";
-                    let label = "🟢 Libre";
+                      if (reservation && reservation.assigned_table_capacity === t.capacity) {
+                        used++;
 
-                    if (reservation) {
-                      const index = reservations.indexOf(reservation);
-                      usedReservations.push(index);
-
-                      if (reservation.status === "confirmed") {
-                        color = "bg-yellow-200 border border-yellow-500";
-                        label = "🟡 Reservada";
-                      } else if (reservation.status === "completed") {
-                        color = "bg-red-200 border border-red-500";
-                        label = "🔴 Ocupada";
+                        if (reservation.status === "confirmed") {
+                          color = "bg-yellow-200 border border-yellow-500";
+                          label = "🟡 Reservada";
+                        } else {
+                          color = "bg-red-200 border border-red-500";
+                          label = "🔴 Ocupada";
+                        }
                       }
-                    } else {
-                      const activeReservations = appointments.filter((a) => {
-                        if (a.date !== date) return false;
-                        if (a.assigned_table_capacity !== t.capacity)
-                          return false;
-                        return isOccupied(h, a);
-                      });
 
-                      if (i < activeReservations.length) {
-                        color = "bg-gray-300 border border-gray-500";
-                        label = "⚫ En uso";
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={`${t.capacity}-${i}-${h}`}
-                        className={`p-2 rounded text-sm ${color}`}
-                      >
-                        <div className="font-semibold">
-                          Mesa {t.capacity === 6 ? "6+" : t.capacity}
-                        </div>
-
-                        <div className="text-xs text-gray-700">{label}</div>
-
-                        {reservation?.clients?.name && (
-                          <div className="text-xs mt-1">
-                            {reservation.clients.name}
+                      return (
+                        <div
+                          key={`${t.capacity}-${i}-${h}`}
+                          className={`p-2 rounded text-sm ${color}`}
+                        >
+                          <div className="font-semibold">
+                            Mesa {t.capacity}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                          <div className="text-xs">{label}</div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
