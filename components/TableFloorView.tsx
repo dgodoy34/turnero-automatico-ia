@@ -34,7 +34,7 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   // ✅ 🔥 CARGAR MESAS (ARREGLADO)
   async function loadTables() {
     try {
-      const res = await fetch(`/api/table-inventory?date=${date}`);
+      const res = await fetch(`/api/table-inventory`);
       const data = await res.json();
 
       console.log("TABLE INVENTORY:", data);
