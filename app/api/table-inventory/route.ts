@@ -44,7 +44,7 @@ export async function GET(req: Request) {
         .from("restaurant_daily_table_override")
         .select("capacity,quantity")
         .eq("restaurant_id", restaurant_id)
-        .eq("date", date);
+       
 
       if (overrideData) {
         override = overrideData;
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       .from("restaurant_daily_table_override")
       .delete()
       .eq("restaurant_id", restaurant_id)
-      .eq("date", date);
+      
 
     // 🔹 insertar nuevo override
     const rows = tables.map((t: any) => ({
