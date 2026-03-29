@@ -20,14 +20,14 @@ export default function Mesas(){
   const [date,setDate] = useState(todayLocalISO());
 
   async function load(){
-    const res = await fetch("/api/appointments");
+    const res = await fetch(`/api/appointments?date=${date}`);
     const data = await res.json();
     setAppointments(data.appointments || []);
   }
 
   useEffect(()=>{
-    load();
-  },[]);
+  load();
+},[date]);
 
   return(
 
@@ -56,6 +56,12 @@ export default function Mesas(){
       {/* INVENTARIO */}
       <TableInventoryView date={date} />
 
+<DailyTableSetup date={date} />
+
+<TableFloorView
+  appointments={appointments}
+  date={date}
+/>
       {/* PLANO DE MESAS */}
       <TableFloorView
         appointments={appointments}
