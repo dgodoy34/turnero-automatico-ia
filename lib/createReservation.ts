@@ -149,18 +149,35 @@ export async function createReservation({
     // =========================
     // 5️⃣ INVENTARIO DE MESAS
     // =========================
-    const { data: tableInventory } = await supabase
+    const { data: baseTableInventory } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
       .eq("restaurant_id", restaurant.id)
       .order("capacity", { ascending: true });
 
-    if (!tableInventory || tableInventory.length === 0) {
+    if (!baseTableInventory || baseTableInventory.length === 0) {
       return {
         success: false,
         message: "Inventario de mesas no configurado.",
       };
     }
+
+    const { data: tableOverride } = await supabase
+      .from("restaurant_daily_table_override")
+      .select("capacity, quantity")
+      .eq("restaurant_id", restaurant.id)
+      .eq("date", date);
+
+    const tableInventory = baseTableInventory.map((table) => {
+      const overrideForCapacity = tableOverride?.find(
+        (override) => override.capacity === table.capacity
+      );
+
+      return {
+        ...table,
+        quantity: overrideForCapacity?.quantity ?? table.quantity,
+      };
+    });
 
     // =========================
     // 6️⃣ Expandir mesas
