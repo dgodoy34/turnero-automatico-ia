@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";   // ← Agregado
+import { supabase } from "@/lib/supabaseClient";
 import DailyTableSetup from "@/components/DailyTableSetup";
 
 type Settings = {
@@ -25,7 +25,6 @@ type Shift = {
   tables: TableConfig[];
 };
 
-// ID temporal mientras implementás el multi-tenant correctamente
 const RESTAURANT_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09";
 
 export default function Configuracion() {
@@ -73,6 +72,33 @@ export default function Configuracion() {
       if (data.settings) setSettings(data.settings);
     } catch (e) {
       console.log("No settings yet");
+    }
+  }
+
+  // ✅ NUEVA FUNCIÓN AGREGADA (FIX)
+  async function saveSettings() {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(settings)
+      });
+
+      if (!res.ok) {
+        alert("Error al guardar la configuración");
+        return;
+      }
+
+      setSaved(true);
+
+      setTimeout(() => setSaved(false), 3000);
+
+      alert("Configuración guardada correctamente");
+    } catch (e) {
+      console.error(e);
+      alert("Error al guardar la configuración");
     }
   }
 
@@ -143,7 +169,7 @@ export default function Configuracion() {
       if (error) throw error;
 
       alert("Turnos guardados correctamente 🚀");
-      loadShifts(); // recargar
+      loadShifts();
     } catch (err) {
       console.error(err);
       alert("Error al guardar turnos");
@@ -152,22 +178,6 @@ export default function Configuracion() {
 
   function updateField(field: string, value: any) {
     setSettings(prev => ({ ...prev, [field]: value }));
-  }
-
-  async function saveSettings() {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings)
-      });
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
-    } catch (err) {
-      console.error("Error saving settings:", err);
-    }
   }
 
   useEffect(() => {
@@ -190,32 +200,26 @@ export default function Configuracion() {
         <DailyTableSetup key={date} date={date} />
       </div>
 
-      {/* Resto de tu formulario de settings (horarios, etc.) - lo mantengo igual */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">
-        {/* ... tu código anterior de horarios, intervalos y zona horaria ... */}
-        {/* (copia y pega tu código original aquí si lo quitaste) */}
-
+        
         <div className="flex gap-4 items-center pt-4">
-  <button
-    onClick={saveSettings}
-    className="bg-indigo-600 text-white px-6 py-2 rounded"
-  >
-    Guardar configuración
-  </button>
+          <button
+            onClick={saveSettings}
+            className="bg-indigo-600 text-white px-6 py-2 rounded"
+          >
+            Guardar configuración
+          </button>
 
-  {saved && (
-    <span className="text-green-600">
-      Configuración guardada
-    </span>
-  )}
-</div>
+          {saved && (
+            <span className="text-green-600">
+              Configuración guardada
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Sección de turnos */}
       <div className="bg-white rounded-xl shadow p-6 space-y-4">
         <h2 className="font-semibold">Turnos del restaurante (día / noche)</h2>
-
-        {/* Tus botones de Día / Noche quedan igual */}
 
         {shifts.map((shift, i) => (
           <div key={i} className="border p-3 rounded space-y-3">
