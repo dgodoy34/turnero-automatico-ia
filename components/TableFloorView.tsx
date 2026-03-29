@@ -52,28 +52,30 @@ export default function TableFloorView({ appointments = [], date }: Props) {
           Cargando mesas... (o no hay configuración para esta fecha)
         </div>
       ) : (
-        <div className="space-y-8">
-          {tables.map((t, i) => (
-            <div key={i} className="border rounded-2xl p-6 bg-gray-50">
-              <h3 className="font-semibold text-lg mb-4">
-                Mesas de {t.capacity} personas — {t.quantity} mesas
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {Array.from({ length: t.quantity }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="p-6 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-center hover:scale-105 transition-all"
-                  >
-                    <div className="text-4xl mb-2">🟢</div>
-                    <div className="font-bold text-lg">Mesa {t.capacity} personas</div>
-                    <div className="text-emerald-700 font-medium">Libre</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        <div className="space-y-6">
+  {tables.map((t, i) => (
+    <div key={i}>
+      <h3 className="font-semibold mb-2">
+        {t.capacity} personas ({t.quantity})
+      </h3>
+
+      <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+        {Array.from({ length: t.quantity }).map((_, idx) => (
+          <div
+            key={idx}
+            className="p-2 rounded border text-xs text-center bg-green-100 border-green-400"
+          >
+            <div className="font-semibold">Mesa</div>
+            <div>{t.capacity}</div>
+            <div className="text-green-700">Libre</div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
-}
+  ))}
+</div>
+        )}
+      </div>
+    );
+  }
+  

@@ -176,6 +176,18 @@ export default function Configuracion() {
     }
   }
 
+  async function handleSaveAll() {
+  try {
+    await saveSettings();
+    await saveShifts();
+
+    alert("Configuración completa guardada 🚀");
+  } catch (e) {
+    console.error(e);
+    alert("Error al guardar configuración");
+  }
+}
+
   function updateField(field: string, value: any) {
     setSettings(prev => ({ ...prev, [field]: value }));
   }
@@ -204,7 +216,7 @@ export default function Configuracion() {
         
         <div className="flex gap-4 items-center pt-4">
           <button
-            onClick={saveSettings}
+            onClick={handleSaveAll}
             className="bg-indigo-600 text-white px-6 py-2 rounded"
           >
             Guardar configuración
@@ -255,9 +267,6 @@ export default function Configuracion() {
           </div>
         ))}
 
-        <button onClick={saveShifts} className="bg-green-600 text-white px-6 py-2 rounded">
-          Guardar turnos
-        </button>
       </div>
     </div>
   );

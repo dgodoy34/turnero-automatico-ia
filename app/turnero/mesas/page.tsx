@@ -52,7 +52,7 @@ export default function Mesas() {
       </div>
 
       <TableInventoryView date={date} />
-      <DailyTableSetup date={date} />
+      
 
       {/* PLANO DE MESAS - Solo una vez */}
       <div className="bg-white rounded-xl shadow p-6">

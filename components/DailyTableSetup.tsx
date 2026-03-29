@@ -10,9 +10,14 @@ type TableType = {
 export default function DailyTableSetup({ date }: { date: string }) {
   const [tables, setTables] = useState<TableType[]>([]);
 
+  // ID temporal - después lo reemplazarás con tu sistema multi-tenant
+  const RESTAURANT_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+
   async function loadInventory() {
     try {
-      const res = await fetch(`/api/table-inventory?date=${date}`);
+      const res = await fetch(
+        `/api/table-inventory?date=${date}&restaurant_id=${RESTAURANT_ID}`
+      );
       const data = await res.json();
 
       if (data?.tables) {
@@ -22,13 +27,12 @@ export default function DailyTableSetup({ date }: { date: string }) {
       }
     } catch (err) {
       console.error("Error cargando inventario", err);
+      setTables([]);
     }
   }
 
   useEffect(() => {
-    if (date) {
-      loadInventory();
-    }
+    if (date) loadInventory();
   }, [date]);
 
   function updateQuantity(index: number, value: number) {
@@ -45,6 +49,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
         body: JSON.stringify({
           date,
           tables,
+          restaurant_id: RESTAURANT_ID
         }),
       });
 
@@ -55,19 +60,17 @@ export default function DailyTableSetup({ date }: { date: string }) {
         return;
       }
 
-      alert("Configuración guardada");
-      loadInventory();
+      alert("Configuración guardada correctamente");
+      loadInventory(); // recargar
     } catch (err) {
       console.error("Error guardando override", err);
-      alert("Error guardando configuración");
+      alert("Error al guardar la configuración");
     }
   }
 
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-4">
-      <h2 className="font-semibold">
-        Configuración de mesas para el día
-      </h2>
+      <h2 className="font-semibold">Configuración de mesas para el día</h2>
 
       <div className="space-y-3">
         {tables.map((t, i) => (
@@ -75,10 +78,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
             key={t.capacity}
             className="flex justify-between items-center border p-3 rounded"
           >
-            <div>
-              Mesa {t.capacity} personas
-            </div>
-
+            <div>Mesa {t.capacity} personas</div>
             <input
               type="number"
               value={t.quantity}
@@ -87,8 +87,14 @@ export default function DailyTableSetup({ date }: { date: string }) {
             />
           </div>
         ))}
-            </div>
-      
-          </div>
-        );
-      }
+      </div>
+
+      <button
+        onClick={saveOverride}
+        className="bg-blue-600 text-white px-6 py-2 rounded mt-4"
+      >
+        Guardar configuración para este día
+      </button>
+    </div>
+  );
+}
