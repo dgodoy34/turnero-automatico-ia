@@ -108,7 +108,7 @@ export default function Configuracion() {
     .from("restaurant_table_inventory")
     .select("*")
     .eq("restaurant_id", "1")
-    .eq("date", date);
+   
 
   if (!data || data.length === 0) return;
 
@@ -142,8 +142,7 @@ export default function Configuracion() {
       .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", "1")
-      .eq("date", date);
-
+     
     const rows: any[] = [];
 
     shifts.forEach(shift => {
