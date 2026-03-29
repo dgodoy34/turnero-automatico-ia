@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { generateTimeSlots } from "@/lib/generateTimeSlots";
-import type { Appointment } from "@/types/Appointment";   // ← Importamos el tipo real
+import type { Appointment } from "@/types/Appointment";
 
 type TableType = {
   capacity: number;
@@ -18,32 +18,24 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [hours, setHours] = useState<string[]>([]);
 
-  // Cargar mesas desde la API
   async function loadTables() {
     if (!date) return;
 
     try {
-      console.log("🚀 Cargando mesas para fecha:", date);
-
       const res = await fetch(`/api/table-inventory?date=${date}`, {
-        method: "GET",
         cache: "no-store",
         next: { revalidate: 0 },
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const data = await res.json();
-      console.log("🔥 RESPUESTA API mesas:", data);
-
+      console.log("🔥 Mesas cargadas:", data.tables);
       setTables(data.tables || []);
     } catch (err) {
-      console.error("💥 Error cargando mesas:", err);
+      console.error("Error cargando mesas:", err);
       setTables([]);
     }
   }
 
-  // Cargar horarios del restaurante
   async function loadSettings() {
     try {
       const res = await fetch("/api/settings");
@@ -61,13 +53,13 @@ export default function TableFloorView({ appointments = [], date }: Props) {
 
       setHours(slots);
     } catch (err) {
-      console.error("Error cargando settings:", err);
+      console.error("Error settings:", err);
+      // Fallback por si falla
+      setHours(["12:00", "13:00", "14:00", "20:00", "21:00", "22:00"]);
     }
   }
 
-  // Efectos
   useEffect(() => {
-    console.log("TableFloorView montado con date:", date);
     loadTables();
   }, [date]);
 
@@ -75,82 +67,79 @@ export default function TableFloorView({ appointments = [], date }: Props) {
     loadSettings();
   }, []);
 
-  // Filtrar reservas para una hora específica
   function reservationsAtHour(time: string) {
-    return appointments.filter((a) => {
-      if (a.date !== date) return false;
+    return appointments.filter((a) => a.date === date && 
+      a.start_time <= time && 
+      a.end_time > time
+    );
+  }
 
-      const slotStart = new Date(`${date}T${time}:00`);
-      const appointmentStart = new Date(`${date}T${a.start_time}`);
-      const appointmentEnd = new Date(`${date}T${a.end_time}`);
-
-      return slotStart >= appointmentStart && slotStart < appointmentEnd;
-    });
+  if (tables.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
+        <div className="text-red-500 p-6 text-center">
+          ⚠️ No hay mesas configuradas para esta fecha
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
+      <h2 className="font-semibold mb-6 text-xl">Plano de mesas</h2>
 
       <div className="mb-6 text-sm text-gray-600">
-        Fecha: <strong>{date}</strong> — Mesas totales: <strong>{tables.length}</strong>
+        Fecha: <strong>{date}</strong> — Total de configuraciones: <strong>{tables.length}</strong>
       </div>
 
-      {tables.length === 0 ? (
-        <div className="text-red-500 p-6 border border-red-200 rounded-lg text-center">
-          ⚠️ No hay mesas configuradas para esta fecha
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {hours.map((hour) => {
+      <div className="space-y-8">
+        {hours.length > 0 ? (
+          hours.map((hour) => {
             const reservationsThisHour = reservationsAtHour(hour);
 
             return (
-              <div key={hour} className="border rounded-xl p-6 bg-gray-50">
-                <div className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <div key={hour} className="border rounded-2xl p-6 bg-gray-50">
+                <div className="font-semibold text-lg mb-4 flex items-center gap-3">
                   🕒 {hour}
-                  <span className="text-sm font-normal text-gray-500">
-                    ({reservationsThisHour.length} reservas)
-                  </span>
+                  <span className="text-sm text-gray-500">({reservationsThisHour.length} reservas)</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {tables.flatMap((tableType) =>
-                    Array.from({ length: tableType.quantity }).map((_, index) => {
+                    Array.from({ length: tableType.quantity }).map((_, i) => {
                       const reservation = reservationsThisHour.find(
                         (r) => r.assigned_table_capacity === tableType.capacity
                       );
 
-                      let status = "Libre";
-                      let color = "bg-emerald-100 border-emerald-500 text-emerald-700";
-                      let icon = "🟢";
+                      const isOccupied = !!reservation;
+                      const status = isOccupied 
+                        ? (reservation.status === "confirmed" ? "Reservada" : "Ocupada")
+                        : "Libre";
 
-                      if (reservation) {
-                        if (reservation.status === "confirmed") {
-                          status = "Reservada";
-                          color = "bg-amber-100 border-amber-500 text-amber-700";
-                          icon = "🟡";
-                        } else {
-                          status = "Ocupada";
-                          color = "bg-red-100 border-red-500 text-red-700";
-                          icon = "🔴";
-                        }
-                      }
+                      const color = isOccupied
+                        ? reservation.status === "confirmed"
+                          ? "bg-amber-100 border-amber-500 text-amber-800"
+                          : "bg-red-100 border-red-500 text-red-800"
+                        : "bg-emerald-100 border-emerald-500 text-emerald-800";
+
+                      const icon = isOccupied 
+                        ? (reservation.status === "confirmed" ? "🟡" : "🔴")
+                        : "🟢";
 
                       return (
                         <div
-                          key={`${tableType.capacity}-${index}-${hour}`}
-                          className={`p-5 rounded-xl border-2 text-center transition-all ${color}`}
+                          key={`${tableType.capacity}-${i}-${hour}`}
+                          className={`p-6 rounded-2xl border-2 text-center ${color}`}
                         >
-                          <div className="text-3xl mb-2">{icon}</div>
-                          <div className="font-bold text-lg">
-                            Mesa {tableType.capacity} personas
+                          <div className="text-4xl mb-3">{icon}</div>
+                          <div className="font-bold text-xl mb-1">
+                            {tableType.capacity} personas
                           </div>
-                          <div className="text-sm mt-1 font-medium">{status}</div>
-
+                          <div className="font-medium">{status}</div>
                           {reservation && (
-                            <div className="text-xs mt-3 opacity-75">
-                              {reservation.people} pax • {reservation.clients?.name || "Cliente"}
+                            <div className="text-xs mt-3 text-gray-600">
+                              {reservation.people} pax
                             </div>
                           )}
                         </div>
@@ -160,9 +149,11 @@ export default function TableFloorView({ appointments = [], date }: Props) {
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        ) : (
+          <p className="text-gray-500">Cargando horarios...</p>
+        )}
+      </div>
     </div>
   );
 }
