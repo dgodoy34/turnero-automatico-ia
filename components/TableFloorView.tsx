@@ -28,26 +28,39 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   const [hours, setHours] = useState<string[]>([]);
 
   // ✅ 🔥 FIX REAL: usar date
+// Dentro de TableFloorView
+
+useEffect(() => {
+  console.log("TableFloorView montado con date:", date);
+}, [date]);
+
 async function loadTables() {
+  if (!date) return;
+
   try {
     console.log("🚀 Cargando mesas para fecha:", date);
-    
-    const res = await fetch(`/api/table-inventory?date=${date}`);
+
+    const res = await fetch(`/api/table-inventory?date=${date}`, {
+      method: 'GET',
+      cache: 'no-store',        // ← Fuerza datos frescos
+      next: { revalidate: 0 }   // ← Importante en Next.js App Router
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const data = await res.json();
-
-    console.log("🔥 RESPUESTA COMPLETA DE LA API:", data);
-    console.log("🔥 TABLES recibidas:", data.tables);
-
-    if (!data.success) {
-      console.error("❌ API devolvió error:", data.error);
-    }
+    console.log("🔥 RESPUESTA API mesas:", data);
 
     setTables(data.tables || []);
   } catch (err) {
-    console.error("💥 Error en fetch de mesas:", err);
+    console.error("💥 Error cargando mesas:", err);
     setTables([]);
   }
 }
+
+useEffect(() => {
+  loadTables();
+}, [date]);   // ← Solo depende de date
 
   async function loadSettings() {
     const res = await fetch("/api/settings");
