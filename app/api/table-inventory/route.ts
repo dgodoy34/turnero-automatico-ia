@@ -5,50 +5,49 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
-    const restaurant_id = searchParams.get("restaurant_id");   // ← ahora acepta por query
+    let restaurant_id = searchParams.get("restaurant_id");
 
-    // Si no viene por query, usamos el que tenías antes (temporal)
-    const RESTAURANT_ID = restaurant_id || "f9661b52-312d-46f6-9615-89aecfbb8a09";
+    // 🔥 TEMPORAL: si no viene el id, usamos el que sabíamos que funcionaba
+    if (!restaurant_id) {
+      restaurant_id = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+      console.warn("⚠️ restaurant_id no recibido, usando ID por defecto");
+    }
 
-    console.log("🔥 GET TABLE INVENTORY - Restaurant:", RESTAURANT_ID, "Date:", date);
+    console.log("🔥 API table-inventory → restaurant_id:", restaurant_id, "date:", date);
 
-    // Base inventory
     const { data: baseTables, error: baseError } = await supabase
       .from("restaurant_table_inventory")
-      .select("capacity,quantity")
-      .eq("restaurant_id", RESTAURANT_ID)
+      .select("capacity, quantity")
+      .eq("restaurant_id", restaurant_id)
       .order("capacity", { ascending: true });
 
     if (baseError) {
-      console.error("Base error:", baseError);
+      console.error("❌ Base error:", baseError);
       return NextResponse.json({ success: false, error: baseError.message }, { status: 400 });
     }
 
-    // Override del día (si hay fecha)
+    // Override por día
     let override: any[] = [];
     if (date) {
       const { data: overrideData } = await supabase
         .from("restaurant_daily_table_override")
-        .select("capacity,quantity")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .select("capacity, quantity")
+        .eq("restaurant_id", restaurant_id)
         .eq("date", date);
 
       if (overrideData) override = overrideData;
     }
 
-    const tables = (baseTables || []).map((t: any) => {
-      const o = override.find((x) => x.capacity === t.capacity);
-      return {
-        capacity: t.capacity,
-        quantity: o ? o.quantity : t.quantity,
-      };
-    });
+    const tables = (baseTables || []).map((t: any) => ({
+      capacity: t.capacity,
+      quantity: override.find((o) => o.capacity === t.capacity)?.quantity ?? t.quantity,
+    }));
 
-    console.log("✅ Tables devueltas:", tables);
+    console.log("✅ Mesas devueltas:", tables.length, tables);
 
     return NextResponse.json({ success: true, tables });
   } catch (err: any) {
-    console.error("💥 Error API:", err);
+    console.error("💥 Error en API:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
