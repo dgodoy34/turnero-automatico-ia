@@ -173,6 +173,9 @@ label = "⚫ En uso"
 
 }
 
+console.log("TABLES:", tables);
+console.log("APPOINTMENTS:", appointments);
+
 return(
 
 <div

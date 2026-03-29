@@ -19,12 +19,11 @@ export default function Mesas(){
   const [appointments,setAppointments] = useState<Appointment[]>([]);
   const [date,setDate] = useState(todayLocalISO());
 
-  async function load(){
-    const res = await fetch(`/api/appointments?date=${date}`);
-    const data = await res.json();
-    setAppointments(data.appointments || []);
-  }
-
+ async function load(){
+  const res = await fetch(`/api/appointments?date=${date}`);
+  const data = await res.json();
+  setAppointments(data.appointments || []);
+}
   useEffect(()=>{
   load();
 },[date]);
