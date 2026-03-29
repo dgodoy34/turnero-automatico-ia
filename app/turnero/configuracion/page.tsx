@@ -105,7 +105,7 @@ export default function Configuracion() {
 
   async function loadShifts() {
   const { data } = await supabase
-    .from("restaurant_table_schedule")
+    .from("restaurant_table_inventory")
     .select("*")
     .eq("restaurant_id", "1")
     .eq("date", date);
@@ -139,7 +139,7 @@ export default function Configuracion() {
   async function saveShifts() {
 
     await supabase
-      .from("restaurant_table_schedule")
+      .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", "1")
       .eq("date", date);
@@ -200,7 +200,7 @@ export default function Configuracion() {
     className="border p-2 rounded"
   />
 
-  <DailyTableSetup key={date} date={date} />
+  <DailyTableSetup date={date} />
 
 </div>
 

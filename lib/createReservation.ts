@@ -268,7 +268,7 @@ export async function createReservation({
 
     
 // =========================
-// 5️⃣ INVENTARIO DE MESAS (COMO ANTES)
+// 5️⃣ INVENTARIO DE MESAS (ORIGINAL)
 // =========================
 const { data: tableInventory } = await supabase
   .from("restaurant_table_inventory")
