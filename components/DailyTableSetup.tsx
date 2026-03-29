@@ -98,7 +98,21 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
 </div>
 
+{/* 🔥 MAPA DE MESAS */}
+<div className="mt-6 flex flex-wrap gap-3">
 
+  {tables.map((t) =>
+    Array.from({ length: t.quantity }).map((_, i) => (
+      <div
+        key={`${t.capacity}-${i}`}
+        className="w-16 h-16 bg-green-500 text-white flex items-center justify-center rounded shadow"
+      >
+        {t.capacity}
+      </div>
+    ))
+  )}
+
+</div>
   return(
 
     <div className="bg-white rounded-xl shadow p-6 space-y-4">
