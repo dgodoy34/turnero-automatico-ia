@@ -7,7 +7,6 @@ import DayAgenda from "@/components/ui/DayAgenda";
 import type { Appointment, AppointmentStatus } from "@/types/Appointment";
 import { getDateISOInTimezone } from "@/lib/time";
 import RestaurantClock from "@/components/RestaurantClock";
-import { supabase } from "@/lib/supabaseClient";
 
 function statusColor(status: AppointmentStatus) {
   switch (status) {
@@ -24,10 +23,7 @@ function statusColor(status: AppointmentStatus) {
 
 export default function TurneroUI() {
 
- 
-
   const [appointments,setAppointments] = useState<Appointment[]>([]);
-  
   const [loading,setLoading] = useState(true);
 
   const [searchCode,setSearchCode] = useState("");
@@ -39,8 +35,6 @@ export default function TurneroUI() {
   const [notes,setNotes] = useState("");
 
   const [selectedDate,setSelectedDate] = useState("");
-
-  const [shifts, setShifts] = useState<any[]>([]);
 
   async function loadAll(){
 
@@ -54,26 +48,9 @@ export default function TurneroUI() {
 
   }
 
-  async function loadShifts() {
-  if (!selectedDate) return;
-
-  const { data } = await supabase
-    .from("restaurant_table_schedule")
-    .select("*")
-    .eq("date", selectedDate);
-
-  if (data) setShifts(data);
-}  
-
   useEffect(()=>{
     loadAll();
   },[]);
-
-  useEffect(() => {
-  if (selectedDate) {
-    loadShifts();
-  }
-}, [selectedDate]);
 
 const [settings, setSettings] = useState<any>(null);
 
@@ -138,40 +115,6 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
     await loadAll();
 
   }
-
-  async function saveShifts() {
-
-  if (!selectedDate) {
-    alert("Seleccioná una fecha primero");
-    return;
-  }
-
-  // 🧹 borrar turnos existentes
-  await supabase
-    .from("restaurant_table_schedule")
-    .delete()
-    .eq("date", selectedDate);
-
-  // 📦 preparar datos
-  const toInsert = shifts.map(s => ({
-    start_time: s.start_time,
-    end_time: s.end_time,
-    capacity: s.capacity,
-    quantity: s.quantity,
-    date: selectedDate,
-    restaurant_id: "1" // ⚠️ temporal (después lo hacemos dinámico)
-  }));
-
-  // 💾 insertar nuevos
-  await supabase
-    .from("restaurant_table_schedule")
-    .insert(toInsert);
-
-  alert("Turnos guardados 🚀");
-
-  // 🔄 recargar
-  loadShifts();
-}
 
   const todayReservations = useMemo(
  ()=>appointments.filter(a=>a.date===selectedDate),
@@ -262,8 +205,6 @@ Buscar
 </div>
 
 </div>
-
-
 
 {/* KPIs */}
 
