@@ -31,11 +31,19 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [hours, setHours] = useState<string[]>([]);
 
-  // 🔹 cargar mesas
+  // ✅ 🔥 CARGAR MESAS (ARREGLADO)
   async function loadTables() {
-    const res = await fetch(`/api/table-inventory?date=${date}`);
-    const data = await res.json();
-    setTables(data.tables || []);
+    try {
+      const res = await fetch(`/api/table-inventory?date=${date}`);
+      const data = await res.json();
+
+      console.log("TABLE INVENTORY:", data);
+
+      setTables(data.tables || []);
+    } catch (err) {
+      console.error("Error cargando mesas", err);
+      setTables([]);
+    }
   }
 
   // 🔹 cargar horarios
@@ -64,7 +72,7 @@ export default function TableFloorView({ appointments = [], date }: Props) {
     loadSettings();
   }, []);
 
-  // 🔥 FIX REAL (rango de tiempo)
+  // 🔥 reservas por rango horario
   function reservationsAtHour(time: string) {
     const slot = new Date(`${date}T${time}:00`);
 
@@ -89,6 +97,13 @@ export default function TableFloorView({ appointments = [], date }: Props) {
   return (
     <div className="bg-white rounded-xl shadow p-6">
       <h2 className="font-semibold mb-4">Plano de mesas</h2>
+
+      {/* 🔥 DEBUG VISUAL */}
+      {tables.length === 0 && (
+        <div className="text-red-500">
+          ⚠️ No hay mesas cargadas
+        </div>
+      )}
 
       <div className="space-y-4">
         {hours.map((h) => {
@@ -135,10 +150,6 @@ export default function TableFloorView({ appointments = [], date }: Props) {
                         label = "⚫ En uso";
                       }
                     }
-
-                    console.log("tables:", tables);
-console.log("appointments:", appointments);
-console.log("hours:", hours);
 
                     return (
                       <div
