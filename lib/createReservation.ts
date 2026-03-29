@@ -268,48 +268,29 @@ export async function createReservation({
 
     
 // =========================
-// 5️⃣ MESAS (INVENTORY + OVERRIDE)
+// 5️⃣ INVENTARIO DE MESAS (COMO ANTES)
 // =========================
-
-let tables: number[] = [];
-
-// 1️⃣ traer override del día
-const { data: dailyOverride } = await supabase
-  .from("restaurant_daily_table_override")
+const { data: tableInventory } = await supabase
+  .from("restaurant_table_inventory")
   .select("*")
   .eq("restaurant_id", restaurant.id)
-  .eq("date", date);
+  .order("capacity", { ascending: true });
 
-// 2️⃣ si hay override → usarlo
-if (dailyOverride && dailyOverride.length > 0) {
-
-  dailyOverride.forEach((t) => {
-    for (let i = 0; i < t.quantity; i++) {
-      tables.push(t.capacity);
-    }
-  });
-
-} else {
-
-  // 3️⃣ fallback a inventory (CLAVE)
-  const { data: tableInventory } = await supabase
-    .from("restaurant_table_inventory")
-    .select("*")
-    .eq("restaurant_id", restaurant.id);
-
-  if (!tableInventory || tableInventory.length === 0) {
-    return {
-      success: false,
-      message: "No hay mesas configuradas.",
-    };
-  }
-
-  tableInventory.forEach((t) => {
-    for (let i = 0; i < t.quantity; i++) {
-      tables.push(t.capacity);
-    }
-  });
+if (!tableInventory || tableInventory.length === 0) {
+  return {
+    success: false,
+    message: "Inventario de mesas no configurado.",
+  };
 }
+
+// expandir mesas
+const tables: number[] = [];
+
+tableInventory.forEach((t) => {
+  for (let i = 0; i < t.quantity; i++) {
+    tables.push(t.capacity);
+  }
+});
     // =========================
     // 7️⃣ Ver ocupación
     // =========================
