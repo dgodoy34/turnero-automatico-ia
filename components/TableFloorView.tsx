@@ -136,6 +136,10 @@ export default function TableFloorView({ appointments = [], date }: Props) {
                       }
                     }
 
+                    console.log("tables:", tables);
+console.log("appointments:", appointments);
+console.log("hours:", hours);
+
                     return (
                       <div
                         key={`${t.capacity}-${i}-${h}`}
