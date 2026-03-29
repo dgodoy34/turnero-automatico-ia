@@ -73,14 +73,22 @@ useEffect(()=>{
   loadSettings()
 },[])
 
-  function reservationsAtHour(time:string){
+  function reservationsAtHour(time: string) {
 
-    return appointments.filter(a=>{
-      if(a.date !== date) return false
-      return a.start_time.slice(0,5) === time
-    })
+  const slot = new Date(`${date}T${time}:00`);
 
-  }
+  return appointments.filter(a => {
+
+    if (a.date !== date) return false;
+
+    const start = new Date(`${date}T${a.start_time}`);
+    const end = new Date(`${date}T${a.end_time}`);
+
+    // 🔥 CLAVE: si el slot está dentro de la reserva
+    return slot >= start && slot < end;
+  });
+
+}
 
   function isOccupied(time:string,reservation:Appointment){
 
@@ -141,15 +149,13 @@ const index = reservations.indexOf(reservation)
 usedReservations.push(index)
 
 if(reservation.status === "confirmed"){
-color = "bg-yellow-200 border border-yellow-500"
-label = "🟡 Reservada"
+  color = "bg-yellow-200 border border-yellow-500"
+  label = "🟡 Reservada"
 }
-
-if(reservation.status === "completed"){
-color = "bg-red-200 border border-red-500"
-label = "🔴 Ocupada"
+else if(reservation.status === "completed"){
+  color = "bg-red-200 border border-red-500"
+  label = "🔴 Ocupada"
 }
-
 }
 
 else{
