@@ -99,15 +99,24 @@ setSavedShifts(finalShifts);
 // 🔹 guardar
 async function saveShifts() {
   try {
-    // borrar solo ese día
-    await supabase
+    console.log("🔄 Iniciando guardado para fecha:", date);
+    console.log("📊 Shifts a guardar:", shifts);
+
+    // Borrar
+    const { error: deleteError } = await supabase
       .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", RESTAURANT_ID)
       .eq("date", date);
 
-    const rows: any[] = [];
+    if (deleteError) {
+      console.error("❌ Error al borrar:", deleteError);
+    } else {
+      console.log("✅ Delete OK");
+    }
 
+    // Preparar rows
+    const rows: any[] = [];
     shifts.forEach(shift => {
       shift.tables.forEach(t => {
         rows.push({
@@ -121,23 +130,26 @@ async function saveShifts() {
       });
     });
 
-    // 🔥 INSERT CON CONTROL DE ERROR
-    const { error } = await supabase
+    console.log("📝 Rows que se van a insertar:", rows);
+
+    const { data, error } = await supabase
       .from("restaurant_table_inventory")
-      .insert(rows);
+      .insert(rows)
+      .select();   // agregamos .select() para ver qué devolvió
 
     if (error) {
-      console.error("ERROR INSERT:", error);
-      alert("Error guardando en DB");
+      console.error("❌ ERROR INSERT:", error);
+      alert(`Error guardando: ${error.message} (código: ${error.code})`);
       return;
     }
 
-    alert("Configuración guardada 🚀");
+    console.log("✅ Insert OK - Datos insertados:", data);
+    alert("Configuración guardada correctamente 🚀");
 
-    loadShifts(); // recargar
+    await loadShifts(); // recargar
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error inesperado:", err);
     alert("Error al guardar");
   }
 }
