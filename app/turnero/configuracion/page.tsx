@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-
 type Settings = {
   open_time: string;
   close_time: string;
@@ -28,7 +27,6 @@ type Shift = {
 const RESTAURANT_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09";
 
 export default function Configuracion() {
-
   const [settings, setSettings] = useState<Settings>({
     open_time: "18:00",
     close_time: "23:30",
@@ -62,7 +60,11 @@ export default function Configuracion() {
     }
   ]);
 
+  const [savedShifts, setSavedShifts] = useState<Shift[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
+
+  const currentShift = shifts.find(s => s.name === selectedShift);
 
   async function loadSettings() {
     try {
@@ -70,49 +72,25 @@ export default function Configuracion() {
       if (!res.ok) return;
       const data = await res.json();
       if (data.settings) setSettings(data.settings);
-    } catch (e) {
-      console.log("No settings yet");
-    }
+    } catch {}
   }
 
-  // ✅ NUEVA FUNCIÓN AGREGADA (FIX)
   async function saveSettings() {
     try {
-      const res = await fetch("/api/settings", {
+      await fetch("/api/settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)
       });
-
-      if (!res.ok) {
-        alert("Error al guardar la configuración");
-        return;
-      }
-
-      setSaved(true);
-
-      setTimeout(() => setSaved(false), 3000);
-
-      alert("Configuración guardada correctamente");
-    } catch (e) {
-      console.error(e);
-      alert("Error al guardar la configuración");
-    }
+    } catch {}
   }
 
   async function loadShifts() {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
         .eq("restaurant_id", RESTAURANT_ID);
-
-      if (error) {
-        console.error("Error loadShifts:", error);
-        return;
-      }
 
       if (!data || data.length === 0) return;
 
@@ -122,7 +100,7 @@ export default function Configuracion() {
         const key = `${row.start_time}-${row.end_time}`;
         if (!grouped[key]) {
           grouped[key] = {
-            name: row.start_time < "17:00" ? "Día" : "Noche",
+            name: row.start_time <= "16:00" ? "Día" : "Noche",
             start_time: row.start_time,
             end_time: row.end_time,
             tables: []
@@ -134,24 +112,11 @@ export default function Configuracion() {
         });
       });
 
-      const loaded = Object.values(grouped) as Shift[];
-
-// 👉 si no viene nada de la DB, NO tocar el estado inicial
-if (loaded.length === 0) return;
-
-// 👉 si viene solo 1 turno, mantener el otro del estado actual
-if (loaded.length === 1) {
-  const existing = shifts.find(s => s.name !== loaded[0].name);
-  if (existing) {
-    setShifts([loaded[0], existing]);
-    return;
-  }
-}
-
-// 👉 caso normal (vienen los dos)
-setShifts(loaded);
+      const result = Object.values(grouped) as Shift[];
+      setSavedShifts(result);
+      setShifts(result);
     } catch (e) {
-      console.error("Error loading shifts:", e);
+      console.error(e);
     }
   }
 
@@ -177,34 +142,19 @@ setShifts(loaded);
         });
       });
 
-      const { error } = await supabase
-        .from("restaurant_table_inventory")
-        .insert(rows);
+      await supabase.from("restaurant_table_inventory").insert(rows);
 
-      if (error) throw error;
-
-      alert("Turnos guardados correctamente 🚀");
+      alert("Configuración guardada 🚀");
       loadShifts();
     } catch (err) {
       console.error(err);
-      alert("Error al guardar turnos");
+      alert("Error al guardar");
     }
   }
 
   async function handleSaveAll() {
-  try {
     await saveSettings();
     await saveShifts();
-
-    alert("Configuración completa guardada 🚀");
-  } catch (e) {
-    console.error(e);
-    alert("Error al guardar configuración");
-  }
-}
-
-  function updateField(field: string, value: any) {
-    setSettings(prev => ({ ...prev, [field]: value }));
   }
 
   useEffect(() => {
@@ -212,123 +162,81 @@ setShifts(loaded);
     loadShifts();
   }, []);
 
-  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
-  const currentShift = shifts.find(s => s.name === selectedShift);
-
-  
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
 
+      {/* CONFIG */}
       <div className="bg-white rounded-xl shadow p-6 space-y-4">
-        <h2 className="font-semibold">Configuración de mesas por día</h2>
+        <h2 className="font-semibold">Configuración por día</h2>
+
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="border p-2 rounded"
         />
-<div className="flex gap-2">
-  <button
-    onClick={() => setSelectedShift("Día")}
-    className={`px-4 py-2 rounded ${
-      selectedShift === "Día" ? "bg-blue-600 text-white" : "bg-gray-200"
-    }`}
-  >
-    Día
-  </button>
 
-  <button
-    onClick={() => setSelectedShift("Noche")}
-    className={`px-4 py-2 rounded ${
-      selectedShift === "Noche" ? "bg-blue-600 text-white" : "bg-gray-200"
-    }`}
-  >
-    Noche
-  </button>
-</div>
-
-
-
-        
-        {currentShift && (
-  <div className="space-y-3">
-    {currentShift.tables.map((table, i) => (
-      <div key={i} className="flex justify-between items-center border p-3 rounded">
-        <span>Mesa {table.capacity} personas</span>
-        <input
-          type="number"
-          value={table.quantity}
-          onChange={(e) => {
-            const updated = [...shifts];
-            const shiftIndex = shifts.findIndex(s => s.name === selectedShift);
-            updated[shiftIndex].tables[i].quantity = Number(e.target.value);
-            setShifts(updated);
-          }}
-          className="border p-2 rounded w-24"
-        />
-      </div>
-    ))}
-  </div>
-)}
-      </div>
-
-      
-      <div className="grid md:grid-cols-2 gap-6">
-  {shifts.map((shift, i) => (
-    <div key={i} className="border p-4 rounded-xl space-y-4 bg-gray-50">
-      
-      {/* Título */}
-      <h3 className="font-semibold text-lg">
-        {shift.name}
-      </h3>
-
-      {/* Horarios */}
-      <div className="flex gap-2">
-        <input
-          type="time"
-          value={shift.start_time}
-          onChange={(e) => {
-            const updated = [...shifts];
-            updated[i].start_time = e.target.value;
-            setShifts(updated);
-          }}
-          className="border p-2 rounded"
-        />
-
-        <input
-          type="time"
-          value={shift.end_time}
-          onChange={(e) => {
-            const updated = [...shifts];
-            updated[i].end_time = e.target.value;
-            setShifts(updated);
-          }}
-          className="border p-2 rounded"
-        />
-      </div>
-
-      {/* Mesas */}
-      {shift.tables.map((table, j) => (
-        <div key={j} className="flex justify-between items-center">
-          <span>Mesa {table.capacity}</span>
-          <input
-            type="number"
-            value={table.quantity}
-            onChange={(e) => {
-              const updated = [...shifts];
-              updated[i].tables[j].quantity = Number(e.target.value);
-              setShifts(updated);
-            }}
-            className="border p-2 rounded w-20"
-          />
+        {/* selector */}
+        <div className="flex gap-2">
+          {["Día", "Noche"].map(s => (
+            <button
+              key={s}
+              onClick={() => setSelectedShift(s as any)}
+              className={`px-4 py-2 rounded ${
+                selectedShift === s ? "bg-blue-600 text-white" : "bg-gray-200"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
         </div>
-      ))}
-    </div>
-  ))}
-</div>
-</div>
-  );}
 
+        {/* editor */}
+        {currentShift && (
+          <div className="space-y-3">
+            {currentShift.tables.map((table, i) => (
+              <div key={i} className="flex justify-between border p-3 rounded">
+                <span>Mesa {table.capacity}</span>
+                <input
+                  type="number"
+                  value={table.quantity}
+                  onChange={(e) => {
+                    const updated = [...shifts];
+                    const idx = shifts.findIndex(s => s.name === selectedShift);
+                    updated[idx].tables[i].quantity = Number(e.target.value);
+                    setShifts(updated);
+                  }}
+                  className="border p-2 w-24 rounded"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={handleSaveAll}
+          className="bg-indigo-600 text-white px-6 py-2 rounded"
+        >
+          Guardar configuración
+        </button>
+      </div>
+
+      {/* VISTA GUARDADA */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {savedShifts.map((shift, i) => (
+          <div key={i} className="border p-4 rounded-xl bg-gray-50">
+            <h3 className="font-semibold mb-2">{shift.name}</h3>
+            {shift.tables.map((t, j) => (
+              <div key={j} className="flex justify-between">
+                <span>Mesa {t.capacity}</span>
+                <span>{t.quantity}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
