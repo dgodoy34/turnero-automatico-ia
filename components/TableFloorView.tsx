@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { useEffect, useState } from "react";
 import type { Appointment } from "@/types/Appointment";
 
@@ -37,7 +35,6 @@ export default function TableFloorView({
       if (!res.ok) throw new Error("Fetch falló");
 
       const data = await res.json();
-
       console.log("✅ Mesas desde API:", data.tables);
 
       setTables(data.tables || []);
@@ -51,6 +48,25 @@ export default function TableFloorView({
     loadTables();
   }, [date, shift]);
 
+  // 🔥 CLAVE: calcular mesas ocupadas
+  function usedTables(capacity: number) {
+    let used = 0;
+
+    appointments.forEach((a) => {
+      if (a.date !== date) return;
+      if (a.status !== "confirmed") return;
+      if (!a.assigned_table_capacity) return;
+
+      if (a.assigned_table_capacity >= 6 && capacity === 6) {
+        used += a.tables_used || 1;
+      } else if (a.assigned_table_capacity === capacity) {
+        used += a.tables_used || 1;
+      }
+    });
+
+    return used;
+  }
+
   return (
     <div className="bg-white rounded-xl shadow p-6">
       <h2 className="font-semibold mb-6 text-2xl">
@@ -63,28 +79,47 @@ export default function TableFloorView({
         </div>
       ) : (
         <div className="space-y-6">
-          {tables.map((t) => (
-            <div key={t.capacity}>
-              <h3 className="font-semibold mb-2">
-                {t.capacity === 6 ? "6+" : t.capacity} personas ({t.quantity})
-              </h3>
+          {tables.map((t) => {
+            const used = usedTables(t.capacity);
 
-              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                {Array.from({ length: t.quantity }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2 rounded border text-xs text-center bg-green-100 border-green-400"
-                  >
-                    <div className="font-semibold">Mesa</div>
-                    <div>{t.capacity}</div>
-                    <div className="text-green-700">Libre</div>
-                  </div>
-                ))}
+            return (
+              <div key={t.capacity}>
+                <h3 className="font-semibold mb-2">
+                  {t.capacity === 6 ? "6+" : t.capacity} personas ({t.quantity})
+                </h3>
+
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                  {Array.from({ length: t.quantity }).map((_, idx) => {
+                    const isUsed = idx < used;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded border text-xs text-center ${
+                          isUsed
+                            ? "bg-red-100 border-red-400"
+                            : "bg-green-100 border-green-400"
+                        }`}
+                      >
+                        <div className="font-semibold">Mesa</div>
+                        <div>{t.capacity}</div>
+                        <div
+                          className={
+                            isUsed ? "text-red-700" : "text-green-700"
+                          }
+                        >
+                          {isUsed ? "Ocupada" : "Libre"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
+  
