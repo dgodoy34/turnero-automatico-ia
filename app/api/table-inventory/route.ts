@@ -18,7 +18,8 @@ export async function GET(req: Request) {
 
     console.log("🔥 table-inventory:", { restaurant_id, date });
 
-    const { data, error } = await supabase
+    // 🔥 1. BUSCAR CONFIG DEL DÍA
+    let { data, error } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity, start_time")
       .eq("restaurant_id", restaurant_id)
@@ -32,22 +33,44 @@ export async function GET(req: Request) {
       );
     }
 
+    // 🔥 2. FALLBACK DEFAULT (CLAVE)
+    if (!data || data.length === 0) {
+      console.log("⚠️ No hay config del día → usando DEFAULT");
+
+      const { data: fallback, error: fallbackError } = await supabase
+        .from("restaurant_table_inventory")
+        .select("capacity, quantity, start_time")
+        .eq("restaurant_id", restaurant_id)
+        .is("date", null); // 👈 DEFAULT
+
+      if (fallbackError) {
+        console.error("❌ Error fallback:", fallbackError);
+        return NextResponse.json(
+          { success: false, error: fallbackError.message },
+          { status: 400 }
+        );
+      }
+
+      data = fallback;
+    }
+
     const shift = searchParams.get("shift");
 
     let filtered = data;
 
-if (shift === "Día") {
-  filtered = data.filter(r => r.start_time <= "16:00");
-}
+    // 🔥 3. FILTRO POR TURNO
+    if (shift === "Día") {
+      filtered = data.filter((r: any) => r.start_time <= "16:00");
+    }
 
-if (shift === "Noche") {
-  filtered = data.filter(r => r.start_time > "16:00");
-}
+    if (shift === "Noche") {
+      filtered = data.filter((r: any) => r.start_time > "16:00");
+    }
 
-    // 🔥 SUMAR cantidades (día + noche)
+    // 🔥 4. AGRUPAR CAPACIDAD
     const map = new Map<number, number>();
 
-    filtered?.forEach((row: any) => { 
+    filtered?.forEach((row: any) => {
       const current = map.get(row.capacity) || 0;
       map.set(row.capacity, current + row.quantity);
     });
