@@ -99,58 +99,52 @@ setSavedShifts(finalShifts);
 // 🔹 guardar
 async function saveShifts() {
   try {
-    console.log("🔄 Iniciando guardado para fecha:", date);
-    console.log("📊 Shifts a guardar:", shifts);
+    console.log("=== INTENTANDO GUARDAR ===");
+    console.log("Fecha:", date);
+    console.log("Shifts:", shifts);
 
-    // Borrar
+    // Borrar primero
     const { error: deleteError } = await supabase
       .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", RESTAURANT_ID)
-  
+      .eq("date", date);
 
-    if (deleteError) {
-      console.error("❌ Error al borrar:", deleteError);
-    } else {
-      console.log("✅ Delete OK");
-    }
+    if (deleteError) console.error("Error delete:", deleteError);
 
-    // Preparar rows
-    const rows: any[] = [];
-    shifts.forEach(shift => {
-      shift.tables.forEach(t => {
-        rows.push({
-          restaurant_id: RESTAURANT_ID,
+    // Insertar
+    const rows = shifts.flatMap(shift =>
+      shift.tables.map(t => ({
+        restaurant_id: RESTAURANT_ID,
+        date: date,                    // asegurate que sea string YYYY-MM-DD
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        capacity: t.capacity,
+        quantity: t.quantity
+      }))
+    );
 
-          start_time: shift.start_time,
-          end_time: shift.end_time,
-          capacity: t.capacity,
-          quantity: t.quantity
-        });
-      });
-    });
-
-    console.log("📝 Rows que se van a insertar:", rows);
+    console.log("Rows a insertar:", rows);
 
     const { data, error } = await supabase
       .from("restaurant_table_inventory")
       .insert(rows)
-      .select();   // agregamos .select() para ver qué devolvió
+      .select();
 
     if (error) {
-      console.error("❌ ERROR INSERT:", error);
-      alert(`Error guardando: ${error.message} (código: ${error.code})`);
+      console.error("ERROR INSERT:", error);
+      alert(`Error: ${error.message}\nCódigo: ${error.code}`);
       return;
     }
 
-    console.log("✅ Insert OK - Datos insertados:", data);
-    alert("Configuración guardada correctamente 🚀");
-
-    await loadShifts(); // recargar
+    console.log("Guardado exitoso:", data);
+    alert("✅ Configuración guardada correctamente");
+    
+    await loadShifts();
 
   } catch (err) {
-    console.error("❌ Error inesperado:", err);
-    alert("Error al guardar");
+    console.error("Error general:", err);
+    alert("Error inesperado al guardar");
   }
 }
   return (
