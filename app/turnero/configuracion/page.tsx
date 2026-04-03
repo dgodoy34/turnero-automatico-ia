@@ -164,28 +164,37 @@ export default function Configuracion() {
           </button>
         </div>
 
-        {/* 🔹 EDICIÓN */}
-        {currentShift && (
-          <div className="space-y-3">
-            {currentShift.tables.map((table, i) => (
-              <div key={i} className="flex justify-between border p-3 rounded">
-                <span>Mesa {table.capacity} personas</span>
+ {currentShift && (
+  <div className="space-y-3 mt-4">
 
-                <input
-                  type="number"
-                  value={table.quantity}
-                  onChange={(e) => {
-                    const updated = [...shifts];
-                    const idx = shifts.findIndex(s => s.name === selectedShift);
-                    updated[idx].tables[i].quantity = Number(e.target.value);
-                    setShifts(updated);
-                  }}
-                  className="border p-2 w-24 rounded"
-                />
-              </div>
-            ))}
-          </div>
-        )}
+    <h3 className="font-semibold text-lg">
+      Configuración {selectedShift}
+    </h3>
+
+    {currentShift.tables.map((table, i) => (
+      <div
+        key={i}
+        className="flex justify-between items-center border p-4 rounded-lg bg-gray-50"
+      >
+        <span className="font-medium">
+          Mesa {table.capacity} personas
+        </span>
+
+        <input
+          type="number"
+          value={table.quantity}
+          onChange={(e) => {
+            const updated = [...shifts];
+            const idx = shifts.findIndex(s => s.name === selectedShift);
+            updated[idx].tables[i].quantity = Number(e.target.value);
+            setShifts(updated);
+          }}
+          className="border p-2 w-24 rounded text-center"
+        />
+      </div>
+    ))}
+  </div>
+)}
 
         {/* botón */}
         <button
