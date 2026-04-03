@@ -1,57 +1,33 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient"
 
 export async function checkAvailability({
-  restaurant_id,
-  date,
-  people,
-  shift
-}: {
-  restaurant_id: string;
-  date: string;
-  people: number;
-  shift: "Día" | "Noche";
-}) {
-  try {
-    const { data } = await supabase
-      .from("restaurant_table_inventory")
-      .select("capacity, quantity, start_time")
-      .eq("restaurant_id", restaurant_id)
-      .eq("date", date);
+  checkIn,
+  checkOut,
+  roomType
+}: any) {
 
-    if (!data || data.length === 0) {
-      return { available: false };
-    }
+  // 🔹 total habitaciones
+  const { data: inventory } = await supabase
+    .from("room_inventory")
+    .select("quantity")
+    .eq("room_type", roomType)
+    .single()
 
-    // 🔥 filtrar turno
-    let filtered = data;
+  const total = inventory?.quantity || 0
 
-    if (shift === "Día") {
-      filtered = data.filter(r => r.start_time <= "16:00");
-    }
+  // 🔹 reservas existentes en rango
+  const { data: bookings } = await supabase
+    .from("hotel_bookings")
+    .select("*")
+    .eq("room_type", roomType)
+    .lt("check_in", checkOut)
+    .gt("check_out", checkIn)
 
-    if (shift === "Noche") {
-      filtered = data.filter(r => r.start_time > "16:00");
-    }
+  const reserved = bookings?.length || 0
 
-    // 🔥 buscar mesa que sirva
-    const match = filtered.find(t => t.capacity >= people);
-
-    if (!match) {
-      return { available: false };
-    }
-
-    // 🔥 verificar cantidad disponible
-    if (match.quantity <= 0) {
-      return { available: false };
-    }
-
-    return {
-      available: true,
-      capacity: match.capacity
-    };
-
-  } catch (e) {
-    console.error(e);
-    return { available: false };
+  return {
+    available: total - reserved,
+    total,
+    reserved
   }
 }
