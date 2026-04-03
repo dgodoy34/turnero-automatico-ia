@@ -134,9 +134,24 @@ export default function Configuracion() {
         });
       });
 
-      setShifts(Object.values(grouped));
-    } catch (err) {
-      console.error("Error en loadShifts:", err);
+      const loaded = Object.values(grouped) as Shift[];
+
+// 👉 si no viene nada de la DB, NO tocar el estado inicial
+if (loaded.length === 0) return;
+
+// 👉 si viene solo 1 turno, mantener el otro del estado actual
+if (loaded.length === 1) {
+  const existing = shifts.find(s => s.name !== loaded[0].name);
+  if (existing) {
+    setShifts([loaded[0], existing]);
+    return;
+  }
+}
+
+// 👉 caso normal (vienen los dos)
+setShifts(loaded);
+    } catch (e) {
+      console.error("Error loading shifts:", e);
     }
   }
 
