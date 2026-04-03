@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import TableFloorView from "@/components/TableFloorView";
 import TableInventoryView from "@/components/TableInventoryView";
-import DailyTableSetup from "@/components/DailyTableSetup";
 import type { Appointment } from "@/types/Appointment";
 
 // 🔥 FECHA LOCAL (ARGENTINA)
-function todayLocalISO(){
+function todayLocalISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   const local = new Date(now.getTime() - offset * 60000);
@@ -19,12 +18,19 @@ export default function Mesas() {
   const [date, setDate] = useState(todayLocalISO());
   const [loading, setLoading] = useState(false);
 
+  // 🔥 TURNO (FIX CLAVE)
+  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
+
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/appointments?date=${date}`);
+      const res = await fetch(
+        `/api/table-inventory?date=${date}&shift=${selectedShift}`
+      );
       const data = await res.json();
-      setAppointments(data.appointments || []);
+
+      // 🔥 FIX CLAVE (antes estaba mal)
+      setAppointments(data.tables || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -34,13 +40,13 @@ export default function Mesas() {
 
   useEffect(() => {
     load();
-  }, [date]);
+  }, [date, selectedShift]);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Gestión de mesas</h1>
 
-      {/* SELECTOR FECHA */}
+      {/* 🔹 FECHA */}
       <div className="bg-white rounded-xl shadow p-4 flex gap-4 items-center">
         <label className="font-semibold">Servicio del día</label>
         <input
@@ -51,16 +57,43 @@ export default function Mesas() {
         />
       </div>
 
-      <TableInventoryView date={date} />
-      
+      {/* 🔹 SELECTOR DÍA / NOCHE (FIX CLAVE) */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSelectedShift("Día")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Día"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          Día
+        </button>
 
-      {/* PLANO DE MESAS - Solo una vez */}
+        <button
+          onClick={() => setSelectedShift("Noche")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Noche"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          Noche
+        </button>
+      </div>
+
+      {/* 🔹 INVENTARIO */}
+      <TableInventoryView date={date} shift={selectedShift} />
+
+      {/* 🔹 PLANO */}
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
-        {loading && <p>Cargando reservas...</p>}
-        <TableFloorView 
-          appointments={appointments} 
-          date={date} 
+
+        {loading && <p>Cargando mesas...</p>}
+
+        <TableFloorView
+          appointments={appointments}
+          date={date}
         />
       </div>
     </div>

@@ -60,7 +60,14 @@ export default function Configuracion() {
       .eq("restaurant_id", RESTAURANT_ID)
       .eq("date", date); // 🔥 ESTE ES EL FIX
 
-    if (!data || data.length === 0) return;
+    if (!data || data.length === 0) {
+  setShifts([
+    shifts.find(s => s.name === "Día")!,
+    shifts.find(s => s.name === "Noche")!
+  ]);
+  setSavedShifts([]);
+  return;
+}
 
     const grouped: any = {};
 
