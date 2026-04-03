@@ -212,62 +212,61 @@ export default function Configuracion() {
         <DailyTableSetup key={date} date={date} />
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6 space-y-6">
-        
-        <div className="flex gap-4 items-center pt-4">
-          <button
-            onClick={handleSaveAll}
-            className="bg-indigo-600 text-white px-6 py-2 rounded"
-          >
-            Guardar configuración
-          </button>
+      
+      <div className="grid md:grid-cols-2 gap-6">
+  {shifts.map((shift, i) => (
+    <div key={i} className="border p-4 rounded-xl space-y-4 bg-gray-50">
+      
+      {/* Título */}
+      <h3 className="font-semibold text-lg">
+        {shift.name}
+      </h3>
 
-          {saved && (
-            <span className="text-green-600">
-              Configuración guardada
-            </span>
-          )}
+      {/* Horarios */}
+      <div className="flex gap-2">
+        <input
+          type="time"
+          value={shift.start_time}
+          onChange={(e) => {
+            const updated = [...shifts];
+            updated[i].start_time = e.target.value;
+            setShifts(updated);
+          }}
+          className="border p-2 rounded"
+        />
+
+        <input
+          type="time"
+          value={shift.end_time}
+          onChange={(e) => {
+            const updated = [...shifts];
+            updated[i].end_time = e.target.value;
+            setShifts(updated);
+          }}
+          className="border p-2 rounded"
+        />
+      </div>
+
+      {/* Mesas */}
+      {shift.tables.map((table, j) => (
+        <div key={j} className="flex justify-between items-center">
+          <span>Mesa {table.capacity}</span>
+          <input
+            type="number"
+            value={table.quantity}
+            onChange={(e) => {
+              const updated = [...shifts];
+              updated[i].tables[j].quantity = Number(e.target.value);
+              setShifts(updated);
+            }}
+            className="border p-2 rounded w-20"
+          />
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6 space-y-4">
-        <h2 className="font-semibold">Turnos del restaurante (día / noche)</h2>
-
-        {shifts.map((shift, i) => (
-          <div key={i} className="border p-3 rounded space-y-3">
-            <div className="flex gap-2">
-              <input type="time" value={shift.start_time} onChange={(e) => {
-                const updated = [...shifts];
-                updated[i].start_time = e.target.value;
-                setShifts(updated);
-              }} className="border p-2 rounded" />
-
-              <input type="time" value={shift.end_time} onChange={(e) => {
-                const updated = [...shifts];
-                updated[i].end_time = e.target.value;
-                setShifts(updated);
-              }} className="border p-2 rounded" />
-            </div>
-
-            {shift.tables.map((table, j) => (
-              <div key={j} className="flex gap-2 items-center">
-                <span className="w-24">Mesa {table.capacity}</span>
-                <input
-                  type="number"
-                  value={table.quantity}
-                  onChange={(e) => {
-                    const updated = [...shifts];
-                    updated[i].tables[j].quantity = Number(e.target.value);
-                    setShifts(updated);
-                  }}
-                  className="border p-2 rounded w-20"
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-
-      </div>
+      ))}
     </div>
-  );
-}
+  ))}
+</div>
+</div>
+  );}
+
+
