@@ -52,50 +52,50 @@ export default function Configuracion() {
   const currentShift = shifts.find(s => s.name === selectedShift);
 
   // 🔹 cargar desde DB
-  async function loadShifts() {
-    try {
-      const { data } = await supabase
-        .from("restaurant_table_inventory")
-        .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
-       
+ async function loadShifts() {
+  try {
+    const { data } = await supabase
+      .from("restaurant_table_inventory")
+      .select("*")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("date", date); // 🔥 ESTE ES EL FIX
 
-      if (!data || data.length === 0) return;
+    if (!data || data.length === 0) return;
 
-      const grouped: any = {};
+    const grouped: any = {};
 
-      data.forEach((row: any) => {
-        const key = `${row.start_time}-${row.end_time}`;
+    data.forEach((row: any) => {
+      const key = `${row.start_time}-${row.end_time}`;
 
-        if (!grouped[key]) {
-          grouped[key] = {
-            name: row.start_time <= "16:00" ? "Día" : "Noche",
-            start_time: row.start_time,
-            end_time: row.end_time,
-            tables: []
-          };
-        }
+      if (!grouped[key]) {
+        grouped[key] = {
+          name: row.start_time <= "16:00" ? "Día" : "Noche",
+          start_time: row.start_time,
+          end_time: row.end_time,
+          tables: []
+        };
+      }
 
-        grouped[key].tables.push({
-          capacity: row.capacity,
-          quantity: row.quantity
-        });
+      grouped[key].tables.push({
+        capacity: row.capacity,
+        quantity: row.quantity
       });
+    });
 
-      const result = Object.values(grouped) as Shift[];
+    const result = Object.values(grouped) as Shift[];
 
-      const finalShifts: Shift[] = [
-  result.find(s => s.name === "Día") || shifts.find(s => s.name === "Día")!,
-  result.find(s => s.name === "Noche") || shifts.find(s => s.name === "Noche")!
-];
+    const finalShifts: Shift[] = [
+      result.find(s => s.name === "Día") || shifts.find(s => s.name === "Día")!,
+      result.find(s => s.name === "Noche") || shifts.find(s => s.name === "Noche")!
+    ];
 
-setShifts(finalShifts);
-setSavedShifts(finalShifts);
-    } catch (e) {
-      console.error(e);
-    }
+    setShifts(finalShifts);
+    setSavedShifts(finalShifts);
+
+  } catch (e) {
+    console.error(e);
   }
-
+}
 // 🔹 guardar
 async function saveShifts() {
   try {
