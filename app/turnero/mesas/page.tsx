@@ -1,122 +1,99 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TableFloorView from "@/components/TableFloorView";
+import TableInventoryView from "@/components/TableInventoryView";
+import type { Appointment } from "@/types/Appointment";
 
-type TableType = {
-  capacity: number;
-  quantity: number;
-};
+// 🔥 FECHA LOCAL (ARGENTINA)
+function todayLocalISO() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60000);
+  return local.toISOString().split("T")[0];
+}
 
-type Appointment = {
-  assigned_table_capacity?: number;
-  tables_used?: number;
-  status: string;
-  date: string;
-};
-
-type Props = {
-  date: string;
-  shift: "Día" | "Noche";
-};
-
-export default function TableInventoryView({ date, shift }: Props) {
-
-  const [tables, setTables] = useState<TableType[]>([]);
+export default function Mesas() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [date, setDate] = useState(todayLocalISO());
+  const [loading, setLoading] = useState(false);
 
-  async function loadData() {
+  // 🔥 TURNO
+  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
 
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
-    const tablesData = await tablesRes.json();
-
-    const apptRes = await fetch("/api/appointments");
-    const apptData = await apptRes.json();
-
-    setTables(tablesData.tables || []);
-    setAppointments(apptData.appointments || []);
+  // 🔥 SOLO RESERVAS (NO INVENTARIO)
+  async function loadAppointments() {
+    try {
+      const res = await fetch("/api/appointments");
+      const data = await res.json();
+      setAppointments(data.appointments || []);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   useEffect(() => {
-
-    if (!date) return;
-
-    loadData();
-
-  }, [date, shift]); // 🔥 ESTE ES EL FIX
-
-  function usedTables(capacity: number) {
-
-    let used = 0;
-
-    appointments.forEach(a => {
-
-      if (a.date !== date) return;
-      if (a.status !== "confirmed") return;
-      if (!a.assigned_table_capacity) return;
-
-      if (a.assigned_table_capacity >= 6 && capacity === 6) {
-        used += a.tables_used || 1;
-      } 
-      else if (a.assigned_table_capacity === capacity) {
-        used += a.tables_used || 1;
-      }
-
-    });
-
-    return used;
-  }
+    loadAppointments();
+  }, []);
 
   return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Gestión de mesas</h1>
 
-    <div className="bg-white rounded-xl shadow p-6">
-
-      <h2 className="font-semibold mb-4">
-        Inventario de mesas ({shift})
-      </h2>
-
-      <div className="space-y-3">
-
-        {tables.map(t => {
-
-          const used = usedTables(t.capacity);
-          const free = Math.max(0, t.quantity - used);
-
-          return (
-
-            <div
-              key={t.capacity}
-              className="flex justify-between items-center border p-3 rounded"
-            >
-
-              <div>
-                Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
-              </div>
-
-              <div className="flex gap-3 text-sm">
-
-                <span className="text-gray-500">
-                  Total: {t.quantity}
-                </span>
-
-                <span className="text-red-600">
-                  Ocupadas: {used}
-                </span>
-
-                <span className="text-green-600">
-                  Libres: {free}
-                </span>
-
-              </div>
-
-            </div>
-
-          );
-
-        })}
-
+      {/* 🔹 FECHA */}
+      <div className="bg-white rounded-xl shadow p-4 flex gap-4 items-center">
+        <label className="font-semibold">Servicio del día</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="border rounded p-2"
+        />
       </div>
 
-    </div>
+      {/* 🔹 SELECTOR TURNO */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSelectedShift("Día")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Día"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          Día
+        </button>
 
+        <button
+          onClick={() => setSelectedShift("Noche")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Noche"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          Noche
+        </button>
+      </div>
+
+      {/* 🔹 INVENTARIO (CORRECTO) */}
+      <TableInventoryView 
+        date={date} 
+        shift={selectedShift} 
+      />
+
+      {/* 🔹 PLANO (CORRECTO) */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
+
+        {loading && <p>Cargando mesas...</p>}
+
+        <TableFloorView
+          appointments={appointments}
+          date={date}
+          shift={selectedShift} // 🔥 CLAVE
+        />
+      </div>
+    </div>
   );
 }
