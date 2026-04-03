@@ -1,5 +1,7 @@
 "use client";
 
+"use client";
+
 import { useEffect, useState } from "react";
 import type { Appointment } from "@/types/Appointment";
 
@@ -11,10 +13,14 @@ type TableType = {
 type Props = {
   appointments?: Appointment[];
   date: string;
-  shift: "Día" | "Noche"; // 🔥
+  shift: "Día" | "Noche";
 };
 
-export default function TableFloorView({ appointments = [], date, shift }: Props) {
+export default function TableFloorView({
+  appointments = [],
+  date,
+  shift,
+}: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
 
   async function loadTables() {
@@ -24,13 +30,14 @@ export default function TableFloorView({ appointments = [], date, shift }: Props
       const restaurantId = "f9661b52-312d-46f6-9615-89aecfbb8a09";
 
       const res = await fetch(
-        `/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${restaurantId}`, // 🔥 FIX
+        `/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${restaurantId}`,
         { cache: "no-store" }
       );
 
       if (!res.ok) throw new Error("Fetch falló");
 
       const data = await res.json();
+
       console.log("✅ Mesas desde API:", data.tables);
 
       setTables(data.tables || []);
@@ -42,7 +49,7 @@ export default function TableFloorView({ appointments = [], date, shift }: Props
 
   useEffect(() => {
     loadTables();
-  }, [date, shift]); // 🔥 FIX
+  }, [date, shift]);
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
@@ -56,10 +63,10 @@ export default function TableFloorView({ appointments = [], date, shift }: Props
         </div>
       ) : (
         <div className="space-y-6">
-          {tables.map((t, i) => (
-            <div key={i}>
+          {tables.map((t) => (
+            <div key={t.capacity}>
               <h3 className="font-semibold mb-2">
-                {t.capacity} personas ({t.quantity})
+                {t.capacity === 6 ? "6+" : t.capacity} personas ({t.quantity})
               </h3>
 
               <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
@@ -81,4 +88,3 @@ export default function TableFloorView({ appointments = [], date, shift }: Props
     </div>
   );
 }
-  
