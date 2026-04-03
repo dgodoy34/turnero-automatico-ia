@@ -147,37 +147,47 @@ export async function createReservation({
     }
 
     // =========================
-    // 5️⃣ INVENTARIO DE MESAS
-    // =========================
-    const { data: baseTableInventory } = await supabase
-      .from("restaurant_table_inventory")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .order("capacity", { ascending: true });
+// 5️⃣ INVENTARIO REAL (FIX TOTAL)
+// =========================
 
-    if (!baseTableInventory || baseTableInventory.length === 0) {
-      return {
-        success: false,
-        message: "Inventario de mesas no configurado.",
-      };
-    }
+// 🔥 detectar turno
+const shift = start_time <= "16:00" ? "Día" : "Noche";
 
-    const { data: tableOverride } = await supabase
-      .from("restaurant_daily_table_override")
-      .select("capacity, quantity")
-      .eq("restaurant_id", restaurant.id)
-      .eq("date", date);
+// 🔥 intentar traer config del día
+let { data: tableInventory } = await supabase
+  .from("restaurant_table_inventory")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .eq("date", date);
 
-    const tableInventory = baseTableInventory.map((table) => {
-      const overrideForCapacity = tableOverride?.find(
-        (override) => override.capacity === table.capacity
-      );
+// 🔥 fallback a default (SIN fecha)
+if (!tableInventory || tableInventory.length === 0) {
+  console.log("⚠️ usando inventario DEFAULT");
 
-      return {
-        ...table,
-        quantity: overrideForCapacity?.quantity ?? table.quantity,
-      };
-    });
+  const { data: fallback } = await supabase
+    .from("restaurant_table_inventory")
+    .select("*")
+    .eq("restaurant_id", restaurant.id)
+    .is("date", null);
+
+  tableInventory = fallback || [];
+}
+
+if (!tableInventory || tableInventory.length === 0) {
+  return {
+    success: false,
+    message: "Inventario de mesas no configurado.",
+  };
+}
+
+// 🔥 filtrar por turno
+if (shift === "Día") {
+  tableInventory = tableInventory.filter(t => t.start_time <= "16:00");
+}
+
+if (shift === "Noche") {
+  tableInventory = tableInventory.filter(t => t.start_time > "16:00");
+}
 
     // =========================
     // 6️⃣ Expandir mesas
