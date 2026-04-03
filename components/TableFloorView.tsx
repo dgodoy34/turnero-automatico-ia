@@ -49,23 +49,30 @@ export default function TableFloorView({
   }, [date, shift]);
 
   // 🔥 CLAVE: calcular mesas ocupadas
-  function usedTables(capacity: number) {
-    let used = 0;
+function usedTables(capacity: number) {
+  let used = 0;
 
-    appointments.forEach((a) => {
-      if (a.date !== date) return;
-      if (a.status !== "confirmed") return;
-      if (!a.assigned_table_capacity) return;
+  appointments.forEach((a) => {
+    if (a.date !== date) return;
+    if (a.status !== "confirmed") return;
+    if (!a.assigned_table_capacity) return;
 
-      if (a.assigned_table_capacity >= 6 && capacity === 6) {
-        used += a.tables_used || 1;
-      } else if (a.assigned_table_capacity === capacity) {
-        used += a.tables_used || 1;
-      }
-    });
+    // 🔥 FILTRO POR TURNO
+    const hour = a.start_time?.slice(0, 2); // "20:30" → "20"
 
-    return used;
-  }
+    if (shift === "Día" && hour && Number(hour) >= 17) return;
+    if (shift === "Noche" && hour && Number(hour) < 17) return;
+
+    // 🔥 LÓGICA ORIGINAL
+    if (a.assigned_table_capacity >= 6 && capacity === 6) {
+      used += a.tables_used || 1;
+    } else if (a.assigned_table_capacity === capacity) {
+      used += a.tables_used || 1;
+    }
+  });
+
+  return used;
+}
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
