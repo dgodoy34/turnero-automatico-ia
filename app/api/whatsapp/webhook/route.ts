@@ -446,7 +446,12 @@ if (
     reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
   }
 
-  else if (ai.intent === "create_reservation") {
+  // 🔥 FIX: FORZAR CREATE SI EL USUARIO DICE "RESERVA"
+  else if (
+    ai.intent === "create_reservation" ||
+    (ai.intent === "consult_reservation" && lower.includes("reserva"))
+  ) {
+
     await setTemp(from, {
       date: ai.date,
       time: ai.time,
@@ -477,7 +482,7 @@ if (
   }
 
   await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 }); // 🔥 ESTO ES CLAVE
+  return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
     // =====================================
