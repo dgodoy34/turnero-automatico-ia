@@ -83,7 +83,7 @@ export default function Mesas() {
       </div>
 
       {/* 🔹 INVENTARIO */}
-      <TableInventoryView date={date} shift={selectedShift} />
+      {/*<TableInventoryView date={date} shift={selectedShift} />*/}
 
       {/* 🔹 PLANO */}
       <div className="bg-white rounded-xl shadow p-6">
