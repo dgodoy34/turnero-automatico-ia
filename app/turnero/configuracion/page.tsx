@@ -132,7 +132,7 @@ setSavedShifts(finalShifts);
 
   useEffect(() => {
     loadShifts();
-  }, []);
+  }, [date]);
 
   return (
   <div className="space-y-6">
