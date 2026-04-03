@@ -99,52 +99,43 @@ setSavedShifts(finalShifts);
 // 🔹 guardar
 async function saveShifts() {
   try {
-    console.log("=== INTENTANDO GUARDAR ===");
-    console.log("Fecha:", date);
-    console.log("Shifts:", shifts);
+    console.log("Guardando para fecha:", date);
 
-    // Borrar primero
-    const { error: deleteError } = await supabase
+    // Borrar configuración anterior del día
+    await supabase
       .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", RESTAURANT_ID)
       .eq("date", date);
 
-    if (deleteError) console.error("Error delete:", deleteError);
-
-    // Insertar
-    const rows = shifts.flatMap(shift =>
-      shift.tables.map(t => ({
+    // Preparar los datos
+    const rows = shifts.flatMap((shift) =>
+      shift.tables.map((t) => ({
         restaurant_id: RESTAURANT_ID,
-        date: date,                    // asegurate que sea string YYYY-MM-DD
-        start_time: shift.start_time,
-        end_time: shift.end_time,
+        date: date,                    // formato YYYY-MM-DD
+        start_time: shift.start_time,  // "12:00"
+        end_time: shift.end_time,      // "16:00"
         capacity: t.capacity,
-        quantity: t.quantity
+        quantity: t.quantity,
       }))
     );
 
-    console.log("Rows a insertar:", rows);
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("restaurant_table_inventory")
-      .insert(rows)
-      .select();
+      .insert(rows);
 
     if (error) {
-      console.error("ERROR INSERT:", error);
-      alert(`Error: ${error.message}\nCódigo: ${error.code}`);
+      console.error("Error insert:", error);
+      alert("Error al guardar: " + error.message);
       return;
     }
 
-    console.log("Guardado exitoso:", data);
     alert("✅ Configuración guardada correctamente");
-    
-    await loadShifts();
+    await loadShifts();   // recargar
 
   } catch (err) {
-    console.error("Error general:", err);
-    alert("Error inesperado al guardar");
+    console.error(err);
+    alert("Error inesperado");
   }
 }
   return (
