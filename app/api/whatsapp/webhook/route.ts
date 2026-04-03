@@ -177,18 +177,34 @@ if (session.state === "CONFIRM_RESERVATION") {
 if (!result.success) {
 
   // 👉 detectar si hay sugerencias
-  if (result.message.includes("👉")) {
+ const r: any = result;
 
+if (!r.success) {
+
+  if (r.message.includes("👉")) {
     await setState(from, "SUGGEST_ALTERNATIVES");
 
-    // 🔥 guardar contexto
     await setTemp(from, {
       ...session.temp_data,
-      last_suggestions: result.message,
+      last_suggestions: r.message,
     });
   }
 
-  reply = result.message;
+  reply = r.message;
+} else {
+
+  const reservation = r.reservation;
+
+  reply =
+    "🎉 ¡Reserva confirmada!\n\n" +
+    `📅 ${reservation.date}\n` +
+    `⏰ ${reservation.time}\n` +
+    `👥 ${reservation.people}\n\n` +
+    "¿Qué querés hacer ahora?\n\n" +
+    "1️⃣ Ver la carta 📖\n" +
+    "2️⃣ Agregar una nota ✍️\n" +
+    "3️⃣ Modificar esta reserva 🔄\n" +
+    "4️⃣ Finalizar";
 }
 
     await setState(from, "POST_RESERVATION_MENU");
@@ -196,14 +212,7 @@ if (!result.success) {
 
     return new Response("EVENT_RECEIVED", { status: 200 });
 
-  } else {
-    reply = "Perfecto 👍 Avísame si necesitás algo.";
-    await setState(from, "INIT");
-    await sendReply(from, reply);
-
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
-}
+}}}
 // =========================
 // MENÚ POST RESERVA
 // =========================
