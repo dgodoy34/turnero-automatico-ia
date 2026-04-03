@@ -57,7 +57,8 @@ export default function Configuracion() {
       const { data } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID);
+        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("date", date);
 
       if (!data || data.length === 0) return;
 
@@ -99,10 +100,10 @@ setSavedShifts(finalShifts);
   async function saveShifts() {
     try {
       await supabase
-        .from("restaurant_table_inventory")
-        .delete()
-        .eq("restaurant_id", RESTAURANT_ID);
-
+  .from("restaurant_table_inventory")
+  .delete()
+  .eq("restaurant_id", RESTAURANT_ID)
+  .eq("date", date);
       const rows: any[] = [];
 
       shifts.forEach(shift => {
