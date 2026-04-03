@@ -150,7 +150,6 @@ if (session.state === "CONFIRM_RESERVATION") {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // ✅ asegurar cliente
     const { error: clientError } = await supabase
       .from("clients")
       .upsert({
@@ -163,7 +162,6 @@ if (session.state === "CONFIRM_RESERVATION") {
       console.error("❌ CLIENT ERROR:", clientError);
     }
 
-    // ✅ crear reserva
     const result = await createReservation({
       restaurant_id: restaurant.id,
       dni: finalDNI,
@@ -174,45 +172,45 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     console.log("📦 RESULT:", result);
 
-if (!result.success) {
+    const r: any = result;
 
-  // 👉 detectar si hay sugerencias
- const r: any = result;
+    if (!r.success) {
 
-if (!r.success) {
+      if (r.message?.includes("👉")) {
+        await setState(from, "SUGGEST_ALTERNATIVES");
 
-  if (r.message.includes("👉")) {
-    await setState(from, "SUGGEST_ALTERNATIVES");
+        await setTemp(from, {
+          ...session.temp_data,
+          last_suggestions: r.message,
+        });
+      }
 
-    await setTemp(from, {
-      ...session.temp_data,
-      last_suggestions: r.message,
-    });
-  }
+      reply = r.message;
 
-  reply = r.message;
-} else {
+    } else {
 
-  const reservation = r.reservation;
+      const reservation = r.reservation;
 
-  reply =
-    "🎉 ¡Reserva confirmada!\n\n" +
-    `📅 ${reservation.date}\n` +
-    `⏰ ${reservation.time}\n` +
-    `👥 ${reservation.people}\n\n` +
-    "¿Qué querés hacer ahora?\n\n" +
-    "1️⃣ Ver la carta 📖\n" +
-    "2️⃣ Agregar una nota ✍️\n" +
-    "3️⃣ Modificar esta reserva 🔄\n" +
-    "4️⃣ Finalizar";
-}
+      reply =
+        "🎉 ¡Reserva confirmada!\n\n" +
+        `📅 ${reservation.date}\n` +
+        `⏰ ${reservation.time}\n` +
+        `👥 ${reservation.people}\n\n` +
+        getMenu();
 
-    await setState(from, "POST_RESERVATION_MENU");
+      await setState(from, "POST_RESERVATION_MENU");
+    }
+
     await sendReply(from, reply);
-
     return new Response("EVENT_RECEIVED", { status: 200 });
 
-}}}
+  } else {
+    reply = "Perfecto 👍 Avísame si necesitás algo.";
+    await setState(from, "INIT");
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+}
 // =========================
 // MENÚ POST RESERVA
 // =========================
@@ -691,8 +689,12 @@ else if (session.state === "ASK_CODE") {
 }
 
 // 🔥 FALLBACK FINAL (ACÁ VA)
-reply = "No entendí 😕";
-await sendReply(from, reply);
+// 🔥 SOLO SI NO HUBO RESPUESTA
+if (!reply) {
+  reply = "No entendí 😕";
+  await sendReply(from, reply);
+}
+
 return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
