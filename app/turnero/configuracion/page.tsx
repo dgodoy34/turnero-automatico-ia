@@ -83,8 +83,13 @@ export default function Configuracion() {
 
       const result = Object.values(grouped) as Shift[];
 
-      setShifts(result);
-      setSavedShifts(result);
+      const finalShifts: Shift[] = [
+  result.find(s => s.name === "Día") || shifts.find(s => s.name === "Día")!,
+  result.find(s => s.name === "Noche") || shifts.find(s => s.name === "Noche")!
+];
+
+setShifts(finalShifts);
+setSavedShifts(finalShifts);
     } catch (e) {
       console.error(e);
     }
@@ -129,100 +134,118 @@ export default function Configuracion() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
+  <div className="space-y-6">
+    <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
 
-      {/* 🔹 CONFIG */}
-      <div className="bg-white rounded-xl shadow p-6 space-y-4">
+    {/* 🔹 CONFIGURACIÓN */}
+    <div className="bg-white rounded-xl shadow p-6 space-y-6">
 
-        {/* fecha */}
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="border p-2 rounded"
-        />
+      {/* Fecha */}
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="border p-2 rounded"
+      />
 
-        {/* selector */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSelectedShift("Día")}
-            className={`px-4 py-2 rounded ${
-              selectedShift === "Día" ? "bg-blue-600 text-white" : "bg-gray-200"
-            }`}
-          >
-            Día
-          </button>
-
-          <button
-            onClick={() => setSelectedShift("Noche")}
-            className={`px-4 py-2 rounded ${
-              selectedShift === "Noche" ? "bg-blue-600 text-white" : "bg-gray-200"
-            }`}
-          >
-            Noche
-          </button>
-        </div>
-
- {currentShift && (
-  <div className="space-y-3 mt-4">
-
-    <h3 className="font-semibold text-lg">
-      Configuración {selectedShift}
-    </h3>
-
-    {currentShift.tables.map((table, i) => (
-      <div
-        key={i}
-        className="flex justify-between items-center border p-4 rounded-lg bg-gray-50"
-      >
-        <span className="font-medium">
-          Mesa {table.capacity} personas
-        </span>
-
-        <input
-          type="number"
-          value={table.quantity}
-          onChange={(e) => {
-            const updated = [...shifts];
-            const idx = shifts.findIndex(s => s.name === selectedShift);
-            updated[idx].tables[i].quantity = Number(e.target.value);
-            setShifts(updated);
-          }}
-          className="border p-2 w-24 rounded text-center"
-        />
-      </div>
-    ))}
-  </div>
-)}
-
-        {/* botón */}
+      {/* Selector */}
+      <div className="flex gap-2">
         <button
-          onClick={saveShifts}
-          className="bg-indigo-600 text-white px-6 py-2 rounded"
+          onClick={() => setSelectedShift("Día")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Día"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
         >
-          Guardar configuración
+          Día
+        </button>
+
+        <button
+          onClick={() => setSelectedShift("Noche")}
+          className={`px-4 py-2 rounded ${
+            selectedShift === "Noche"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          Noche
         </button>
       </div>
 
-      {/* 🔹 RESULTADO */}
-      <div className="bg-white rounded-xl shadow p-6 space-y-4">
-        <h2 className="font-semibold">Configuración actual</h2>
+      {/* Editor */}
+      {currentShift && (
+        <div className="space-y-3 mt-4">
+          <h3 className="font-semibold text-lg">
+            Configuración {selectedShift}
+          </h3>
 
+          {currentShift.tables.map((table, i) => (
+            <div
+              key={i}
+              className="flex justify-between items-center border p-4 rounded-lg bg-gray-50"
+            >
+              <span className="font-medium">
+                Mesa {table.capacity} personas
+              </span>
+
+              <input
+                type="number"
+                value={table.quantity}
+                onChange={(e) => {
+                  const updated = [...shifts];
+                  const idx = shifts.findIndex(
+                    (s) => s.name === selectedShift
+                  );
+                  updated[idx].tables[i].quantity = Number(e.target.value);
+                  setShifts(updated);
+                }}
+                className="border p-2 w-24 rounded text-center"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Botón */}
+      <button
+        onClick={saveShifts}
+        className="bg-indigo-600 text-white px-6 py-2 rounded"
+      >
+        Guardar configuración
+      </button>
+    </div>
+
+    {/* 🔹 RESULTADO */}
+    <div className="bg-white rounded-xl shadow p-6 space-y-6">
+      <h2 className="text-xl font-semibold border-b pb-2">
+        Configuración actual
+      </h2>
+
+      <div className="grid md:grid-cols-2 gap-6">
         {savedShifts.map((shift, i) => (
-          <div key={i}>
-            <h3 className="font-bold mb-2">{shift.name}</h3>
+          <div
+            key={i}
+            className="border rounded-xl p-4 bg-gray-50 shadow-sm"
+          >
+            <h3 className="font-semibold text-lg mb-4">
+              {shift.name}
+            </h3>
 
-            {shift.tables.map((t, j) => (
-              <div key={j} className="flex justify-between">
-                <span>Mesa {t.capacity} personas</span>
-                <span>{t.quantity}</span>
-              </div>
-            ))}
+            <div className="space-y-2">
+              {shift.tables.map((t, j) => (
+                <div
+                  key={j}
+                  className="flex justify-between border-b pb-1 text-sm"
+                >
+                  <span>Mesa {t.capacity} personas</span>
+                  <span className="font-semibold">{t.quantity}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
     </div>
-  );
-}
-
+  </div>
+);}
