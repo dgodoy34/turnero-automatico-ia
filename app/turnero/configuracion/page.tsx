@@ -54,21 +54,26 @@ export default function Configuracion() {
   // 🔹 cargar desde DB
  async function loadShifts() {
   try {
-    const { data } = await supabase
+    let { data } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
       .eq("restaurant_id", RESTAURANT_ID)
-      .eq("date", date); // 🔥 ESTE ES EL FIX
+      .eq("date", date);
 
+    // 🔥 SI NO HAY CONFIG → USAR DEFAULT
     if (!data || data.length === 0) {
-  setShifts([
-    shifts.find(s => s.name === "Día")!,
-    shifts.find(s => s.name === "Noche")!
-  ]);
-  setSavedShifts([]);
-  return;
-}
+      console.log("⚠️ usando DEFAULT");
 
+      const { data: fallback } = await supabase
+        .from("restaurant_table_inventory")
+        .select("*")
+        .eq("restaurant_id", RESTAURANT_ID)
+        .is("date", null);
+
+      data = fallback || [];
+    }
+
+    // 🔥 AGRUPAR SIEMPRE (aunque sea fallback)
     const grouped: any = {};
 
     data.forEach((row: any) => {
@@ -92,8 +97,26 @@ export default function Configuracion() {
     const result = Object.values(grouped) as Shift[];
 
     const finalShifts: Shift[] = [
-      result.find(s => s.name === "Día") || shifts.find(s => s.name === "Día")!,
-      result.find(s => s.name === "Noche") || shifts.find(s => s.name === "Noche")!
+      result.find(s => s.name === "Día") || {
+        name: "Día",
+        start_time: "12:00",
+        end_time: "16:00",
+        tables: [
+          { capacity: 2, quantity: 0 },
+          { capacity: 4, quantity: 0 },
+          { capacity: 6, quantity: 0 }
+        ]
+      },
+      result.find(s => s.name === "Noche") || {
+        name: "Noche",
+        start_time: "20:00",
+        end_time: "23:30",
+        tables: [
+          { capacity: 2, quantity: 0 },
+          { capacity: 4, quantity: 0 },
+          { capacity: 6, quantity: 0 }
+        ]
+      }
     ];
 
     setShifts(finalShifts);
@@ -103,7 +126,6 @@ export default function Configuracion() {
     console.error(e);
   }
 }
-
 useEffect(() => {
   loadShifts();
 }, [date]);
