@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase
       .from("restaurant_table_inventory")
-      .select("capacity, quantity")
+      .select("capacity, quantity, start_time")
       .eq("restaurant_id", restaurant_id)
       .eq("date", date);
 
@@ -32,10 +32,22 @@ export async function GET(req: Request) {
       );
     }
 
+    const shift = searchParams.get("shift");
+
+    let filtered = data;
+
+if (shift === "Día") {
+  filtered = data.filter(r => r.start_time <= "16:00");
+}
+
+if (shift === "Noche") {
+  filtered = data.filter(r => r.start_time > "16:00");
+}
+
     // 🔥 SUMAR cantidades (día + noche)
     const map = new Map<number, number>();
 
-    data?.forEach((row: any) => {
+    filtered?.forEach((row: any) => { 
       const current = map.get(row.capacity) || 0;
       map.set(row.capacity, current + row.quantity);
     });

@@ -96,6 +96,12 @@ export default function Configuracion() {
     console.error(e);
   }
 }
+
+useEffect(() => {
+  loadShifts();
+}, [date]);
+
+
 // 🔹 guardar
 async function saveShifts() {
   try {
@@ -132,12 +138,16 @@ async function saveShifts() {
 
     alert("✅ Configuración guardada correctamente");
     await loadShifts();   // recargar
+    console.log(rows);
 
   } catch (err) {
     console.error(err);
     alert("Error inesperado");
   }
+
 }
+
+
   return (
   <div className="space-y-6">
     <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
