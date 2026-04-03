@@ -4,51 +4,58 @@ import { supabase } from "@/lib/supabaseClient";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+
     const date = searchParams.get("date");
-    let restaurant_id = searchParams.get("restaurant_id");
+    const shift = searchParams.get("shift"); // 👈 NUEVO
+    let restaurant_id =
+      searchParams.get("restaurant_id") ||
+      "f9661b52-312d-46f6-9615-89aecfbb8a09";
 
-    if (!restaurant_id) {
-      restaurant_id = "f9661b52-312d-46f6-9615-89aecfbb8a09";
-      console.warn("⚠️ restaurant_id no recibido, usando ID por defecto");
+    if (!date) {
+      return NextResponse.json(
+        { success: false, error: "Date is required" },
+        { status: 400 }
+      );
     }
 
-    console.log("🔥 API table-inventory →", restaurant_id, date);
-
-    // ✅ TRAER SOLO ESE DÍA
-    const { data, error } = await supabase
+    let query = supabase
       .from("restaurant_table_inventory")
-      .select("capacity, quantity")
+      .select("capacity, quantity, start_time")
       .eq("restaurant_id", restaurant_id)
-      .eq("date", date)
-      .order("capacity", { ascending: true });
+      .eq("date", date);
 
-    if (error) {
-      console.error("❌ Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    // 🔥 FILTRO POR TURNO
+    if (shift === "Día") {
+      query = query.lte("start_time", "16:00");
     }
 
-    // ✅ AGRUPAR (PORQUE TENÉS DÍA + NOCHE)
-    const grouped: any = {};
+    if (shift === "Noche") {
+      query = query.gt("start_time", "16:00");
+    }
 
-    (data || []).forEach((row: any) => {
-      if (!grouped[row.capacity]) {
-        grouped[row.capacity] = {
-          capacity: row.capacity,
-          quantity: 0
-        };
-      }
-
-      grouped[row.capacity].quantity += row.quantity;
+    const { data, error } = await query.order("capacity", {
+      ascending: true,
     });
 
-    const tables = Object.values(grouped);
+    if (error) {
+      console.error(error);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
 
-    console.log("✅ Mesas devueltas:", tables.length, tables);
+    console.log("✅ Mesas filtradas:", shift, data);
 
-    return NextResponse.json({ success: true, tables });
-
+    return NextResponse.json({
+      success: true,
+      tables: data,
+    });
   } catch (err: any) {
-    console.error("💥 Error en API:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error(err);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
   }
 }
