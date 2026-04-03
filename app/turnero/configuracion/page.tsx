@@ -58,7 +58,7 @@ export default function Configuracion() {
         .from("restaurant_table_inventory")
         .select("*")
         .eq("restaurant_id", RESTAURANT_ID)
-        .eq("date", date);
+       
 
       if (!data || data.length === 0) return;
 
@@ -107,7 +107,7 @@ async function saveShifts() {
       .from("restaurant_table_inventory")
       .delete()
       .eq("restaurant_id", RESTAURANT_ID)
-      .eq("date", date);
+  
 
     if (deleteError) {
       console.error("❌ Error al borrar:", deleteError);
@@ -121,7 +121,7 @@ async function saveShifts() {
       shift.tables.forEach(t => {
         rows.push({
           restaurant_id: RESTAURANT_ID,
-          date,
+
           start_time: shift.start_time,
           end_time: shift.end_time,
           capacity: t.capacity,
