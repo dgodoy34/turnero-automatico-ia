@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import DailyTableSetup from "@/components/DailyTableSetup";
+
 
 type Settings = {
   open_time: string;
@@ -212,6 +212,11 @@ setShifts(loaded);
     loadShifts();
   }, []);
 
+  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
+  const currentShift = shifts.find(s => s.name === selectedShift);
+
+  
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
@@ -224,7 +229,49 @@ setShifts(loaded);
           onChange={(e) => setDate(e.target.value)}
           className="border p-2 rounded"
         />
-        <DailyTableSetup key={date} date={date} />
+<div className="flex gap-2">
+  <button
+    onClick={() => setSelectedShift("Día")}
+    className={`px-4 py-2 rounded ${
+      selectedShift === "Día" ? "bg-blue-600 text-white" : "bg-gray-200"
+    }`}
+  >
+    Día
+  </button>
+
+  <button
+    onClick={() => setSelectedShift("Noche")}
+    className={`px-4 py-2 rounded ${
+      selectedShift === "Noche" ? "bg-blue-600 text-white" : "bg-gray-200"
+    }`}
+  >
+    Noche
+  </button>
+</div>
+
+
+
+        
+        {currentShift && (
+  <div className="space-y-3">
+    {currentShift.tables.map((table, i) => (
+      <div key={i} className="flex justify-between items-center border p-3 rounded">
+        <span>Mesa {table.capacity} personas</span>
+        <input
+          type="number"
+          value={table.quantity}
+          onChange={(e) => {
+            const updated = [...shifts];
+            const shiftIndex = shifts.findIndex(s => s.name === selectedShift);
+            updated[shiftIndex].tables[i].quantity = Number(e.target.value);
+            setShifts(updated);
+          }}
+          className="border p-2 rounded w-24"
+        />
+      </div>
+    ))}
+  </div>
+)}
       </div>
 
       
