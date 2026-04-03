@@ -223,7 +223,7 @@ setSavedShifts(finalShifts);
       </h2>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {savedShifts.map((shift, i) => (
+        {shifts.map((shift, i) => (
           <div
             key={i}
             className="border rounded-xl p-4 bg-gray-50 shadow-sm"
