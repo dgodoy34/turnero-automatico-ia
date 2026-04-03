@@ -96,44 +96,51 @@ setSavedShifts(finalShifts);
     }
   }
 
-  // 🔹 guardar
-  async function saveShifts() {
-    try {
-      await supabase
-  .from("restaurant_table_inventory")
-  .delete()
-  .eq("restaurant_id", RESTAURANT_ID)
-  .eq("date", date);
-      const rows: any[] = [];
+// 🔹 guardar
+async function saveShifts() {
+  try {
+    // borrar solo ese día
+    await supabase
+      .from("restaurant_table_inventory")
+      .delete()
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("date", date);
 
-      shifts.forEach(shift => {
-        shift.tables.forEach(t => {
-          rows.push({
-            restaurant_id: RESTAURANT_ID,
-            date,
-            start_time: shift.start_time,
-            end_time: shift.end_time,
-            capacity: t.capacity,
-            quantity: t.quantity
-          });
+    const rows: any[] = [];
+
+    shifts.forEach(shift => {
+      shift.tables.forEach(t => {
+        rows.push({
+          restaurant_id: RESTAURANT_ID,
+          date,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          capacity: t.capacity,
+          quantity: t.quantity
         });
       });
+    });
 
-      await supabase.from("restaurant_table_inventory").insert(rows);
+    // 🔥 INSERT CON CONTROL DE ERROR
+    const { error } = await supabase
+      .from("restaurant_table_inventory")
+      .insert(rows);
 
-      alert("Configuración guardada 🚀");
-
-      loadShifts();
-    } catch (err) {
-      console.error(err);
-      alert("Error al guardar");
+    if (error) {
+      console.error("ERROR INSERT:", error);
+      alert("Error guardando en DB");
+      return;
     }
+
+    alert("Configuración guardada 🚀");
+
+    loadShifts(); // recargar
+
+  } catch (err) {
+    console.error(err);
+    alert("Error al guardar");
   }
-
-  useEffect(() => {
-    loadShifts();
-  }, [date]);
-
+}
   return (
   <div className="space-y-6">
     <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
