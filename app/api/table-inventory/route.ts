@@ -4,9 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-
     const date = searchParams.get("date");
-    const shift = searchParams.get("shift"); // 👈 NUEVO
     let restaurant_id =
       searchParams.get("restaurant_id") ||
       "f9661b52-312d-46f6-9615-89aecfbb8a09";
@@ -18,41 +16,42 @@ export async function GET(req: Request) {
       );
     }
 
-    let query = supabase
+    console.log("🔥 table-inventory:", { restaurant_id, date });
+
+    const { data, error } = await supabase
       .from("restaurant_table_inventory")
-      .select("capacity, quantity, start_time")
+      .select("capacity, quantity")
       .eq("restaurant_id", restaurant_id)
       .eq("date", date);
 
-    // 🔥 FILTRO POR TURNO
-    if (shift === "Día") {
-      query = query.lte("start_time", "16:00");
-    }
-
-    if (shift === "Noche") {
-      query = query.gt("start_time", "16:00");
-    }
-
-    const { data, error } = await query.order("capacity", {
-      ascending: true,
-    });
-
     if (error) {
-      console.error(error);
+      console.error("❌ DB error:", error);
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 400 }
       );
     }
 
-    console.log("✅ Mesas filtradas:", shift, data);
+    // 🔥 SUMAR cantidades (día + noche)
+    const map = new Map<number, number>();
 
-    return NextResponse.json({
-      success: true,
-      tables: data,
+    data?.forEach((row: any) => {
+      const current = map.get(row.capacity) || 0;
+      map.set(row.capacity, current + row.quantity);
     });
+
+    const tables = Array.from(map.entries()).map(
+      ([capacity, quantity]) => ({
+        capacity,
+        quantity,
+      })
+    );
+
+    console.log("✅ Resultado final:", tables);
+
+    return NextResponse.json({ success: true, tables });
   } catch (err: any) {
-    console.error(err);
+    console.error("💥 Error:", err);
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
