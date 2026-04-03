@@ -191,11 +191,18 @@ if (session.state === "CONFIRM_RESERVATION") {
 
       const reservation = r.reservation;
 
+       // 🔥 GUARDAR EL CÓDIGO (ESTO TE FALTABA)
+  await setTemp(from, {
+    ...session.temp_data,
+    reservation_code: reservation.reservation_code,
+  });
+
       reply =
         "🎉 ¡Reserva confirmada!\n\n" +
         `📅 ${reservation.date}\n` +
         `⏰ ${reservation.time}\n` +
         `👥 ${reservation.people}\n\n` +
+        `🔑 Código: ${reservation.reservation_code}\n\n` +
         getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -203,6 +210,8 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     await sendReply(from, reply);
     return new Response("EVENT_RECEIVED", { status: 200 });
+
+    
 
   } else {
     reply = "Perfecto 👍 Avísame si necesitás algo.";
