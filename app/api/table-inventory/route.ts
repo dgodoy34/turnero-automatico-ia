@@ -5,42 +5,45 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
-    let restaurant_id = searchParams.get("restaurant_id") || "f9661b52-312d-46f6-9615-89aecfbb8a09";
+    let restaurant_id = searchParams.get("restaurant_id");
 
-    if (!date) {
-      return NextResponse.json({ success: false, error: "Date is required" }, { status: 400 });
+    if (!restaurant_id) {
+      restaurant_id = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+      console.warn("⚠️ restaurant_id no recibido, usando ID por defecto");
     }
 
-    console.log("📅 API table-inventory → date:", date, "restaurant_id:", restaurant_id);
+    console.log("🔥 API table-inventory →", restaurant_id, date);
 
-    // Traemos SOLO la configuración del día específico
+    // ✅ TRAER SOLO ESE DÍA
     const { data, error } = await supabase
       .from("restaurant_table_inventory")
-      .select("capacity, quantity, start_time, end_time")
+      .select("capacity, quantity")
       .eq("restaurant_id", restaurant_id)
       .eq("date", date)
       .order("capacity", { ascending: true });
 
     if (error) {
-      console.error("❌ Error en consulta:", error);
+      console.error("❌ Error:", error);
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
 
-    // Agrupamos por capacity (por si hay duplicados por error)
-    const tablesMap = new Map();
+    // ✅ AGRUPAR (PORQUE TENÉS DÍA + NOCHE)
+    const grouped: any = {};
 
-    data?.forEach((row: any) => {
-      if (!tablesMap.has(row.capacity)) {
-        tablesMap.set(row.capacity, {
+    (data || []).forEach((row: any) => {
+      if (!grouped[row.capacity]) {
+        grouped[row.capacity] = {
           capacity: row.capacity,
-          quantity: row.quantity
-        });
+          quantity: 0
+        };
       }
+
+      grouped[row.capacity].quantity += row.quantity;
     });
 
-    const tables = Array.from(tablesMap.values());
+    const tables = Object.values(grouped);
 
-    console.log("✅ Mesas devueltas para el día:", tables);
+    console.log("✅ Mesas devueltas:", tables.length, tables);
 
     return NextResponse.json({ success: true, tables });
 
