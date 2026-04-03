@@ -191,19 +191,23 @@ if (session.state === "CONFIRM_RESERVATION") {
 
       const reservation = r.reservation;
 
-       // 🔥 GUARDAR EL CÓDIGO (ESTO TE FALTABA)
+// 🔥 proteger setTemp
+try {
   await setTemp(from, {
-    ...session.temp_data,
-    reservation_code: reservation.reservation_code,
-  });
+  ...(session.temp_data || {}),
+  reservation_code: reservation.reservation_code,
+});
+} catch (e) {
+  console.error("❌ ERROR SETTEMP:", e);
+}
 
-      reply =
-        "🎉 ¡Reserva confirmada!\n\n" +
-        `📅 ${reservation.date}\n` +
-        `⏰ ${reservation.time}\n` +
-        `👥 ${reservation.people}\n\n` +
-        `🔑 Código: ${reservation.reservation_code}\n\n` +
-        getMenu();
+reply =
+  "🎉 ¡Reserva confirmada!\n\n" +
+  `📅 ${reservation.date}\n` +
+  `⏰ ${reservation.time}\n` +
+  `👥 ${reservation.people}\n` +
+  `🔑 Código: ${reservation.reservation_code}\n\n` +
+  getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
     }
