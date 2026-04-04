@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import { handleMessage } from "@/lib/botHandler";
+import { restaurantHandler } from "@/lib/restaurants/restaurantHandler";
 
 export async function POST(req: Request) {
 
@@ -12,29 +12,40 @@ export async function POST(req: Request) {
     const from = body.from || "TEST_USER";
     const restaurant_id = body.restaurant_id;
 
+    // 🔥 validar datos
+    if (!message || !restaurant_id) {
+      return NextResponse.json({
+        error: "Faltan datos"
+      });
+    }
+
     // 🔥 traer restaurante real
-    const { data: restaurant } = await supabase
+    const { data: restaurant, error } = await supabase
       .from("restaurants")
       .select("*")
       .eq("id", restaurant_id)
       .single();
 
-    if (!restaurant) {
-      return NextResponse.json({ error: "Restaurant not found" });
+    if (!restaurant || error) {
+      return NextResponse.json({
+        error: "Restaurant not found"
+      });
     }
 
-    // 🔥 ejecutar lógica del bot DIRECTO
-    const result = await handleMessage({
+    // 🔥 ejecutar BOT REAL (no fake)
+    const result = await restaurantHandler({
       from,
       message,
       restaurant
     });
 
     return NextResponse.json({
-      reply: result.reply
+      reply: result?.reply || "⚠️ Sin respuesta"
     });
 
   } catch (err: any) {
+
+    console.error("❌ DEBUG CHAT ERROR:", err);
 
     return NextResponse.json({
       error: err.message
