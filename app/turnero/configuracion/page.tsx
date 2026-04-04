@@ -53,9 +53,9 @@ export default function Configuracion() {
 
         if (!grouped[key]) {
           grouped[key] = {
-            name: `${row.start_time} - ${row.end_time}`,
-            start_time: row.start_time,
-            end_time: row.end_time,
+            name: `${row.start_time.slice(0,5)} - ${row.end_time.slice(0,5)}`,
+            start_time: row.start_time.slice(0,5),
+            end_time: row.end_time.slice(0,5),
             tables: []
           };
         }
@@ -174,7 +174,6 @@ export default function Configuracion() {
     }
   }
 
-  // ordenar turnos
   const sortedShifts = [...shifts].sort((a, b) =>
     a.start_time.localeCompare(b.start_time)
   );
@@ -183,10 +182,8 @@ export default function Configuracion() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
 
-      {/* CONFIGURACIÓN */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">
 
-        {/* Fecha */}
         <input
           type="date"
           value={date}
@@ -194,7 +191,6 @@ export default function Configuracion() {
           className="border p-2 rounded"
         />
 
-        {/* Turnos */}
         <div className="flex gap-2 flex-wrap">
           {sortedShifts.map((shift, index) => (
             <button
@@ -232,7 +228,6 @@ export default function Configuracion() {
           </button>
         </div>
 
-        {/* Editor */}
         {currentShift && (
           <div className="bg-gray-50 border rounded-xl p-4 space-y-4">
 
@@ -240,11 +235,11 @@ export default function Configuracion() {
               🍽 Turno {currentShift.name}
             </h3>
 
-            {/* Horarios */}
             <div className="flex gap-2">
               <input
                 type="time"
-                value={currentShift.start_time}
+                step="60"
+                value={currentShift.start_time?.slice(0,5)}
                 onChange={(e) => {
                   const updated = [...shifts];
                   updated[selectedShiftIndex].start_time = e.target.value;
@@ -252,12 +247,13 @@ export default function Configuracion() {
                     `${e.target.value} - ${updated[selectedShiftIndex].end_time}`;
                   setShifts(updated);
                 }}
-                className="border p-2 rounded-lg shadow-sm"
+                className="border p-2 rounded-lg"
               />
 
               <input
                 type="time"
-                value={currentShift.end_time}
+                step="60"
+                value={currentShift.end_time?.slice(0,5)}
                 onChange={(e) => {
                   const updated = [...shifts];
                   updated[selectedShiftIndex].end_time = e.target.value;
@@ -265,29 +261,25 @@ export default function Configuracion() {
                     `${updated[selectedShiftIndex].start_time} - ${e.target.value}`;
                   setShifts(updated);
                 }}
-                className="border p-2 rounded-lg shadow-sm"
+                className="border p-2 rounded-lg"
               />
             </div>
 
-            {/* Eliminar */}
             <button
               onClick={() => {
                 const updated = shifts.filter((_, i) => i !== selectedShiftIndex);
                 setShifts(updated);
-                setSelectedShiftIndex(
-                  updated.length === 0 ? 0 : Math.max(0, selectedShiftIndex - 1)
-                );
+                setSelectedShiftIndex(0);
               }}
               className="bg-red-500 text-white px-3 py-1 rounded"
             >
               🗑 Eliminar turno
             </button>
 
-            {/* Mesas */}
             {currentShift.tables.map((table, i) => (
               <div
                 key={i}
-                className="flex justify-between items-center border p-4 rounded-xl bg-white shadow-sm"
+                className="flex justify-between items-center border p-4 rounded-xl bg-white"
               >
                 <span>Mesas para {table.capacity} personas</span>
 
@@ -299,14 +291,13 @@ export default function Configuracion() {
                     updated[selectedShiftIndex].tables[i].quantity = Number(e.target.value);
                     setShifts(updated);
                   }}
-                  className="border p-2 w-24 rounded text-center"
+                  className="border p-2 w-20 rounded text-center"
                 />
               </div>
             ))}
           </div>
         )}
 
-        {/* Botones */}
         <div className="flex gap-3">
           <button
             onClick={saveShifts}
@@ -323,29 +314,6 @@ export default function Configuracion() {
           </button>
         </div>
       </div>
-
-      {/* VISTA ACTUAL */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="font-semibold mb-4">
-          📅 Configuración del {date}
-        </h2>
-
-        {sortedShifts.map((shift, i) => (
-          <div key={i} className="mb-4 p-4 border rounded-xl bg-gray-50">
-            <div className="font-semibold mb-2">
-              ⏰ {shift.name}
-            </div>
-
-            {shift.tables.map((t, j) => (
-              <div key={j} className="flex justify-between text-sm">
-                <span>{t.capacity} personas</span>
-                <span>{t.quantity} mesas</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
     </div>
   );
 }
