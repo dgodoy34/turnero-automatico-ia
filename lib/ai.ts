@@ -13,6 +13,9 @@ export async function interpretMessage(message: string) {
     input: `
 Sos un parser de intención para un bot de reservas de restaurante.
 
+- "consultar reserva", "ver reserva", "tengo una reserva" = consult_reservation
+- "modificar reserva", "cambiar reserva" = modify_reservation
+
 Fecha actual: ${today}
 
 Tu tarea:

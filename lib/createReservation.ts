@@ -202,9 +202,19 @@ const validSlot = tableInventory.some(
 );
 
 if (!validSlot) {
+
+  const availableSlots = tableInventory
+    .map(t => t.start_time?.slice(0,5))
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort();
+
   return {
     success: false,
-    message: "Ese horario no está habilitado.",
+    message:
+      `Ese horario no está disponible 😕\n\n` +
+      `📅 Para el ${date} podés reservar en:\n` +
+      availableSlots.join(" - "),
   };
 }
 
