@@ -22,7 +22,7 @@ export default function Configuracion() {
     new Date().toISOString().split("T")[0]
   );
 
-  const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
+  const [selectedShiftIndex, setSelectedShiftIndex] = useState(0);
 
   const [shifts, setShifts] = useState<Shift[]>([
     {
@@ -49,7 +49,7 @@ export default function Configuracion() {
 
   const [savedShifts, setSavedShifts] = useState<Shift[]>([]);
 
-  const currentShift = shifts.find(s => s.name === selectedShift);
+ const currentShift = shifts[selectedShiftIndex];
 
   // 🔹 cargar desde DB
  async function loadShifts() {
@@ -81,7 +81,7 @@ export default function Configuracion() {
 
       if (!grouped[key]) {
         grouped[key] = {
-          name: row.start_time <= "16:00" ? "Día" : "Noche",
+         name: `${row.start_time} - ${row.end_time}`,
           start_time: row.start_time,
           end_time: row.end_time,
           tables: []
@@ -96,28 +96,21 @@ export default function Configuracion() {
 
     const result = Object.values(grouped) as Shift[];
 
-    const finalShifts: Shift[] = [
-      result.find(s => s.name === "Día") || {
-        name: "Día",
-        start_time: "12:00",
-        end_time: "16:00",
-        tables: [
-          { capacity: 2, quantity: 0 },
-          { capacity: 4, quantity: 0 },
-          { capacity: 6, quantity: 0 }
-        ]
-      },
-      result.find(s => s.name === "Noche") || {
-        name: "Noche",
-        start_time: "20:00",
-        end_time: "23:30",
-        tables: [
-          { capacity: 2, quantity: 0 },
-          { capacity: 4, quantity: 0 },
-          { capacity: 6, quantity: 0 }
-        ]
-      }
-    ];
+   const finalShifts: Shift[] =
+  result.length > 0
+    ? result
+    : [
+        {
+          name: "Turno 1",
+          start_time: "12:00",
+          end_time: "16:00",
+          tables: [
+            { capacity: 2, quantity: 0 },
+            { capacity: 4, quantity: 0 },
+            { capacity: 6, quantity: 0 }
+          ]
+        }
+      ];
 
     setShifts(finalShifts);
     setSavedShifts(finalShifts);
@@ -180,6 +173,7 @@ async function saveShifts() {
   return (
   <div className="space-y-6">
     <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
+  
 
     {/* 🔹 CONFIGURACIÓN */}
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
@@ -193,36 +187,86 @@ async function saveShifts() {
       />
 
       {/* Selector */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setSelectedShift("Día")}
-          className={`px-4 py-2 rounded ${
-            selectedShift === "Día"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          Día
-        </button>
+     
+       <div className="flex gap-2 flex-wrap">
+  {shifts.map((shift, index) => (
+    <button
+      key={index}
+      onClick={() => setSelectedShiftIndex(index)}
+      className={`px-4 py-2 rounded ${
+        selectedShiftIndex === index
+          ? "bg-blue-600 text-white"
+          : "bg-gray-200"
+      }`}
+    >
+      {shift.name}
+    </button>
+  ))}
 
-        <button
-          onClick={() => setSelectedShift("Noche")}
-          className={`px-4 py-2 rounded ${
-            selectedShift === "Noche"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          Noche
-        </button>
-      </div>
+  {/* ➕ NUEVO TURNO */}
+  <button
+    onClick={() => {
+      const newShift = {
+        name: `Turno ${shifts.length + 1}`,
+        start_time: "12:00",
+        end_time: "14:00",
+        tables: [
+          { capacity: 2, quantity: 0 },
+          { capacity: 4, quantity: 0 },
+          { capacity: 6, quantity: 0 }
+        ]
+      };
+
+      setShifts([...shifts, newShift]);
+      setSelectedShiftIndex(shifts.length);
+    }}
+    className="px-4 py-2 rounded bg-green-600 text-white"
+  >
+    + Turno
+  </button>
+</div>
+ </div>   
+<div className="flex gap-2">
+  <input
+    type="time"
+    value={currentShift.start_time}
+    onChange={(e) => {
+      const updated = [...shifts];
+      updated[selectedShiftIndex].start_time = e.target.value;
+      setShifts(updated);
+    }}
+    className="border p-2 rounded"
+  />
+
+  <input
+    type="time"
+    value={currentShift.end_time}
+    onChange={(e) => {
+      const updated = [...shifts];
+      updated[selectedShiftIndex].end_time = e.target.value;
+      setShifts(updated);
+    }}
+    className="border p-2 rounded"
+  />
+</div>
 
       {/* Editor */}
       {currentShift && (
         <div className="space-y-3 mt-4">
           <h3 className="font-semibold text-lg">
-            Configuración {selectedShift}
-          </h3>
+  Configuración {currentShift.name}
+</h3>
+
+<button
+  onClick={() => {
+    const updated = shifts.filter((_, i) => i !== selectedShiftIndex);
+    setShifts(updated);
+    setSelectedShiftIndex(0);
+  }}
+  className="bg-red-500 text-white px-3 py-1 rounded"
+>
+  Eliminar turno
+</button>
 
           {currentShift.tables.map((table, i) => (
             <div
@@ -238,10 +282,7 @@ async function saveShifts() {
                 value={table.quantity}
                 onChange={(e) => {
                   const updated = [...shifts];
-                  const idx = shifts.findIndex(
-                    (s) => s.name === selectedShift
-                  );
-                  updated[idx].tables[i].quantity = Number(e.target.value);
+                  updated[selectedShiftIndex].tables[i].quantity = Number(e.target.value);
                   setShifts(updated);
                 }}
                 className="border p-2 w-24 rounded text-center"
@@ -258,8 +299,7 @@ async function saveShifts() {
       >
         Guardar configuración
       </button>
-    </div>
-
+  
     {/* 🔹 RESULTADO */}
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
       <h2 className="text-xl font-semibold border-b pb-2">

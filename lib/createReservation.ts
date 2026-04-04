@@ -125,6 +125,9 @@ const BUFFER = settings?.buffer_time || 0;
     }
     const CAPACITY_MODE = restaurant.capacity_mode || "strict";
 
+
+
+    
     // =========================
     // 3️⃣ Normalizar hora
     // =========================
@@ -138,6 +141,74 @@ const BUFFER = settings?.buffer_time || 0;
 
     const start_time = formattedStart;
     const end_time = endDateTime.toTimeString().slice(0, 5);
+
+    
+// =========================
+// 5️⃣ INVENTARIO REAL (FINAL)
+// =========================
+
+// 🔥 detectar turno
+const shift = start_time <= "16:00" ? "Día" : "Noche";
+
+// 🔥 traer inventario del día
+let { data: tableInventory } = await supabase
+  .from("restaurant_table_inventory")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .eq("date", date);
+
+// 🔥 fallback a inventario base (sin fecha)
+if (!tableInventory || tableInventory.length === 0) {
+  console.log("⚠️ usando inventario DEFAULT");
+
+  const { data: fallback } = await supabase
+    .from("restaurant_table_inventory")
+    .select("*")
+    .eq("restaurant_id", restaurant.id)
+    .is("date", null);
+
+  tableInventory = fallback || [];
+}
+
+// 🔴 VALIDACIÓN FINAL
+if (!tableInventory || tableInventory.length === 0) {
+  return {
+    success: false,
+    message: "Inventario no configurado.",
+  };
+}
+
+// 🔥 filtrar por turno (opcional pero recomendable)
+if (shift === "Día") {
+  tableInventory = tableInventory.filter(
+    (t) => !t.start_time || t.start_time <= "16:00"
+  );
+}
+
+if (shift === "Noche") {
+  tableInventory = tableInventory.filter(
+    (t) => !t.start_time || t.start_time > "16:00"
+  );
+}
+
+// =========================
+// 🔒 VALIDAR HORARIO MANUAL
+// =========================
+
+const validSlot = tableInventory.some(
+  (t) =>
+    (!t.start_time || start_time >= t.start_time) &&
+    (!t.end_time || start_time < t.end_time)
+);
+
+if (!validSlot) {
+  return {
+    success: false,
+    message: "Ese horario no está habilitado.",
+  };
+}
+
+
 
     // =========================
     // 4️⃣ Verificar duplicado
@@ -159,48 +230,7 @@ const BUFFER = settings?.buffer_time || 0;
       };
     }
 
-    // =========================
-// 5️⃣ INVENTARIO REAL (FIX TOTAL)
-// =========================
-
-// 🔥 detectar turno
-const shift = start_time <= "16:00" ? "Día" : "Noche";
-
-// 🔥 intentar traer config del día
-let { data: tableInventory } = await supabase
-  .from("restaurant_table_inventory")
-  .select("*")
-  .eq("restaurant_id", restaurant.id)
-  .eq("date", date);
-
-// 🔥 fallback a default (SIN fecha)
-if (!tableInventory || tableInventory.length === 0) {
-  console.log("⚠️ usando inventario DEFAULT");
-
-  const { data: fallback } = await supabase
-    .from("restaurant_table_inventory")
-    .select("*")
-    .eq("restaurant_id", restaurant.id)
-    .is("date", null);
-
-  tableInventory = fallback || [];
-}
-
-if (!tableInventory || tableInventory.length === 0) {
-  return {
-    success: false,
-    message: "Inventario de mesas no configurado.",
-  };
-}
-
-// 🔥 filtrar por turno
-if (shift === "Día") {
-  tableInventory = tableInventory.filter(t => t.start_time <= "16:00");
-}
-
-if (shift === "Noche") {
-  tableInventory = tableInventory.filter(t => t.start_time > "16:00");
-}
+  
 
     // =========================
     // 6️⃣ Expandir mesas
