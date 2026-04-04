@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 export default function ChatTester() {
 
-  const params = useSearchParams(); // ✅ ADENTRO
+  const params = useSearchParams();
   const restaurantId = params.get("restaurant_id");
 
   const [messages, setMessages] = useState<any[]>([]);
@@ -31,13 +31,13 @@ export default function ChatTester() {
         body: JSON.stringify({
           message: input,
           from: "TEST_USER_1",
-          restaurant_id: restaurantId // 🔥 IMPORTANTE
+          restaurant_id: restaurantId
         })
       });
 
       setMessages(prev => [
         ...prev,
-        { from: "bot", text: "✔ Procesado (ver logs)" }
+        { from: "bot", text: "✔ Procesado" }
       ]);
 
     } catch (err) {
@@ -50,7 +50,6 @@ export default function ChatTester() {
     }
 
     setLoading(false);
-
   }
 
   return (
@@ -61,7 +60,6 @@ export default function ChatTester() {
         🤖 Chat Tester
       </h1>
 
-      {/* 🔥 DEBUG */}
       <div className="text-xs text-gray-500 mb-2">
         Restaurant: {restaurantId || "none"}
       </div>
@@ -69,7 +67,6 @@ export default function ChatTester() {
       <div className="border rounded-lg h-[400px] overflow-y-auto p-4 space-y-2 bg-white">
 
         {messages.map((m, i) => (
-
           <div
             key={i}
             className={`p-2 rounded max-w-[70%] ${
@@ -80,7 +77,6 @@ export default function ChatTester() {
           >
             {m.text}
           </div>
-
         ))}
 
       </div>
@@ -89,7 +85,6 @@ export default function ChatTester() {
 
         <input
           className="border rounded px-3 py-2 w-full"
-          placeholder="Escribí mensaje..."
           value={input}
           onChange={(e)=>setInput(e.target.value)}
         />
