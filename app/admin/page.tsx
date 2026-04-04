@@ -8,36 +8,22 @@ export default function AdminPage() {
   const [restaurants,setRestaurants] = useState<any[]>([]);
   const [loading,setLoading] = useState(false);
 
-
-
   async function loadRestaurants(){
-
     try{
-
       const res = await fetch("/api/admin/restaurants");
       const data = await res.json();
 
       if(data.success){
         setRestaurants(data.restaurants);
       }
-
     }catch(err){
-
       console.error(err);
-
     }
-
   }
 
-
-
   useEffect(()=>{
-
     loadRestaurants();
-
   },[]);
-
-
 
   async function createRestaurant(){
 
@@ -49,9 +35,7 @@ export default function AdminPage() {
 
       const res = await fetch("/api/admin/create-restaurant",{
         method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
+        headers:{ "Content-Type":"application/json" },
         body:JSON.stringify({
           name,
           email:`admin@${name}.com`,
@@ -59,41 +43,23 @@ export default function AdminPage() {
         })
       });
 
-      const text = await res.text();
-
-      let data = null;
-
-      if(text){
-        data = JSON.parse(text);
-      }
+      const data = await res.json();
 
       setLoading(false);
 
       if(data?.success){
-
         setName("");
-
         loadRestaurants();
-
       }else{
-
         alert(data?.error || "Error creando restaurante");
-
       }
 
     }catch(err){
-
       console.error(err);
-
       setLoading(false);
-
       alert("Error del servidor");
-
     }
-
   }
-
-
 
   return (
 
@@ -103,8 +69,15 @@ export default function AdminPage() {
         Panel Admin
       </h1>
 
-<a href="/admin/chat-tester">Chat Tester</a>
+      {/* 🔥 LINK GENERAL */}
+      <a 
+        href="/admin/chat-tester"
+        className="inline-block bg-indigo-600 text-white px-4 py-2 rounded"
+      >
+        🤖 Abrir Chat Tester
+      </a>
 
+      {/* CREAR RESTAURANTE */}
       <div className="border p-6 rounded-lg flex gap-3">
 
         <input
@@ -124,15 +97,12 @@ export default function AdminPage() {
 
       </div>
 
-
-
+      {/* LISTADO */}
       <div className="space-y-4">
 
         <h2 className="text-xl font-semibold">
           Restaurantes
         </h2>
-
-
 
         {restaurants.map((r:any)=>(
 
@@ -148,33 +118,38 @@ export default function AdminPage() {
               </div>
 
               <div className="text-sm text-gray-500">
-
                 WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
-
               </div>
 
               <div className="text-sm text-gray-500">
-
                 Licencia: {r.restaurant_licenses?.[0]?.status || "sin licencia"}
-
               </div>
 
               <div className="text-sm text-gray-500">
-
                 Plan: {r.restaurant_licenses?.[0]?.subscription_plans?.name || "-"}
-
               </div>
 
             </div>
 
+            {/* 🔥 ACCIONES */}
+            <div className="flex gap-2">
 
+              <a
+                href={`/admin/restaurants/detail?id=${r.id}`}
+                className="bg-black text-white px-3 py-2 rounded text-sm"
+              >
+                Administrar
+              </a>
 
-            <a
-href={`/admin/restaurants/detail?id=${r.id}`}
-className="bg-black text-white px-3 py-2 rounded text-sm"
->
-Administrar
-</a>
+              {/* 🔥 CHAT POR RESTAURANTE */}
+              <a
+                href={`/admin/chat-tester?restaurant_id=${r.id}`}
+                className="bg-green-600 text-white px-3 py-2 rounded text-sm"
+              >
+                Chat
+              </a>
+
+            </div>
 
           </div>
 
@@ -183,7 +158,5 @@ Administrar
       </div>
 
     </div>
-
   );
-
 }
