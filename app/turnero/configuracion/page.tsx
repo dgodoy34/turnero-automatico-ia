@@ -23,7 +23,6 @@ export default function Configuracion() {
   );
 
   const [selectedShiftIndex, setSelectedShiftIndex] = useState(0);
-
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   const currentShift = shifts[selectedShiftIndex];
@@ -134,10 +133,52 @@ export default function Configuracion() {
     }
   }
 
+  // 🔥 copiar a la semana
+  async function copyToWeek() {
+    try {
+      const baseDate = new Date(date);
+
+      const days = [0,1,2,3,4,5,6].map((d) => {
+        const newDate = new Date(baseDate);
+        newDate.setDate(baseDate.getDate() + d);
+        return newDate.toISOString().split("T")[0];
+      });
+
+      for (const d of days) {
+        await supabase
+          .from("restaurant_table_inventory")
+          .delete()
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("date", d);
+
+        const rows = shifts.flatMap((shift) =>
+          shift.tables.map((t) => ({
+            restaurant_id: RESTAURANT_ID,
+            date: d,
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            capacity: t.capacity,
+            quantity: t.quantity,
+          }))
+        );
+
+        await supabase
+          .from("restaurant_table_inventory")
+          .insert(rows);
+      }
+
+      alert("✅ Copiado a toda la semana");
+
+    } catch (e) {
+      alert("Error al copiar");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
 
+      {/* 🔹 CONFIGURACIÓN */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">
 
         {/* Fecha */}
@@ -164,7 +205,6 @@ export default function Configuracion() {
             </button>
           ))}
 
-          {/* ➕ Nuevo turno */}
           <button
             onClick={() => {
               const newShift = {
@@ -183,7 +223,7 @@ export default function Configuracion() {
             }}
             className="px-4 py-2 rounded bg-green-600 text-white"
           >
-            + Turno
+            ➕ Agregar turno
           </button>
         </div>
 
@@ -221,7 +261,7 @@ export default function Configuracion() {
             </div>
 
             <h3 className="font-semibold text-lg">
-              Configuración {currentShift.name}
+              Turno {currentShift.name}
             </h3>
 
             {/* Eliminar */}
@@ -235,7 +275,7 @@ export default function Configuracion() {
               }}
               className="bg-red-500 text-white px-3 py-1 rounded"
             >
-              Eliminar turno
+              🗑 Eliminar turno
             </button>
 
             {/* Mesas */}
@@ -244,7 +284,7 @@ export default function Configuracion() {
                 key={i}
                 className="flex justify-between items-center border p-4 rounded-lg bg-gray-50"
               >
-                <span>Mesa {table.capacity} personas</span>
+                <span>Mesas para {table.capacity} personas</span>
 
                 <input
                   type="number"
@@ -261,15 +301,41 @@ export default function Configuracion() {
           </div>
         )}
 
-        {/* Guardar */}
-        <button
-          onClick={saveShifts}
-          className="bg-indigo-600 text-white px-6 py-2 rounded"
-        >
-          Guardar configuración
-        </button>
+        {/* Botones */}
+        <div className="flex gap-3">
+          <button
+            onClick={saveShifts}
+            className="bg-indigo-600 text-white px-6 py-2 rounded"
+          >
+            Guardar configuración
+          </button>
 
+          <button
+            onClick={copyToWeek}
+            className="bg-green-600 text-white px-6 py-2 rounded"
+          >
+            Copiar a toda la semana
+          </button>
+        </div>
       </div>
+
+      {/* 🔹 VISTA ACTUAL */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="font-semibold mb-4">Vista actual</h2>
+
+        {shifts.map((shift, i) => (
+          <div key={i} className="mb-3 border-b pb-2">
+            <div className="font-semibold">{shift.name}</div>
+
+            {shift.tables.map((t, j) => (
+              <div key={j} className="text-sm">
+                {t.quantity} mesas de {t.capacity}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }
