@@ -78,6 +78,21 @@ export async function createReservation({
       return { success: false, message: "Restaurante no encontrado." };
     }
 
+// =========================
+// 🔥 SETTINGS
+// =========================
+const { data: settings } = await supabase
+  .from("settings")
+  .select("*")
+  .eq("restaurant_id", restaurant.id)
+  .single();
+
+const open_time = settings?.open_time || "12:00";
+const close_time = settings?.close_time || "23:30";
+const interval = settings?.slot_interval || 30;
+const SLOT_DURATION = settings?.reservation_duration || 90;
+const BUFFER = settings?.buffer_time || 0;
+
     // =========================
     // 🔐 Validar licencia
     // =========================
@@ -108,8 +123,6 @@ export async function createReservation({
     if (dailySettings?.max_capacity_override != null) {
       MAX_CAPACITY = dailySettings.max_capacity_override;
     }
-
-    const SLOT_DURATION = restaurant.slot_duration_minutes || 90;
     const CAPACITY_MODE = restaurant.capacity_mode || "strict";
 
     // =========================
@@ -120,8 +133,8 @@ export async function createReservation({
 
     const startDateTime = new Date(`${date}T${formattedStart}:00`);
     const endDateTime = new Date(
-      startDateTime.getTime() + SLOT_DURATION * 60000
-    );
+  startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
+);
 
     const start_time = formattedStart;
     const end_time = endDateTime.toTimeString().slice(0, 5);
@@ -237,19 +250,10 @@ if (shift === "Noche") {
    if (!assignedCapacity) {
 
   // 🔥 generar horarios dinámicos (mediodía + noche)
-  // 🔥 traer configuración real
-const { data: settings } = await supabase
-  .from("settings")
-  .select("*")
-  .eq("restaurant_id", restaurant.id)
-  .single();
 
 // fallback
-const open_time = settings?.open_time || "12:00";
-const close_time = settings?.close_time || "23:30";
-const interval = settings?.slot_interval || 30;
-
 // 🔥 generar horarios dinámicos
+
 const possibleTimes = generateTimeSlots(
   open_time,
   close_time,
