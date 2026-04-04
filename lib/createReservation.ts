@@ -202,12 +202,19 @@ if (shift === "Noche") {
 // 🔒 VALIDAR HORARIO MANUAL
 // =========================
 
-const validSlot = tableInventory.some(t => {
+const validSlot = tableInventory.some((t) => {
 
-  // 👉 si no tiene horario, es válido (default abierto)
   if (!t.start_time || !t.end_time) return true;
 
-  return start_time >= t.start_time && start_time < t.end_time;
+  // 👉 turno normal (ej: 12:00 - 16:00)
+  if (t.start_time < t.end_time) {
+    return start_time >= t.start_time && start_time < t.end_time;
+  }
+
+  // 🔥 turno nocturno (ej: 19:30 - 00:30)
+  return (
+    start_time >= t.start_time || start_time < t.end_time
+  );
 });
 
 if (!validSlot) {

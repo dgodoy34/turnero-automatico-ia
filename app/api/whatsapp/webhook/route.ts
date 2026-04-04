@@ -135,13 +135,21 @@ try {
 
     
 
-    // =====================================
+// =====================================
 // 🔥 PRIORIDAD TOTAL: CONFIRMACIÓN
 // =====================================
 if (session.state === "CONFIRM_RESERVATION") {
   console.log("👉 ENTRANDO A CONFIRM_RESERVATION");
 
-  if (lower === "si" || lower === "sí") {
+  // 🔥 aceptar más variantes
+  const isYes =
+    lower === "si" ||
+    lower === "sí" ||
+    lower.includes("si") ||
+    lower.includes("dale") ||
+    lower.includes("ok");
+
+  if (isYes) {
     console.log("✅ CONFIRMADO");
 
     const temp = session.temp_data;
@@ -154,6 +162,7 @@ if (session.state === "CONFIRM_RESERVATION") {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
+    // 🔹 asegurar cliente
     const { error: clientError } = await supabase
       .from("clients")
       .upsert({
@@ -166,6 +175,7 @@ if (session.state === "CONFIRM_RESERVATION") {
       console.error("❌ CLIENT ERROR:", clientError);
     }
 
+    // 🔹 crear reserva
     const result = await createReservation({
       restaurant_id: restaurant.id,
       dni: finalDNI,
@@ -178,13 +188,17 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     const r: any = result;
 
+    // =====================================
+    // ❌ NO DISPONIBLE
+    // =====================================
     if (!r.success) {
 
+      // 🔥 SI VIENE SUGERENCIA → GUARDAR Y CAMBIAR ESTADO
       if (r.message?.includes("👉")) {
         await setState(from, "SUGGEST_ALTERNATIVES");
 
         await setTemp(from, {
-          ...session.temp_data,
+          ...(session.temp_data || {}),
           last_suggestions: r.message,
         });
       }
@@ -193,25 +207,28 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     } else {
 
+      // =====================================
+      // ✅ RESERVA OK
+      // =====================================
+
       const reservation = r.reservation;
 
-// 🔥 proteger setTemp
-try {
-  await setTemp(from, {
-  ...(session.temp_data || {}),
-  reservation_code: reservation.reservation_code,
-});
-} catch (e) {
-  console.error("❌ ERROR SETTEMP:", e);
-}
+      try {
+        await setTemp(from, {
+          ...(session.temp_data || {}),
+          reservation_code: reservation.reservation_code,
+        });
+      } catch (e) {
+        console.error("❌ ERROR SETTEMP:", e);
+      }
 
-reply =
-  "🎉 ¡Reserva confirmada!\n\n" +
-  `📅 ${reservation.date}\n` +
-  `⏰ ${reservation.time}\n` +
-  `👥 ${reservation.people}\n` +
-  `🔑 Código: ${reservation.reservation_code}\n\n` +
-  getMenu();
+      reply =
+        "🎉 ¡Reserva confirmada!\n\n" +
+        `📅 ${reservation.date}\n` +
+        `⏰ ${reservation.time}\n` +
+        `👥 ${reservation.people}\n` +
+        `🔑 Código: ${reservation.reservation_code}\n\n` +
+        getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
     }
@@ -219,11 +236,12 @@ reply =
     await sendReply(from, reply);
     return new Response("EVENT_RECEIVED", { status: 200 });
 
-    
-
   } else {
+
+    // ❌ usuario cancela
     reply = "Perfecto 👍 Avísame si necesitás algo.";
     await setState(from, "INIT");
+
     await sendReply(from, reply);
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
