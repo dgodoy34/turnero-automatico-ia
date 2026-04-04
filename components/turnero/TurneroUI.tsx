@@ -107,10 +107,6 @@ async function addAppointment(){
 
   }
 
-  if (!restaurantId) {
-  return <div className="p-10">Cargando restaurante...</div>;
-}
-
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
 
     await fetch("/api/appointments", {
