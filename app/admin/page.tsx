@@ -103,7 +103,7 @@ export default function AdminPage() {
         Panel Admin
       </h1>
 
-
+<a href="/admin/chat-tester">Chat Tester</a>
 
       <div className="border p-6 rounded-lg flex gap-3">
 

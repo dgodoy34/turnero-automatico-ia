@@ -66,6 +66,9 @@ async function sendReply(to: string, reply: string) {
   );
 }
 
+export async function GET(req: Request) {
+  return new Response("Webhook activo");
+}
 export async function POST(req: Request) {
   try {
     const body = await req.json()
