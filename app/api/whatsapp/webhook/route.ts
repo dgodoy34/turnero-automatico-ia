@@ -466,40 +466,45 @@ if (
 ) {
   await setState(from, "INIT");
 
-if (ai.intent === "greeting") {
-  reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-}
+  // 👋 SALUDO
+  if (ai.intent === "greeting") {
+    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+  }
 
-// 🔥 FIX: FORZAR CREATE SI EL USUARIO DICE "RESERVA"
-else if (ai.intent === "consult_reservation") {
-  reply = "🔐 Pasame el código de reserva.";
-  await setState(from, "ASK_CODE");
-} else {
-  await setTemp(from, {
-    date: ai.date,
-    time: ai.time,
-    people: ai.people,
-  });
+  // 🍽 CREAR RESERVA
+  else if (ai.intent === "create_reservation") {
 
-  if (!ai.date) {
-    reply = "📅 ¿Para qué día querés la reserva?";
-    await setState(from, "ASK_DATE");
-  }
-  else if (!ai.time) {
-    reply = "⏰ ¿A qué hora?";
-    await setState(from, "ASK_TIME");
-  }
-  else if (!ai.people) {
-    reply = "👥 ¿Para cuántas personas?";
-    await setState(from, "ASK_PEOPLE");
-  }
-  else {
-    reply = "Perfecto 👍 Solo necesito tu DNI.";
-    await setState(from, "ASK_DNI");
-  }
-}
+    await setTemp(from, {
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+    });
 
-await sendReply(from, reply);
+    if (!ai.date) {
+      reply = "📅 ¿Para qué día querés la reserva?";
+      await setState(from, "ASK_DATE");
+    }
+    else if (!ai.time) {
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    }
+    else if (!ai.people) {
+      reply = "👥 ¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    }
+    else {
+      reply = "Perfecto 👍 Solo necesito tu DNI.";
+      await setState(from, "ASK_DNI");
+    }
+  }
+
+  // 🔍 CONSULTAR RESERVA (SEPARADO, CLAVE)
+  else if (ai.intent === "consult_reservation") {
+    reply = "🔐 Pasame el código de reserva.";
+    await setState(from, "ASK_CODE");
+  }
+
+  await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
