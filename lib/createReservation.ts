@@ -170,6 +170,13 @@ if (!tableInventory || tableInventory.length === 0) {
   tableInventory = fallback || [];
 }
 
+// 🔥 NORMALIZAR HORARIOS (CLAVE)
+tableInventory = tableInventory.map(t => ({
+  ...t,
+  start_time: t.start_time?.slice(0,5),
+  end_time: t.end_time?.slice(0,5),
+}));
+
 // 🔴 VALIDACIÓN FINAL
 if (!tableInventory || tableInventory.length === 0) {
   return {
@@ -195,11 +202,13 @@ if (shift === "Noche") {
 // 🔒 VALIDAR HORARIO MANUAL
 // =========================
 
-const validSlot = tableInventory.some(
-  (t) =>
-    (!t.start_time || start_time >= t.start_time) &&
-    (!t.end_time || start_time < t.end_time)
-);
+const validSlot = tableInventory.some(t => {
+
+  // 👉 si no tiene horario, es válido (default abierto)
+  if (!t.start_time || !t.end_time) return true;
+
+  return start_time >= t.start_time && start_time < t.end_time;
+});
 
 if (!validSlot) {
 
@@ -304,28 +313,26 @@ const possibleTimes = generateTimeSlots(
 let nextTime: string | null = null;
 
 // 🔥 normalizar hora (clave)
-const normalizedStart = start_time.includes(":")
-  ? start_time
-  : `${start_time}:00`;
+// 🔥 generar múltiples opciones
+const availableSlots = generateTimeSlots(
+  open_time,
+  close_time,
+  interval
+);
 
-const currentIndex = possibleTimes.indexOf(normalizedStart);
+// 🔥 filtrar horarios futuros al solicitado
+const alternatives = availableSlots
+  .filter(t => t > start_time)
+  .slice(0, 5); // máximo 5 opciones
 
-if (currentIndex !== -1) {
-  for (let i = currentIndex + 1; i < possibleTimes.length; i++) {
-    nextTime = possibleTimes[i];
-    break;
-  }
-}
-
-// 🔥 RESPUESTA
 return {
   success: false,
-  message: nextTime
-    ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible ${nextTime}\n¿Te sirve?`
-    : "No hay disponibilidad en ese horario.",
+  message:
+    alternatives.length > 0
+      ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible:\n${alternatives.join(" - ")}\n\n¿Te sirve alguno?`
+      : "No hay disponibilidad en ese horario.",
 };
-  
-}
+   }
 
     // =========================
     // 9️⃣ Control capacidad global

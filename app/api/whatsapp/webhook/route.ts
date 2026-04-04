@@ -508,6 +508,63 @@ if (
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+// =========================
+// 🔁 SUGERENCIAS DE HORARIO
+// =========================
+else if (session.state === "SUGGEST_ALTERNATIVES") {
+
+  const lowerMsg = text.toLowerCase();
+
+  if (lowerMsg.includes("si") || lowerMsg.includes("dale")) {
+
+    const suggestion = session.temp_data?.last_suggestions;
+
+    const match = suggestion?.match(/\d{2}:\d{2}/);
+
+    if (!match) {
+      reply = "No pude detectar el horario 😕";
+      await setState(from, "INIT");
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+
+    const newTime = match[0];
+
+    const temp = session.temp_data;
+
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: temp.dni,
+      date: temp.date,
+      time: newTime,
+      people: temp.people,
+    });
+
+    if (!result.success) {
+      reply = result.message;
+    } else {
+      const reservation = result.reservation;
+
+      reply =
+        "🎉 ¡Reserva confirmada!\n\n" +
+        `📅 ${reservation.date}\n` +
+        `⏰ ${reservation.time}\n` +
+        `👥 ${reservation.people}\n` +
+        `🔑 Código: ${reservation.reservation_code}\n\n` +
+        getMenu();
+
+      await setState(from, "POST_RESERVATION_MENU");
+    }
+
+  } else {
+    reply = "Perfecto 👍 decime otro horario.";
+    await setState(from, "ASK_TIME");
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
     // =====================================
 // 🔁 FLUJO NORMAL
 // =====================================
@@ -526,6 +583,67 @@ if (session.state === "ASK_DATE") {
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
+
+// =========================
+// 🔁 SUGERENCIAS DE HORARIO
+// =========================
+else if (session.state === "SUGGEST_ALTERNATIVES") {
+
+  const lowerMsg = text.toLowerCase();
+
+  if (lowerMsg.includes("si") || lowerMsg.includes("dale")) {
+
+    const suggestion = session.temp_data?.last_suggestions;
+
+    const match = suggestion?.match(/\d{2}:\d{2}/);
+
+    if (!match) {
+      reply = "No pude detectar el horario 😕";
+      await setState(from, "INIT");
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+
+    const newTime = match[0];
+
+    const temp = session.temp_data;
+
+    const result = await createReservation({
+      restaurant_id: restaurant.id,
+      dni: temp.dni,
+      date: temp.date,
+      time: newTime,
+      people: temp.people,
+    });
+
+    if (!result.success) {
+      reply = result.message;
+    } else {
+      const reservation = result.reservation;
+
+      reply =
+        "🎉 ¡Reserva confirmada!\n\n" +
+        `📅 ${reservation.date}\n` +
+        `⏰ ${reservation.time}\n` +
+        `👥 ${reservation.people}\n` +
+        `🔑 Código: ${reservation.reservation_code}\n\n` +
+        getMenu();
+
+      await setState(from, "POST_RESERVATION_MENU");
+    }
+
+  } else {
+    reply = "Perfecto 👍 decime otro horario.";
+    await setState(from, "ASK_TIME");
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+//=========================
+// 🔁 ASK TIME
+// =========================
 
 else if (session.state === "ASK_TIME") {
 

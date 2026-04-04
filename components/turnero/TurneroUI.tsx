@@ -7,6 +7,7 @@ import DayAgenda from "@/components/ui/DayAgenda";
 import type { Appointment, AppointmentStatus } from "@/types/Appointment";
 import { getDateISOInTimezone } from "@/lib/time";
 import RestaurantClock from "@/components/RestaurantClock";
+import { useRestaurant } from "@/lib/useRestaurant";
 
 function statusColor(status: AppointmentStatus) {
   switch (status) {
@@ -36,11 +37,20 @@ export default function TurneroUI() {
 
   const [selectedDate,setSelectedDate] = useState("");
 
+  const [settings, setSettings] = useState<any>(null);
+ 
+const restaurantId = useRestaurant();
+
+  
   async function loadAll(){
 
     setLoading(true);
 
-    const res = await fetch("/api/appointments");
+    const res = await fetch("/api/appointments", {
+  headers: {
+    "x-restaurant-id": restaurantId!
+  }
+})
     const data = await res.json();
 
     setAppointments(data.appointments || []);
@@ -48,11 +58,11 @@ export default function TurneroUI() {
 
   }
 
-  useEffect(()=>{
+  useEffect(() => {
+  if (restaurantId) {
     loadAll();
-  },[]);
-
-const [settings, setSettings] = useState<any>(null);
+  }
+}, [restaurantId]);
 
   useEffect(() => {
   if (settings?.timezone) {
@@ -62,21 +72,26 @@ const [settings, setSettings] = useState<any>(null);
   }
 }, [settings]);
 
+
+
 const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
-  async function addAppointment(){
+async function addAppointment(){
 
-    const res = await fetch("/api/appointments",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({
-        client_dni:clientId,
-        date,
-        time,
-        people,
-        notes
-      })
-    });
+  const res = await fetch("/api/appointments", {
+    headers: {
+      "x-restaurant-id": restaurantId!,
+      "Content-Type":"application/json"
+    },
+    method:"POST",
+    body:JSON.stringify({
+      client_dni:clientId,
+      date,
+      time,
+      people,
+      notes
+    })
+  });
 
     if(!res.ok){
       alert("Error creando reserva");
@@ -92,13 +107,20 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
   }
 
+  if (!restaurantId) {
+  return <div className="p-10">Cargando restaurante...</div>;
+}
+
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
 
-    await fetch("/api/appointments",{
-      method:"PUT",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ id,status })
-    });
+    await fetch("/api/appointments", {
+  headers: {
+    "x-restaurant-id": restaurantId!,
+    "Content-Type":"application/json"
+  },
+  method:"PUT",
+  body:JSON.stringify({ id,status })
+});
 
     await loadAll();
 
@@ -108,9 +130,13 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
     if(!confirm("Eliminar reserva?")) return;
 
-    await fetch(`/api/appointments?id=${id}`,{
-      method:"DELETE"
-    });
+    await fetch(`/api/appointments?id=${id}`, {
+  method: "DELETE",
+  headers: {
+    "x-restaurant-id": restaurantId!
+  }
+});
+  
 
     await loadAll();
 
@@ -120,6 +146,7 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
  ()=>appointments.filter(a=>a.date===selectedDate),
  [appointments,selectedDate]
 );
+
 
   const occupancy = todayReservations.reduce(
  (acc,r)=>acc+r.people,
