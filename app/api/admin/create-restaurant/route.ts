@@ -98,6 +98,7 @@ whatsapp_number: body.whatsapp_number || null,
     await supabase
       .from("settings")
       .insert({
+        id: Math.floor(Math.random() * 1000000),
         restaurant_id: restaurant.id,
         open_time:"12:00",
         close_time:"23:00",
@@ -110,26 +111,55 @@ whatsapp_number: body.whatsapp_number || null,
     // 4️⃣ Inventario mesas default
     // =========================
 
-    await supabase
-      .from("restaurant_table_inventory")
-      .insert([
-        {
-          restaurant_id:restaurant.id,
-          capacity:2,
-          quantity:5
-        },
-        {
-          restaurant_id:restaurant.id,
-          capacity:4,
-          quantity:5
-        },
-        {
-          restaurant_id:restaurant.id,
-          capacity:6,
-          quantity:3
-        }
-      ]);
+   await supabase
+  .from("restaurant_table_inventory")
+  .insert([
+    // 🔥 TURNO DÍA
+    {
+      restaurant_id: restaurant.id,
+      capacity: 2,
+      quantity: 5,
+      start_time: "12:00",
+      end_time: "16:00"
+    },
+    {
+      restaurant_id: restaurant.id,
+      capacity: 4,
+      quantity: 5,
+      start_time: "12:00",
+      end_time: "16:00"
+    },
+    {
+      restaurant_id: restaurant.id,
+      capacity: 6,
+      quantity: 3,
+      start_time: "12:00",
+      end_time: "16:00"
+    },
 
+    // 🔥 TURNO NOCHE
+    {
+      restaurant_id: restaurant.id,
+      capacity: 2,
+      quantity: 8,
+      start_time: "19:00",
+      end_time: "00:30"
+    },
+    {
+      restaurant_id: restaurant.id,
+      capacity: 4,
+      quantity: 6,
+      start_time: "19:00",
+      end_time: "00:30"
+    },
+    {
+      restaurant_id: restaurant.id,
+      capacity: 6,
+      quantity: 4,
+      start_time: "19:00",
+      end_time: "00:30"
+    }
+  ]);
   
 
     // =========================
