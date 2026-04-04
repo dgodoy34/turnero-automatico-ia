@@ -1,57 +1,45 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-
-// 🔥 IMPORTANTE: elegís qué restaurant testear
-const TEST_RESTAURANT_ID = "PONÉ_ACÁ_EL_ID";
+import { handleMessage } from "@/lib/botHandler";
 
 export async function POST(req: Request) {
+
   try {
+
     const body = await req.json();
+
     const message = body.message;
     const from = body.from || "TEST_USER";
+    const restaurant_id = body.restaurant_id;
 
-    // 🔥 simulamos estructura de webhook
-    const fakeReq = {
-      entry: [
-        {
-          changes: [
-            {
-              value: {
-                messages: [
-                  {
-                    from,
-                    text: { body: message }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    };
-
-    // 👉 BUSCAR RESTAURANTE DIRECTO
+    // 🔥 traer restaurante real
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("*")
-      .eq("id", TEST_RESTAURANT_ID)
+      .eq("id", restaurant_id)
       .single();
 
     if (!restaurant) {
       return NextResponse.json({ error: "Restaurant not found" });
     }
 
-    // 🔥 acá llamás tu lógica principal
-    // IMPORTANTE: esto depende de cómo tengas armado tu webhook handler
-
-    const response = await fetch(`${process.env.BASE_URL}/api/whatsapp/webhook`, {
-      method: "POST",
-      body: JSON.stringify(fakeReq)
+    // 🔥 ejecutar lógica del bot DIRECTO
+    const result = await handleMessage({
+      from,
+      message,
+      restaurant
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      reply: result.reply
+    });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message });
+
+    return NextResponse.json({
+      error: err.message
+    });
+
   }
+
 }
