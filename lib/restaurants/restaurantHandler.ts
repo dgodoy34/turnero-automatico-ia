@@ -19,40 +19,68 @@ export async function restaurantHandler(input: any) {
       text = input.message;
       restaurant = input.restaurant;
 
-    } else {
+      // 🔥 SIMULAR WEBHOOK REAL
+      const fakeWebhook = {
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      from,
+                      text: { body: text },
+                      type: "text"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      };
 
-      // =========================
-      // 🔥 MODO WEBHOOK (ORIGINAL)
-      // =========================
-      const message = input?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      // 🔥 LLAMAR TU WEBHOOK REAL
+      await fetch(`${process.env.BASE_URL}/api/whatsapp/webhook`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(fakeWebhook)
+      });
 
-      if (!message || message.type !== "text") {
-        return;
-      }
-
-      from = message.from;
-      text = message.text.body.trim();
-
-      const { data: restaurantData, error: restaurantError } = await supabase
-        .from("restaurants")
-        .select("*")
-        .eq("phone_number_id", process.env.RESTAURANT_PHONE_ID)
-        .single();
-
-      if (!restaurantData || restaurantError) {
-        console.error("❌ Restaurante no encontrado", restaurantError);
-        return;
-      }
-
-      restaurant = restaurantData;
+      return { reply: "✔ Procesado (flujo real ejecutado)" };
 
     }
 
-    const lower = text.toLowerCase();
+    // =========================
+    // 🔥 MODO WEBHOOK (ORIGINAL)
+    // =========================
+
+    const message = input?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (!message || message.type !== "text") {
+      return;
+    }
+
+    from = message.from;
+    text = message.text.body.trim();
+
+    const { data: restaurantData, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("*")
+      .eq("phone_number_id", process.env.RESTAURANT_PHONE_ID)
+      .single();
+
+    if (!restaurantData || restaurantError) {
+      console.error("❌ Restaurante no encontrado", restaurantError);
+      return;
+    }
+
+    restaurant = restaurantData;
 
     const session = await getSession(from);
 
-    // 🔥 asegurar restaurant en sesión
     if (restaurant?.id) {
       await supabase
         .from("conversation_state")
@@ -60,18 +88,9 @@ export async function restaurantHandler(input: any) {
         .eq("phone", from);
     }
 
-    let reply = "No entendí 🤔";
-
-    // =========================
-    // 👉 TU LÓGICA ACTUAL (NO TOCAR)
-    // =========================
-
     console.log("📩 Mensaje:", text);
 
-    // =========================
-    // 🔥 DEVOLVER RESPUESTA (NUEVO)
-    // =========================
-    return { reply };
+    return { reply: "OK" };
 
   } catch (error) {
     console.error("❌ Error en restaurantHandler:", error);
