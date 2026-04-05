@@ -485,6 +485,8 @@ else if (session.state === "MODIFY_PEOPLE") {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+console.log("STATE REAL:", session.state);
+
 if (
   ai &&
   ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
