@@ -47,7 +47,12 @@ function formatDateToISO(input: string) {
 
 
 
+let lastReply = "";
+
 async function sendReply(to: string, reply: string) {
+
+  lastReply = reply; // 👈 GUARDAMOS RESPUESTA PARA DEBUG
+
   await fetch(
     `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
     {
@@ -853,5 +858,11 @@ if (!reply) {
 return new Response("EVENT_RECEIVED", { status: 200 });
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
-    return new Response("EVENT_RECEIVED", { status: 200 });
+    return new Response(
+  JSON.stringify({ reply: lastReply }),
+  {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  }
+);
   }}
