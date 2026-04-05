@@ -69,13 +69,7 @@ export default function AdminPage() {
         Panel Admin
       </h1>
 
-      {/* 🔥 LINK GENERAL */}
-      <a 
-        href="/admin/chat-tester"
-        className="inline-block bg-indigo-600 text-white px-4 py-2 rounded"
-      >
-        🤖 Abrir Chat Tester
-      </a>
+      
 
       {/* CREAR RESTAURANTE */}
       <div className="border p-6 rounded-lg flex gap-3">
@@ -139,14 +133,6 @@ export default function AdminPage() {
                 className="bg-black text-white px-3 py-2 rounded text-sm"
               >
                 Administrar
-              </a>
-
-              {/* 🔥 CHAT POR RESTAURANTE */}
-              <a
-                href={`/admin/chat-tester?restaurant_id=${r.id}`}
-                className="bg-green-600 text-white px-3 py-2 rounded text-sm"
-              >
-                Chat
               </a>
 
             </div>
