@@ -488,7 +488,7 @@ else if (session.state === "MODIFY_PEOPLE") {
 if (
   ai &&
   ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
-  ["INIT", "NEW_USER"].includes(session.state)
+  (!session.state || ["INIT", "NEW_USER"].includes(session.state))
 ) {
   await setState(from, "INIT");
 
