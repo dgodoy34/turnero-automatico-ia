@@ -41,6 +41,10 @@ export async function restaurantHandler(input: any) {
       };
 
       // 🔥 LLAMAR TU WEBHOOK REAL
+const baseUrl = process.env.BASE_URL?.replace(/\/$/, "");
+
+
+
       await fetch(`${process.env.BASE_URL}/api/whatsapp/webhook`, {
         method: "POST",
         headers: {
