@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient"
 
 export async function createBooking({
+  business_id,
   phone,
   checkIn,
   checkOut,
@@ -11,8 +12,7 @@ export async function createBooking({
   const { data, error } = await supabase
     .from("hotel_bookings")
     .insert({
-        business_id,
-        business_id,
+      business_id,
       phone,
       check_in: checkIn,
       check_out: checkOut,
