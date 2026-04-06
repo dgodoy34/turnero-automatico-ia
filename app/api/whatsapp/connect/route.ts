@@ -19,7 +19,7 @@ export async function POST(req:Request){
     whatsapp_business_account_id:waba_id,
     access_token
   })
-  .eq("id", businessId)
+  .eq("id", restaurant_id)
 
   if(error){
     return NextResponse.json({success:false})
