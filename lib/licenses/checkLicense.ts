@@ -13,7 +13,7 @@ export async function checkLicense(restaurantId:string){
       max_reservations
     )
   `)
-  .eq("restaurant_id",restaurantId)
+  .eq("business_id", restaurantId)
   .single()
 
   if(error || !data){

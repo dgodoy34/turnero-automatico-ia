@@ -113,12 +113,14 @@ if (input?.from && input?.message && input?.restaurant) {
 
     restaurant = restaurantData;
 
+    const businessId = restaurant.id;
+
     const session = await getSession(from);
 
     if (restaurant?.id) {
       await supabase
         .from("conversation_state")
-        .update({ restaurant_id: restaurant.id })
+        .update({ business_id: businessId })
         .eq("phone", from);
     }
 

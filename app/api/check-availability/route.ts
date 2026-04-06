@@ -19,7 +19,7 @@ const { date, time, people } = await req.json();
 const { data: tables } = await supabase
 .from("restaurant_table_inventory")
 .select("capacity,quantity")
-.eq("restaurant_id", restaurant_id);
+.eq("business_id", restaurant_id);
 
 
 // 2️⃣ obtener reservas del día
@@ -27,7 +27,7 @@ const { data: tables } = await supabase
 const { data: appointments } = await supabase
 .from("appointments")
 .select("assigned_table_capacity,tables_used,start_time,end_time")
-.eq("restaurant_id", restaurant_id)
+.eq("business_id", restaurant_id)
 .eq("date", date)
 .eq("status", "confirmed");
 

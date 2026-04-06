@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const { data, error } = await supabase
       .from("clients")
       .select("*")
-      .eq("restaurant_id", restaurant_id)
+      .eq("business_id", restaurant_id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;

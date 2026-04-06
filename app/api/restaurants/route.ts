@@ -13,7 +13,7 @@ const restaurant_id = await getRestaurantId(
 const { data, error } = await supabase
 .from("settings")
 .select("*")
-.eq("restaurant_id", restaurant_id)
+.eq("business_id", restaurant_id)
 .single();
 
 if(error){

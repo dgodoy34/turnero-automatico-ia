@@ -27,7 +27,7 @@ function generateTimeSlots(
 }
 
 type CreateReservationParams = {
-  restaurant_id: string;
+  business_id: string;
   dni: string;
   date: string;
   time: string;
@@ -40,7 +40,7 @@ type CreateReservationResult =
   | { success: false; message: string };
 
 export async function createReservation({
-  restaurant_id,
+  business_id,
   dni,
   date,
   time,
@@ -68,15 +68,16 @@ export async function createReservation({
     // =========================
     // 1️⃣ Obtener restaurante
     // =========================
-    const { data: restaurant, error: restaurantError } = await supabase
-      .from("restaurants")
-      .select("*")
-      .eq("id", restaurant_id)
-      .single();
+   const { data: restaurant, error: restaurantError } = await supabase
+  .from("restaurants")
+  .select("*")
+  .eq("id", business_id)
+  .single();
 
+const businessId = business_id;
     if (restaurantError || !restaurant) {
-      return { success: false, message: "Restaurante no encontrado." };
-    }
+  return { success: false, message: "Restaurante no encontrado." };
+}
 
 // =========================
 // 🔥 SETTINGS
@@ -84,7 +85,7 @@ export async function createReservation({
 const { data: settings } = await supabase
   .from("settings")
   .select("*")
-  .eq("restaurant_id", restaurant.id)
+  .eq("business_id", businessId)
   .single();
 
 const open_time = settings?.open_time || "12:00";
@@ -96,7 +97,7 @@ const BUFFER = settings?.buffer_time || 0;
     // =========================
     // 🔐 Validar licencia
     // =========================
-    const license = await checkLicense(restaurant.id);
+    const license = await checkLicense(businessId);
 
     if (!license.valid) {
       return {
@@ -116,7 +117,7 @@ const BUFFER = settings?.buffer_time || 0;
     const { data: dailySettings } = await supabase
       .from("restaurant_daily_settings")
       .select("max_capacity_override")
-      .eq("restaurant_id", restaurant.id)
+      .eq("business_id", businessId)
       .eq("date", date)
       .maybeSingle();
 
@@ -154,7 +155,7 @@ const shift = start_time <= "16:00" ? "Día" : "Noche";
 let { data: tableInventory } = await supabase
   .from("restaurant_table_inventory")
   .select("*")
-  .eq("restaurant_id", restaurant.id)
+  .eq("business_id", businessId)
   .eq("date", date);
 
 // 🔥 fallback a inventario base (sin fecha)
@@ -164,7 +165,7 @@ if (!tableInventory || tableInventory.length === 0) {
   const { data: fallback } = await supabase
     .from("restaurant_table_inventory")
     .select("*")
-    .eq("restaurant_id", restaurant.id)
+    .eq("business_id", businessId)
     .is("date", null);
 
   tableInventory = fallback || [];
@@ -242,7 +243,7 @@ if (!validSlot) {
     const { data: existing } = await supabase
       .from("appointments")
       .select("id")
-      .eq("restaurant_id", restaurant.id)
+      .eq("business_id", businessId)
       .eq("client_dni", dni)
       .eq("date", date)
       .eq("time", formattedStart)
@@ -275,7 +276,7 @@ if (!validSlot) {
     const { data: overlappingTables } = await supabase
       .from("appointments")
       .select("assigned_table_capacity")
-      .eq("restaurant_id", restaurant.id)
+      .eq("business_id", businessId)
       .eq("date", date)
       .eq("status", "confirmed")
       .lt("start_time", end_time)
@@ -348,7 +349,7 @@ return {
       const { data: overlapping } = await supabase
         .from("appointments")
         .select("people")
-        .eq("restaurant_id", restaurant.id)
+        .eq("business_id", businessId)
         .eq("date", date)
         .eq("status", "confirmed")
         .lt("start_time", end_time)
@@ -369,7 +370,7 @@ return {
     // 🔟 Código
     // =========================
     const reservationCode = await generateReservationCode(
-      restaurant.id,
+      businessId,
       date
     );
 
@@ -388,7 +389,7 @@ return {
         service: "reserva_mesa",
         status: "confirmed",
         reservation_code: reservationCode,
-        restaurant_id: restaurant.id,
+        business_id: businessId,
         assigned_table_capacity: assignedCapacity,
         tables_used: 1,
       })

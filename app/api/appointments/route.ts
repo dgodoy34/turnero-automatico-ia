@@ -3,24 +3,18 @@ import { supabase } from "@/lib/supabaseClient";
 import { createReservation } from "@/lib/createReservation";
 import { getRestaurantId } from "@/lib/getRestaurantId";
 
-export type AppointmentStatus =
-  | "confirmed"
-  | "completed"
-  | "cancelled"
-  | "no_show";
+async function resolveBusinessId(req: Request) {
 
-export type Appointment = {
-  id: number;
-  reservation_code: string;
-  client_dni: string;
-  date: string;
-  time: string;
-  people: number;
-  assigned_table_capacity?: number;
-  notes?: string;
-  status: AppointmentStatus;
-  created_at?: string;
-};
+  // 🔥 1. intentar por header (modo SaaS)
+  const headerBusinessId = req.headers.get("x-business-id");
+
+  if (headerBusinessId) return headerBusinessId;
+
+  // 🔥 2. fallback WhatsApp (modo bot)
+  return await getRestaurantId(
+    process.env.WHATSAPP_PHONE_NUMBER_ID!
+  );
+}
 
 // ============================
 // GET - Listar reservas
@@ -30,9 +24,7 @@ export async function GET(req: Request) {
 
   try {
 
-   const restaurant_id = await getRestaurantId(
-  process.env.WHATSAPP_PHONE_NUMBER_ID!
-);
+    const businessId = await resolveBusinessId(req);
 
     const { data, error } = await supabase
       .from("appointments")
@@ -57,7 +49,7 @@ export async function GET(req: Request) {
           email
         )
       `)
-      .eq("restaurant_id", restaurant_id)
+      .eq("business_id", businessId)
       .order("date", { ascending: false })
       .order("time", { ascending: false });
 
@@ -87,9 +79,7 @@ export async function POST(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(
-  process.env.WHATSAPP_PHONE_NUMBER_ID!
-);
+    const businessId = await resolveBusinessId(req);
 
     const body = await req.json();
     const { client_dni, date, time, people } = body;
@@ -104,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     const result = await createReservation({
-      restaurant_id,
+      business_id: businessId,
       dni: client_dni,
       date,
       time,
@@ -141,9 +131,7 @@ export async function PUT(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(
-  process.env.WHATSAPP_PHONE_NUMBER_ID!
-);
+    const businessId = await resolveBusinessId(req);
 
     const body = await req.json();
     const { id, status } = body;
@@ -161,7 +149,7 @@ export async function PUT(req: Request) {
       .from("appointments")
       .update({ status })
       .eq("id", id)
-      .eq("restaurant_id", restaurant_id);
+      .eq("business_id", businessId);
 
     if (error) throw error;
 
@@ -186,9 +174,7 @@ export async function DELETE(req: Request) {
 
   try {
 
-    const restaurant_id = await getRestaurantId(
-  process.env.WHATSAPP_PHONE_NUMBER_ID!
-);
+    const businessId = await resolveBusinessId(req);
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -206,7 +192,7 @@ export async function DELETE(req: Request) {
       .from("appointments")
       .delete()
       .eq("id", id)
-      .eq("restaurant_id", restaurant_id);
+      .eq("business_id", businessId);
 
     if (error) throw error;
 

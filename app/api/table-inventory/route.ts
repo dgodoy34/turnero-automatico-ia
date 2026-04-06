@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     let { data, error } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity, start_time")
-      .eq("restaurant_id", restaurant_id)
+      .eq("business_id", restaurant_id)
       .eq("date", date);
 
     if (error) {
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       const { data: fallback, error: fallbackError } = await supabase
         .from("restaurant_table_inventory")
         .select("capacity, quantity, start_time")
-        .eq("restaurant_id", restaurant_id)
+        .eq("business_id", restaurant_id)
         .is("date", null); // 👈 DEFAULT
 
       if (fallbackError) {

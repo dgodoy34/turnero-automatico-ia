@@ -33,14 +33,14 @@ export default function Configuracion() {
       let { data } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("business_id", RESTAURANT_ID)
         .eq("date", date);
 
       if (!data || data.length === 0) {
         const { data: fallback } = await supabase
           .from("restaurant_table_inventory")
           .select("*")
-          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("business_id", RESTAURANT_ID)
           .is("date", null);
 
         data = fallback || [];
@@ -102,12 +102,12 @@ export default function Configuracion() {
       await supabase
         .from("restaurant_table_inventory")
         .delete()
-        .eq("restaurant_id", RESTAURANT_ID)
+        .eq("business_id", RESTAURANT_ID)
         .eq("date", date);
 
       const rows = shifts.flatMap((shift) =>
         shift.tables.map((t) => ({
-          restaurant_id: RESTAURANT_ID,
+          business_id: RESTAURANT_ID,
           date: date,
           start_time: shift.start_time,
           end_time: shift.end_time,
@@ -148,12 +148,12 @@ export default function Configuracion() {
         await supabase
           .from("restaurant_table_inventory")
           .delete()
-          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("business_id", RESTAURANT_ID)
           .eq("date", d);
 
         const rows = shifts.flatMap((shift) =>
           shift.tables.map((t) => ({
-            restaurant_id: RESTAURANT_ID,
+            business_id: RESTAURANT_ID,
             date: d,
             start_time: shift.start_time,
             end_time: shift.end_time,

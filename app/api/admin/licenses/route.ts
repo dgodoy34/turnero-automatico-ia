@@ -8,12 +8,13 @@ import { supabase } from "@/lib/supabaseClient"
 export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
-  const restaurant_id = searchParams.get("id")
+  const businessId = searchParams.get("business_id")
 
   let query = supabase
     .from("restaurant_licenses")
     .select(`
       id,
+      business_id,
       status,
       expires_at,
       restaurants(name),
@@ -26,9 +27,9 @@ export async function GET(req: Request) {
     `)
     .order("expires_at", { ascending: false })
 
-  // 🔥 SOLO FILTRA SI VIENE ID
-  if (restaurant_id) {
-    query = query.eq("restaurant_id", restaurant_id)
+  // 🔥 filtro correcto
+  if (businessId) {
+    query = query.eq("business_id", businessId)
   }
 
   const { data, error } = await query
@@ -40,9 +41,15 @@ export async function GET(req: Request) {
     })
   }
 
+  // 🔥 normalizamos nombre (para frontend limpio)
+  const formatted = data?.map((l: any) => ({
+    ...l,
+    business_name: l.restaurants?.name || "Sin nombre"
+  }))
+
   return NextResponse.json({
     success: true,
-    licenses: data
+    licenses: formatted
   })
 }
 
@@ -52,52 +59,52 @@ export async function GET(req: Request) {
 // CREATE LICENSE
 // =========================
 
-export async function POST(req:Request){
+export async function POST(req: Request) {
 
-try{
+  try {
 
-const body = await req.json()
+    const body = await req.json()
 
-const { restaurant_id, plan_id, months } = body
+    const { business_id, plan_id, months } = body
 
-if(!restaurant_id || !plan_id){
-return NextResponse.json({
-success:false,
-error:"restaurant_id y plan_id son requeridos"
-})
-}
+    if (!business_id || !plan_id) {
+      return NextResponse.json({
+        success: false,
+        error: "business_id y plan_id son requeridos"
+      })
+    }
 
-const expires = new Date()
-expires.setMonth(expires.getMonth() + (months || 1))
+    const expires = new Date()
+    expires.setMonth(expires.getMonth() + (months || 1))
 
-const { error } = await supabase
-.from("restaurant_licenses")
-.insert({
-restaurant_id,
-plan_id,
-status:"active",
-expires_at:expires
-})
+    const { error } = await supabase
+      .from("restaurant_licenses")
+      .insert({
+        business_id,
+        plan_id,
+        status: "active",
+        expires_at: expires
+      })
 
-if(error){
-return NextResponse.json({
-success:false,
-error:error.message
-})
-}
+    if (error) {
+      return NextResponse.json({
+        success: false,
+        error: error.message
+      })
+    }
 
-return NextResponse.json({
-success:true
-})
+    return NextResponse.json({
+      success: true
+    })
 
-}catch(err:any){
+  } catch (err: any) {
 
-return NextResponse.json({
-success:false,
-error:err.message
-})
+    return NextResponse.json({
+      success: false,
+      error: err.message
+    })
 
-}
+  }
 
 }
 
@@ -107,63 +114,65 @@ error:err.message
 // DELETE LICENSE
 // =========================
 
-export async function DELETE(req:Request){
+export async function DELETE(req: Request) {
 
-const { searchParams } = new URL(req.url)
-const id = searchParams.get("id")
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get("id")
 
-if(!id){
-return NextResponse.json({ success:false })
+  if (!id) {
+    return NextResponse.json({ success: false })
+  }
+
+  const { error } = await supabase
+    .from("restaurant_licenses")
+    .delete()
+    .eq("id", id)
+
+  if (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message
+    })
+  }
+
+  return NextResponse.json({
+    success: true
+  })
+
 }
 
-const { error } = await supabase
-.from("restaurant_licenses")
-.delete()
-.eq("id",id)
 
-if(error){
-return NextResponse.json({
-success:false,
-error:error.message
-})
-}
-
-return NextResponse.json({
-success:true
-})
-
-}
 
 // =========================
 // UPDATE LICENSE STATUS
 // =========================
 
-export async function PATCH(req:Request){
+export async function PATCH(req: Request) {
 
-const body = await req.json()
+  const body = await req.json()
 
-const { id, status } = body
+  const { id, status } = body
 
-if(!id){
-return NextResponse.json({success:false})
-}
+  if (!id) {
+    return NextResponse.json({ success: false })
+  }
 
-const { error } = await supabase
-.from("restaurant_licenses")
-.update({
-status
-})
-.eq("id",id)
+  const { error } = await supabase
+    .from("restaurant_licenses")
+    .update({
+      status
+    })
+    .eq("id", id)
 
-if(error){
-return NextResponse.json({
-success:false,
-error:error.message
-})
-}
+  if (error) {
+    return NextResponse.json({
+      success: false,
+      error: error.message
+    })
+  }
 
-return NextResponse.json({
-success:true
-})
+  return NextResponse.json({
+    success: true
+  })
 
 }

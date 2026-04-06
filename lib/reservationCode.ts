@@ -37,7 +37,7 @@ export async function generateReservationCode(
   const { count, error } = await supabase
     .from("appointments")
     .select("id", { count: "exact", head: true })
-    .eq("restaurant_id", restaurantId)
+    .eq("business_id", restaurantId)
     .eq("status", "confirmed");
 
   if (error) {

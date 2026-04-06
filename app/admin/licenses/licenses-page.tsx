@@ -6,23 +6,24 @@ import { useSearchParams } from "next/navigation"
 export default function LicensesPage() {
 
   const searchParams = useSearchParams()
-  const restaurantId = searchParams.get("id")
+  const businessIdParam = searchParams.get("business_id")
 
   const [restaurants, setRestaurants] = useState<any[]>([])
   const [plans, setPlans] = useState<any[]>([])
   const [licenses, setLicenses] = useState<any[]>([])
 
-  const [restaurant, setRestaurant] = useState("")
+  // 🔥 RENOMBRADO (ANTES restaurant)
+  const [business, setBusiness] = useState("")
   const [plan, setPlan] = useState("")
   const [months, setMonths] = useState(1)
 
   useEffect(() => {
     loadData()
-  }, [restaurantId])
+  }, [businessIdParam])
 
   async function loadData() {
 
-    // restaurantes
+    // negocios (por ahora vienen de restaurants)
     const r = await fetch("/api/admin/restaurants")
     const rjson = await r.json()
     setRestaurants(rjson.restaurants || [])
@@ -35,8 +36,8 @@ export default function LicensesPage() {
     // licencias
     let url = "/api/admin/licenses"
 
-    if (restaurantId) {
-      url = `/api/admin/licenses?id=${restaurantId}`
+    if (businessIdParam) {
+      url = `/api/admin/licenses?business_id=${businessIdParam}`
     }
 
     const l = await fetch(url)
@@ -49,8 +50,8 @@ export default function LicensesPage() {
 
   async function createLicense() {
 
-    if (!restaurant || !plan) {
-      alert("Seleccioná restaurante y plan")
+    if (!business || !plan) {
+      alert("Seleccioná negocio y plan")
       return
     }
 
@@ -58,7 +59,7 @@ export default function LicensesPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        restaurant_id: restaurant,
+        business_id: business,
         plan_id: plan,
         months
       })
@@ -113,16 +114,16 @@ export default function LicensesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Restaurante */}
+          {/* NEGOCIO */}
           <div className="flex flex-col">
             <label className="text-sm text-gray-500 mb-1">
-              Restaurante
+              Negocio
             </label>
 
             <select
               className="border rounded-lg px-3 py-2"
-              value={restaurant}
-              onChange={(e) => setRestaurant(e.target.value)}
+              value={business}
+              onChange={(e) => setBusiness(e.target.value)}
             >
               <option value="">Seleccionar</option>
 
@@ -134,7 +135,7 @@ export default function LicensesPage() {
             </select>
           </div>
 
-          {/* Plan */}
+          {/* PLAN */}
           <div className="flex flex-col">
             <label className="text-sm text-gray-500 mb-1">
               Plan
@@ -155,7 +156,7 @@ export default function LicensesPage() {
             </select>
           </div>
 
-          {/* Duración */}
+          {/* DURACIÓN */}
           <div className="flex flex-col">
             <label className="text-sm text-gray-500 mb-1">
               Duración (meses)
@@ -206,8 +207,9 @@ export default function LicensesPage() {
 
             <div className="space-y-1">
 
+              {/* 🔥 FIX NOMBRE MULTI-TENANT */}
               <div className="font-semibold text-lg">
-                {l.restaurants?.name}
+                {l.business_name || l.restaurants?.name || l.businesses?.name}
               </div>
 
               <div className="text-xs text-gray-400">

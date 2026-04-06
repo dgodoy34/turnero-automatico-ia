@@ -49,7 +49,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
         body: JSON.stringify({
           date,
           tables,
-          restaurant_id: RESTAURANT_ID
+          business_id: RESTAURANT_ID
         }),
       });
 

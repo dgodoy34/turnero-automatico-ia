@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const { data, error } = await supabase
       .from("restaurant_table_schedule")
       .select("*")
-      .eq("restaurant_id", restaurant_id);
+      .eq("business_id", restaurant_id);
 
     if (error) throw error;
 

@@ -116,10 +116,12 @@ if (!restaurant || restaurantError) {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+const businessId = restaurant.id;
+
 // ✅ RECIÉN ACÁ LO USÁS
 await supabase
   .from("conversation_state")
-  .update({ restaurant_id: restaurant.id })
+  .update({ business_id: businessId })
   .eq("phone", from);
 
     let reply = "No entendí 🤔";
@@ -176,7 +178,7 @@ if (session.state === "CONFIRM_RESERVATION") {
       .upsert({
         dni: finalDNI,
         phone: from,
-        restaurant_id: restaurant.id,
+        business_id: businessId,
       });
 
     if (clientError) {
@@ -185,7 +187,7 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     // 🔹 crear reserva
     const result = await createReservation({
-      restaurant_id: restaurant.id,
+      business_id: businessId,
       dni: finalDNI,
       date: temp.date,
       time: temp.time,
@@ -561,7 +563,7 @@ else if (session.state === "SUGGEST_ALTERNATIVES") {
     const temp = session.temp_data;
 
     const result = await createReservation({
-      restaurant_id: restaurant.id,
+      business_id: businessId,
       dni: temp.dni,
       date: temp.date,
       time: newTime,
@@ -637,7 +639,7 @@ else if (session.state === "SUGGEST_ALTERNATIVES") {
     const temp = session.temp_data;
 
     const result = await createReservation({
-      restaurant_id: restaurant.id,
+      business_id: businessId,
       dni: temp.dni,
       date: temp.date,
       time: newTime,
@@ -759,7 +761,7 @@ else if (session.state === "ASK_DNI") {
     const { error } = await supabase.from("clients").insert({
       dni: text,
       phone: from,
-      restaurant_id: restaurant.id,
+      business_id: businessId,
     });
 
     if (error) {
@@ -783,7 +785,7 @@ else if (session.state === "REGISTER_NAME") {
   await supabase.from("clients").upsert({
     dni: session.temp_data?.dni,
     name: text,
-    restaurant_id: restaurant.id,
+    business_id: businessId,
   });
 
   reply = "Perfecto 🎉 Ahora tu email.";
