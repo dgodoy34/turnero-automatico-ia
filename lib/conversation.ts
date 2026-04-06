@@ -11,12 +11,10 @@ export async function getSession(phone: string) {
     const { data: created } = await supabase
       .from("conversation_state")
       .insert({
-        business_id,
-        business_id,
-        phone,
-        state: "INIT",
-        temp_data: {},
-      })
+  phone,
+  state: "INIT",
+  temp_data: {},
+})
       .select()
       .single();
 
