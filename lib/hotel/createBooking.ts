@@ -11,6 +11,8 @@ export async function createBooking({
   const { data, error } = await supabase
     .from("hotel_bookings")
     .insert({
+        business_id,
+        business_id,
       phone,
       check_in: checkIn,
       check_out: checkOut,

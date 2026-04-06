@@ -24,7 +24,7 @@ export async function generateReservationCode(
   const { data: restaurant, error: restaurantError } = await supabase
     .from("restaurants")
     .select("branch_code")
-    .eq("id", restaurantId)
+    .eq("business_id", restaurantId)
     .single();
 
   if (restaurantError || !restaurant) {

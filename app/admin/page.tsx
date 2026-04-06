@@ -40,7 +40,7 @@ export default function AdminPage() {
     {stats.restaurantStats.map((r: any) => (
 
       <div
-        key={r.restaurant_id}
+        key={r.business_id}
         className="border rounded-lg p-4 bg-white shadow-sm flex justify-between"
       >
 
