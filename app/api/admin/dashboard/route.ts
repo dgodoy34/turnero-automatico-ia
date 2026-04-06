@@ -108,13 +108,13 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      success: true,
-      totalBusinesses,
-      totalReservations,
-      todayReservations,
-      topBusiness,
-      businessStats: formattedStats
-    });
+  success: true,
+  totalRestaurants: totalBusinesses, // 🔥 FIX
+  totalReservations,
+  todayReservations,
+  topRestaurant: topBusiness, // 🔥 FIX
+  restaurantStats: formattedStats // 🔥 FIX
+});
 
   } catch (err: any) {
 
