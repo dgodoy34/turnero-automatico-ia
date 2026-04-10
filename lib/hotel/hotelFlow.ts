@@ -1,9 +1,10 @@
 import { getSession, setState, setTemp } from "@/lib/conversation"
 import { createBooking } from "@/lib/hotel/createBooking"
 import { checkAvailability } from "@/lib/hotel/checkAvailability"
+import { supabase } from "@/lib/supabaseClient"
 
 // =========================
-// 🧠 PARSE FECHAS ROBUSTO
+// 🧠 PARSE FECHAS
 // =========================
 function parseDateRange(text: string) {
   const clean = text
@@ -18,8 +19,7 @@ function parseDateRange(text: string) {
 
   if (!match) return null
 
-  const today = new Date()
-  const year = today.getFullYear()
+  const year = new Date().getFullYear()
 
   const checkIn = `${year}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`
   const checkOut = `${year}-${match[4].padStart(2, "0")}-${match[3].padStart(2, "0")}`
@@ -66,50 +66,62 @@ export async function hotelFlow(body: any) {
     const text = message.text.body.trim()
     const lower = text.toLowerCase()
 
+    const phoneId =
+      body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
+
+    // 🔥 obtener business (igual que restaurant)
+    const { data: business } = await supabase
+      .from("restaurants")
+      .select("id")
+      .eq("phone_number_id", phoneId)
+      .single()
+
+    const businessId = business?.id
+
     const session = await getSession(from)
 
     let reply = ""
 
     console.log("🏨 HOTEL STATE:", session.state)
     console.log("RAW:", text)
-// =========================
-// INICIO
-// =========================
-    if (!session.state || session.state === "INIT") {
-  reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
-  await setState(from, "HOTEL_ASK_DATES")
-
-  await sendReply(body, from, reply)
-  return
-}
 
     // =========================
-// FECHAS (PRIORIDAD MÁXIMA)
-// =========================
-else if (session.state === "HOTEL_ASK_DATES") {
+    // INICIO
+    // =========================
+    if (!session.state || session.state === "INIT") {
+      reply = "📅 Decime fechas (ej: 12/04 al 15/04)"
+      await setState(from, "HOTEL_ASK_DATES")
 
-  console.log("📅 PARSEANDO FECHA:", text)
+      await sendReply(body, from, reply)
+      return
+    }
 
-  const parsed = parseDateRange(text)
+    // =========================
+    // FECHAS
+    // =========================
+    else if (session.state === "HOTEL_ASK_DATES") {
 
-  if (!parsed) {
-    reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
-    await sendReply(body, from, reply)
-    return
-  }
+      const parsed = parseDateRange(text)
 
-  await setTemp(from, {
-    ...session.temp_data,
-    checkIn: parsed.checkIn,
-    checkOut: parsed.checkOut
-  })
+      if (!parsed) {
+        reply = "❌ Formato inválido. Ej: 12/04 al 15/04"
+        await sendReply(body, from, reply)
+        return
+      }
 
-  reply = "👥 ¿Cuántas personas?"
-  await setState(from, "HOTEL_ASK_GUESTS")
+      await setTemp(from, {
+        ...session.temp_data,
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut
+      })
 
-  await sendReply(body, from, reply)
-  return
-}
+      reply = "👥 ¿Cuántas personas?"
+      await setState(from, "HOTEL_ASK_GUESTS")
+
+      await sendReply(body, from, reply)
+      return
+    }
+
     // =========================
     // PERSONAS
     // =========================
@@ -171,7 +183,9 @@ else if (session.state === "HOTEL_ASK_DATES") {
         return
       }
 
+      // 🔥 availability con business_id
       const availability = await checkAvailability({
+        business_id: businessId,
         checkIn: temp.checkIn,
         checkOut: temp.checkOut,
         roomType: temp.room
@@ -183,7 +197,9 @@ else if (session.state === "HOTEL_ASK_DATES") {
         return
       }
 
+      // 🔥 booking con business_id
       const result = await createBooking({
+        business_id: businessId,
         phone: from,
         checkIn: temp.checkIn,
         checkOut: temp.checkOut,
