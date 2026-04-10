@@ -27,8 +27,8 @@ export async function GET() {
 
     const { data: reservations, error } = await supabase
       .from("appointments")
-      .select("id, reservation_date, reservation_time, phone, name")
-      .eq("reservation_date", todayStr)
+      .select("id, date, time, phone, name")
+      .eq("date", todayStr)
       .eq("reminder_sent", false);
 
     if (error) throw error;
@@ -37,13 +37,13 @@ export async function GET() {
 
     for (const r of reservations) {
       const reservationDateTime = new Date(
-        `${r.reservation_date}T${r.reservation_time}`
+        `${r.date}T${r.time}`
       );
 
       if (reservationDateTime >= from && reservationDateTime <= to) {
         const message = `Hola ${r.name || ""} 👋
 
-Te recordamos tu reserva hoy a las *${r.reservation_time} hs* 🕒
+Te recordamos tu reserva hoy a las *${r.time} hs* 🕒
 
 Respondé *SI* para confirmar 👍
 O *CANCELAR* si no podés asistir ❌`;
