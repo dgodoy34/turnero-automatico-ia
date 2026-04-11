@@ -201,21 +201,39 @@ if (session.state === "CONFIRM_RESERVATION") {
     // =====================================
     // ❌ NO DISPONIBLE
     // =====================================
-    if (!r.success) {
+   if (!r.success) {
 
-      // 🔥 SI VIENE SUGERENCIA → GUARDAR Y CAMBIAR ESTADO
-      if (r.message?.includes("👉")) {
-        await setState(from, "SUGGEST_ALTERNATIVES");
+  // 🧠 CASO NUEVO → SIN MÁS HORARIOS (CIERRE)
+  if (r.type === "NO_MORE_SLOTS") {
 
-        await setTemp(from, {
-          ...(session.temp_data || {}),
-          last_suggestions: r.message,
-        });
-      }
+    await setState(from, "NO_MORE_SLOTS");
 
-      reply = r.message;
+    reply = `No hay lugar a las ${r.original_time} 😕
 
-    } else {
+👉 Podés:
+1️⃣ Elegir otro día 📅
+2️⃣ Modificar la reserva 🔄
+3️⃣ Finalizar`;
+
+  }
+
+  // 🔁 CASO NORMAL → sugerencias de horario
+  else if (r.message?.includes("👉")) {
+
+    await setState(from, "SUGGEST_ALTERNATIVES");
+
+    await setTemp(from, {
+      ...(session.temp_data || {}),
+      last_suggestions: r.message,
+    });
+
+    reply = r.message;
+  }
+
+  else {
+    reply = r.message;
+  }
+
 
       // =====================================
       // ✅ RESERVA OK
@@ -846,6 +864,37 @@ else if (session.state === "ASK_CODE") {
       getMenu();
 
     await setState(from, "POST_RESERVATION_MENU");
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+else if (session.state === "NO_MORE_SLOTS") {
+
+  const msg = text.toLowerCase();
+
+  if (msg === "1" || msg.includes("día")) {
+    reply = "📅 Decime para qué día querés la reserva";
+    await setState(from, "ASK_DATE");
+  }
+
+  else if (msg === "2" || msg.includes("modificar")) {
+    reply = "🔄 ¿Qué querés cambiar? (fecha, hora o personas)";
+    await setState(from, "MODIFY_RESERVATION");
+  }
+
+  else if (msg === "3" || msg.includes("finalizar")) {
+    reply = "Perfecto 👍 Cuando quieras volvemos a intentar.";
+    await setState(from, "INIT");
+  }
+
+  else {
+    reply =
+      "Elegí una opción 👇\n\n" +
+      "1️⃣ Elegir otro día 📅\n" +
+      "2️⃣ Modificar la reserva 🔄\n" +
+      "3️⃣ Finalizar";
   }
 
   await sendReply(from, reply);
