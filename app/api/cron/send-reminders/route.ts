@@ -64,12 +64,13 @@ O *CANCELAR* si no podés asistir ❌`;
 
           // ✅ MARCAR EN BD
           await supabase
-            .from("appointments")
-            .update({
-              reminder_sent: true,
-              reminder_sent_at: new Date().toISOString(),
-            })
-            .eq("id", r.id);
+  .from("appointments")
+  .update({
+    reminder_sent: true,
+    reminder_sent_at: new Date().toISOString(),
+    status: "pending_confirmation", // 🔥 CLAVE
+  })
+  .eq("id", r.id);
 
           sent++;
 
