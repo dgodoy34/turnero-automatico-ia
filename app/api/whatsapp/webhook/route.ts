@@ -385,11 +385,11 @@ else if (session.state === "MODIFY_RESERVATION") {
 // =========================
 else if (session.state === "MODIFY_TIME") {
 
-  let input = String(message || "").trim().toLowerCase();
+  let input = String(text || "").trim().toLowerCase();
 
   let newTime: string | null = null;
 
-  console.log("INPUT RAW:", message);
+  console.log("INPUT RAW:", text);
 
   // 🔥 CASO 1: solo número (ej: "22", "10")
   if (/^\d{1,2}$/.test(input)) {
