@@ -230,8 +230,16 @@ if (!r.success) {
   }
 
   else {
+
+    // 🔥 IMPORTANTE: evitar que quede trabado
+    await setState(from, "INIT");
+
     reply = r.message;
   }
+
+  // 🔥🔥 CLAVE TOTAL: cortar ejecución
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
 
 } else {
 
@@ -251,6 +259,10 @@ if (!r.success) {
     getMenu();
 
   await setState(from, "POST_RESERVATION_MENU");
+
+  // 🔥 TAMBIÉN cortar en success
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
 }}}
 // =========================
 // MENÚ POST RESERVA
