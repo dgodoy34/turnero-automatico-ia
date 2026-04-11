@@ -385,7 +385,7 @@ else if (session.state === "MODIFY_RESERVATION") {
 // =========================
 else if (session.state === "MODIFY_TIME") {
 
-  let input = message.trim().toLowerCase();
+  let input = String(message || "").trim().toLowerCase();
 
   let newTime: string | null = null;
 
