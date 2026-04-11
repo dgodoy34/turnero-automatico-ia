@@ -29,7 +29,8 @@ export async function GET() {
       .from("appointments")
       .select("id, date, time, phone, name")
       .eq("date", todayStr)
-      .eq("reminder_sent", false);
+      .eq("reminder_sent", false)
+      .not("phone", "is", null);
 
     if (error) throw error;
 
@@ -49,8 +50,8 @@ Respondé *SI* para confirmar 👍
 O *CANCELAR* si no podés asistir ❌`;
 
         try {
-          //await sendWhatsAppMessage(r.phone, message);
-          await sendWhatsAppMessage("5491161357077", message);
+          await sendWhatsAppMessage(r.phone, message);
+          //await sendWhatsAppMessage("5491161357077", message);
 
           await supabase
             .from("appointments")

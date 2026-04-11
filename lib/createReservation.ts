@@ -54,7 +54,7 @@ export async function createReservation({
     // =========================
     const { data: client } = await supabase
       .from("clients")
-      .select("dni")
+      .select("dni, phone, name")
       .eq("dni", dni)
       .maybeSingle();
 
@@ -64,6 +64,13 @@ export async function createReservation({
         message: "El cliente no está registrado.",
       };
     }
+
+    if (!client.phone) {
+  return {
+    success: false,
+    message: "El cliente no tiene teléfono registrado.",
+  };
+}
 
     // =========================
     // 1️⃣ Obtener restaurante
@@ -380,19 +387,21 @@ return {
     const { data, error } = await supabase
       .from("appointments")
       .insert({
-        client_dni: dni,
-        date,
-        time: formattedStart,
-        start_time,
-        end_time,
-        people,
-        service: "reserva_mesa",
-        status: "confirmed",
-        reservation_code: reservationCode,
-        business_id: businessId,
-        assigned_table_capacity: assignedCapacity,
-        tables_used: 1,
-      })
+  client_dni: dni,
+  phone: client.phone,
+  name: client.name,
+  date,
+  time: formattedStart,
+  start_time,
+  end_time,
+  people,
+  service: "reserva_mesa",
+  status: "confirmed",
+  reservation_code: reservationCode,
+  business_id: businessId,
+  assigned_table_capacity: assignedCapacity,
+  tables_used: 1,
+})
       .select()
       .single();
 
