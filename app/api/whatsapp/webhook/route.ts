@@ -389,6 +389,8 @@ else if (session.state === "MODIFY_TIME") {
 
   let newTime: string | null = null;
 
+  console.log("INPUT RAW:", message);
+
   // 🔥 CASO 1: solo número (ej: "22", "10")
   if (/^\d{1,2}$/.test(input)) {
 
