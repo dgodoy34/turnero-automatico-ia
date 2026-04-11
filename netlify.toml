@@ -16,3 +16,6 @@ status = 200
 
 [functions.send-reminders]
   schedule = "*/5 * * * *"
+
+  [functions.auto-cancel]
+  schedule = "*/5 * * * *"
