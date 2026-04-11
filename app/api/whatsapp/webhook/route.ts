@@ -199,11 +199,11 @@ if (session.state === "CONFIRM_RESERVATION") {
     const r: any = result;
 
     // =====================================
-    // ❌ NO DISPONIBLE
-    // =====================================
-   if (!r.success) {
+// ✅ RESERVA OK
+// =====================================
 
-  // 🧠 CASO NUEVO → SIN MÁS HORARIOS (CIERRE)
+if (!r.success) {
+
   if (r.type === "NO_MORE_SLOTS") {
 
     await setState(from, "NO_MORE_SLOTS");
@@ -217,7 +217,6 @@ if (session.state === "CONFIRM_RESERVATION") {
 
   }
 
-  // 🔁 CASO NORMAL → sugerencias de horario
   else if (r.message?.includes("👉")) {
 
     await setState(from, "SUGGEST_ALTERNATIVES");
@@ -234,46 +233,25 @@ if (session.state === "CONFIRM_RESERVATION") {
     reply = r.message;
   }
 
+} else {
 
-      // =====================================
-      // ✅ RESERVA OK
-      // =====================================
+  const reservation = r.reservation;
 
-      const reservation = r.reservation;
+  await setTemp(from, {
+    ...(session.temp_data || {}),
+    reservation_code: reservation?.reservation_code,
+  });
 
-      try {
-        await setTemp(from, {
-          ...(session.temp_data || {}),
-          reservation_code: reservation.reservation_code,
-        });
-      } catch (e) {
-        console.error("❌ ERROR SETTEMP:", e);
-      }
+  reply =
+    "🎉 ¡Reserva confirmada!\n\n" +
+    `📅 ${reservation?.date}\n` +
+    `⏰ ${reservation?.time}\n` +
+    `👥 ${reservation?.people}\n` +
+    `🔑 Código: ${reservation?.reservation_code}\n\n` +
+    getMenu();
 
-      reply =
-        "🎉 ¡Reserva confirmada!\n\n" +
-        `📅 ${reservation.date}\n` +
-        `⏰ ${reservation.time}\n` +
-        `👥 ${reservation.people}\n` +
-        `🔑 Código: ${reservation.reservation_code}\n\n` +
-        getMenu();
-
-      await setState(from, "POST_RESERVATION_MENU");
-    }
-
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-
-  } else {
-
-    // ❌ usuario cancela
-    reply = "Perfecto 👍 Avísame si necesitás algo.";
-    await setState(from, "INIT");
-
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
-}
+  await setState(from, "POST_RESERVATION_MENU");
+}}}
 // =========================
 // MENÚ POST RESERVA
 // =========================
