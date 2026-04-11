@@ -1,20 +1,23 @@
 import { supabase } from "./supabaseClient";
 
+// ==========================
+// 🧠 GET SESSION
+// ==========================
 export async function getSession(phone: string) {
   const { data } = await supabase
     .from("conversation_state")
     .select("*")
     .eq("phone", phone)
-    .maybeSingle(); // 🔥 CAMBIO CLAVE
+    .maybeSingle();
 
   if (!data) {
     const { data: created } = await supabase
       .from("conversation_state")
       .insert({
-  phone,
-  state: "INIT",
-  temp_data: {},
-})
+        phone,
+        state: "INIT",
+        temp_data: {},
+      })
       .select()
       .single();
 
@@ -24,6 +27,9 @@ export async function getSession(phone: string) {
   return data;
 }
 
+// ==========================
+// 🔄 SET STATE
+// ==========================
 export async function setState(phone: string, state: string) {
   await supabase
     .from("conversation_state")
@@ -34,20 +40,52 @@ export async function setState(phone: string, state: string) {
     });
 }
 
+// ==========================
+// 🆔 SET DNI
+// ==========================
 export async function setDNI(phone: string, dni: string) {
   await supabase
     .from("conversation_state")
     .upsert({
       phone,
       dni,
+      updated_at: new Date().toISOString(),
     });
 }
 
+// ==========================
+// 🧠 SET TEMP DATA (merge seguro)
+// ==========================
 export async function setTemp(phone: string, temp: any) {
+  const { data: existing } = await supabase
+    .from("conversation_state")
+    .select("temp_data")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  const mergedTemp = {
+    ...(existing?.temp_data || {}),
+    ...temp,
+  };
+
   await supabase
     .from("conversation_state")
     .upsert({
       phone,
-      temp_data: temp,
+      temp_data: mergedTemp,
+      updated_at: new Date().toISOString(),
+    });
+}
+
+// ==========================
+// 🧹 CLEAR TEMP (opcional 🔥)
+// ==========================
+export async function clearTemp(phone: string) {
+  await supabase
+    .from("conversation_state")
+    .upsert({
+      phone,
+      temp_data: {},
+      updated_at: new Date().toISOString(),
     });
 }
