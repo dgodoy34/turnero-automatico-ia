@@ -49,7 +49,8 @@ Respondé *SI* para confirmar 👍
 O *CANCELAR* si no podés asistir ❌`;
 
         try {
-          await sendWhatsAppMessage(r.phone, message);
+          //await sendWhatsAppMessage(r.phone, message);
+          await sendWhatsAppMessage("5491161357077", message);
 
           await supabase
             .from("appointments")
