@@ -37,7 +37,12 @@ type CreateReservationParams = {
 // 🔥 TIPADO PRO (NUNCA undefined)
 type CreateReservationResult =
   | { success: true; reservation: any }
-  | { success: false; message: string };
+  | {
+      success: false;
+      message: string;
+      type?: "NO_MORE_SLOTS" | "ALTERNATIVES";
+      original_time?: string;
+    };
 
 export async function createReservation({
   business_id,
@@ -235,15 +240,14 @@ if (!validSlot) {
 
   return {
     success: false,
+    type: "NO_MORE_SLOTS", // 🔥 CLAVE
+    original_time: start_time, // 🔥 CLAVE
     message:
       `Ese horario no está disponible 😕\n\n` +
       `📅 Para el ${date} podés reservar en:\n` +
       availableSlots.join(" - "),
   };
 }
-
-
-
     // =========================
     // 4️⃣ Verificar duplicado
     // =========================
