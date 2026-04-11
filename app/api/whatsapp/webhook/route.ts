@@ -385,52 +385,56 @@ else if (session.state === "MODIFY_RESERVATION") {
 // =========================
 else if (session.state === "MODIFY_TIME") {
 
-  let time = text.trim();
+  let input = message.trim().toLowerCase();
 
-  // 👉 validar formato
-  if (!time.includes(":")) {
-    if (/^\d{1,2}$/.test(time)) {
-      time = `${time}:00`;
-    } else {
-      reply = "Hora inválida 😕 Ej: 21 o 21:00";
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+  let newTime: string | null = null;
+
+  // 🔥 CASO 1: solo número (ej: "22", "10")
+  if (/^\d{1,2}$/.test(input)) {
+
+    let hour = parseInt(input);
+
+    // 🧠 lógica de negocio (CLAVE)
+    if (hour >= 0 && hour <= 6) {
+      // madrugada → probablemente noche tardía
+      newTime = `${hour.toString().padStart(2, "0")}:00`;
+    } 
+    else if (hour >= 7 && hour <= 11) {
+      // ⚠️ acá decidís vos:
+      // si no abrís a la mañana → lo mandamos a noche
+      hour += 12; // 🔥 magia
+      newTime = `${hour}:00`;
+    } 
+    else {
+      newTime = `${hour.toString().padStart(2, "0")}:00`;
     }
   }
 
-  const code = session.temp_data?.reservation_code;
+  // 🔥 CASO 2: formato HH:MM
+  else if (/^\d{1,2}:\d{2}$/.test(input)) {
+    newTime = input.length === 4 ? "0" + input : input;
+  }
 
-  if (!code) {
-    reply = "No encontré la reserva 😕";
-    await sendReply(from, reply);
+  // ❌ inválido
+  if (!newTime) {
+    await sendReply(from, "Decime la hora 🙂 (ej: 22, 22:00, 10, etc)");
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
 
-  const { error } = await supabase
-    .from("appointments")
-    .update({
-      time,
-      start_time: `${time}:00`,
-    })
-    .eq("reservation_code", code);
+  // guardamos SIEMPRE como hora (pisamos IA)
+  await setTemp(from, {
+    ...(session.temp_data || {}),
+    time: newTime,
+  });
 
-  if (error) {
-    console.error("❌ ERROR MODIFY TIME:", error);
-    reply = "Error al modificar la hora 😕";
-  } else {
-    reply =
-      "✅ Hora actualizada correctamente\n\n" +
-      getMenu();
-  }
+  await setState(from, "CONFIRM_RESERVATION");
 
-  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, `Perfecto 👍 nueva hora: ${newTime}
 
-  await sendReply(from, reply);
+¿Confirmamos la reserva? (si/no)`);
 
-  // 🔥 ESTO TE FALTABA EN ALGÚN CAMINO
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
-
 // =========================
 // MODIFICAR DATE
 // =========================
