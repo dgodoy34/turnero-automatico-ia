@@ -25,4 +25,4 @@ schedule = "0 12 * * *" # una vez al día
 
 [[schedule]]
   path = "/api/cron/birthdays"
-  schedule = "30 13 * * *"
+  schedule = "35 13 * * *"
