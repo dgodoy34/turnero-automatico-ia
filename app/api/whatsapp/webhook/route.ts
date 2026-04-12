@@ -242,7 +242,7 @@ if (session.state === "CONFIRM_RESERVATION") {
 
     // 🔹 crear reserva
    // 🔥 SI ES MODIFICACIÓN → UPDATE
-if (temp?.reservation_id) {
+if (temp?.reservation_id && temp?.is_modifying){
 
   const formattedStart = temp.time.includes(":")
     ? temp.time
