@@ -378,55 +378,68 @@ return {
     }
 
     // =========================
-    // 🔟 Código
-    // =========================
-    const reservationCode = await generateReservationCode(
-      businessId,
-      date
-    );
+// 🔟 Código + Insert (PRO)
+// =========================
 
-    // =========================
-    // 11️⃣ Insert
-    // =========================
-    const { data, error } = await supabase
-      .from("appointments")
-      .insert({
-  client_dni: dni,
-  phone: client.phone,
-  name: client.name,
-  date,
-  time: formattedStart,
-  start_time,
-  end_time,
-  people,
-  service: "reserva_mesa",
-  status: "confirmed",
-  reservation_code: reservationCode,
-  business_id: businessId,
-  assigned_table_capacity: assignedCapacity,
-  tables_used: 1,
-})
-      .select()
-      .single();
+let data = null;
+let error = null;
 
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-      return {
-        success: false,
-        message: "Error al guardar la reserva.",
-      };
-    }
+for (let i = 0; i < 3; i++) {
 
-    return {
-      success: true,
-      reservation: data,
-    };
+  const reservationCode = await generateReservationCode(
+    businessId,
+    date
+  );
 
-  } catch (err) {
-    console.error("❌ CREATE RESERVATION ERROR:", err);
+  const res = await supabase
+    .from("appointments")
+    .insert({
+      client_dni: dni,
+      phone: client.phone,
+      name: client.name,
+      date,
+      time: formattedStart,
+      start_time,
+      end_time,
+      people,
+      service: "reserva_mesa",
+      status: "confirmed",
+      reservation_code: reservationCode,
+      business_id: businessId,
+      assigned_table_capacity: assignedCapacity,
+      tables_used: 1,
+    })
+    .select()
+    .single();
+
+  data = res.data;
+  error = res.error;
+
+  // ✅ si salió bien → salimos
+  if (!error) break;
+
+  console.warn("⚠️ Reintentando código duplicado...");
+}
+
+// ❌ si falló después de 3 intentos
+if (error) {
+  console.error("❌ Supabase insert error:", error);
+  return {
+    success: false,
+    message: "Error al guardar la reserva.",
+  };
+}
+
+// ✅ OK
+return {
+  success: true,
+  reservation: data,
+};
+  } catch (error) {
+    console.error("❌ Unexpected error:", error);
     return {
       success: false,
-      message: "Error interno al crear la reserva.",
+      message: "Error inesperado al procesar la reserva.",
     };
   }
 }
