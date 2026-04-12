@@ -104,7 +104,14 @@ export async function POST(req: Request) {
 
     const session = await getSession(from);
 
-    const { data: restaurant, error: restaurantError } = await supabase
+// 🔥 DEFINIR VARIABLES (CLAVE)
+let reply = "";
+
+let input = String(message?.text?.body || "")
+  .trim()
+  .toLowerCase();
+
+const { data: restaurant, error: restaurantError } = await supabase
   .from("restaurants")
   .select("id")
   .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
@@ -116,16 +123,64 @@ if (!restaurant || restaurantError) {
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
+// 🔥 AGREGAR ESTO
 const businessId = restaurant.id;
 
-// ✅ RECIÉN ACÁ LO USÁS
-await supabase
-  .from("conversation_state")
-  .update({ business_id: businessId })
-  .eq("phone", from);
+// ==============================
+// 🔔 RESPUESTA A RECORDATORIO
+// ==============================
+if (session.state === "AWAITING_CONFIRMATION") {
 
-    let reply = "No entendí 🤔";
+  // 🔥 VALIDAR RESERVA (VA ACÁ)
+  const reservationId = session.temp_data?.reservation_id;
 
+  if (!reservationId) {
+    reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
+    await setState(from, "INIT");
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 👉 NORMALIZACIÓN
+  const normalized = input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // ✅ CONFIRMAR
+  if (normalized.includes("si")) {
+
+    await supabase
+      .from("appointments")
+      .update({ status: "confirmed" })
+      .eq("id", reservationId);
+
+    reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
+
+    await setState(from, "INIT");
+    await setTemp(from, {});
+  }
+
+  // ❌ CANCELAR
+  else if (normalized.includes("cancel")) {
+
+    await supabase
+      .from("appointments")
+      .update({ status: "cancelled" })
+      .eq("id", reservationId);
+
+    reply = "❌ Tu reserva fue cancelada correctamente.";
+
+    await setState(from, "INIT");
+    await setTemp(from, {});
+  }
+
+  else {
+    reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
     // =====================================
 // 🤖 IA SOLO EN ESTADOS INICIALES
 // =====================================
@@ -273,7 +328,7 @@ else if (session.state === "POST_RESERVATION_MENU") {
 
   if (msg.includes("carta") || msg.includes("menu") || msg === "1") {
     reply =
-      "📖 Acá tenés la carta:\nhttps://turestaurante.com/menu\n\n" +
+      "📖 Acá tenés la carta:\nhttps://queresto.com/GARIFO\n\n" +
       getMenu();
   }
 
