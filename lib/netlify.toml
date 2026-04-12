@@ -22,3 +22,7 @@ status = 200
 
   [functions."birthdays"]
 schedule = "0 12 * * *" # una vez al día
+
+[[schedule]]
+  path = "/api/cron/birthdays"
+  schedule = "30 13 * * *"
