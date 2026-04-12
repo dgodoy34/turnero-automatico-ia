@@ -380,14 +380,20 @@ else if (session.state === "POST_RESERVATION_MENU") {
     await setState(from, "ADD_NOTE");
   }
 
-  else if (
-    msg.includes("modificar") ||
-    msg.includes("cambiar") ||
-    msg === "3"
-  ) {
-    reply = "🔄 ¿Qué te gustaría cambiar? (fecha, hora o personas)";
-    await setState(from, "MODIFY_RESERVATION");
-  }
+ else if (
+  msg.includes("modificar") ||
+  msg.includes("cambiar") ||
+  msg === "3"
+) {
+  reply = "🔄 ¿Qué te gustaría cambiar? (fecha, hora o personas)";
+
+  await setTemp(from, {
+    ...(session.temp_data || {}),
+    is_modifying: true, // 🔥 CLAVE
+  });
+
+  await setState(from, "MODIFY_RESERVATION");
+}
 
   else if (
     msg.includes("listo") ||
@@ -434,6 +440,7 @@ else if (session.state === "ADD_NOTE") {
 
   // 🔥 CLAVE: volver al menú
   await setState(from, "POST_RESERVATION_MENU");
+  await setTemp(from, {}); // 🔥 LIMPIA MODO MODIFY
 
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
@@ -887,9 +894,10 @@ else if (session.state === "ASK_CODE") {
     reply = "No encontré una reserva con ese código.";
   } else {
 
-    await setTemp(from, {
-      reservation_code: data.reservation_code,
-    });
+   await setTemp(from, {
+  reservation_code: data.reservation_code,
+  reservation_id: data.id, // 🔥 CLAVE
+});
 
     reply =
       `📅 ${data.date}\n` +
