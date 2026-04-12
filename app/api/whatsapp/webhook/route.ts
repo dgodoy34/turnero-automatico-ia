@@ -241,13 +241,51 @@ if (session.state === "CONFIRM_RESERVATION") {
     }
 
     // 🔹 crear reserva
-    const result = await createReservation({
-      business_id: businessId,
-      dni: finalDNI,
+   // 🔥 SI ES MODIFICACIÓN → UPDATE
+if (temp?.reservation_id) {
+
+  const formattedStart = temp.time.includes(":")
+    ? temp.time
+    : `${temp.time}:00`;
+
+  const startDateTime = new Date(`${temp.date}T${formattedStart}:00`);
+  const endDateTime = new Date(startDateTime.getTime() + 90 * 60000);
+
+  const { error } = await supabase
+    .from("appointments")
+    .update({
       date: temp.date,
-      time: temp.time,
+      time: formattedStart,
+      start_time: formattedStart,
+      end_time: endDateTime.toTimeString().slice(0, 5),
       people: temp.people,
-    });
+    })
+    .eq("id", temp.reservation_id);
+
+  if (error) {
+    reply = "Error al modificar la reserva 😕";
+  } else {
+    reply =
+      "✅ Reserva modificada correctamente\n\n" +
+      `📅 ${temp.date}\n` +
+      `⏰ ${formattedStart}\n` +
+      `👥 ${temp.people}\n\n` +
+      getMenu();
+  }
+
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// 🔥 SI NO → CREAR NORMAL
+const result = await createReservation({
+  business_id: businessId,
+  dni: finalDNI,
+  date: temp.date,
+  time: temp.time,
+  people: temp.people,
+});
 
     console.log("📦 RESULT:", result);
 
@@ -303,6 +341,7 @@ if (!r.success) {
   await setTemp(from, {
     ...(session.temp_data || {}),
     reservation_code: reservation?.reservation_code,
+reservation_id: reservation?.id,
   });
 
   reply =
@@ -682,6 +721,7 @@ if (session.state === "ASK_DATE") {
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
+
 
 //=========================
 // 🔁 ASK TIME
