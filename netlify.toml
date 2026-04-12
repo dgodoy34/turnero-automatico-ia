@@ -23,4 +23,4 @@
 
 # 🎂 birthdays
 [functions.birthdays]
-  schedule = "30 13 * * *"
+  schedule = "30 16 * * *"
