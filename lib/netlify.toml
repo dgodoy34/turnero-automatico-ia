@@ -6,23 +6,30 @@
 [[plugins]]
 package = "@netlify/plugin-nextjs"
 
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [[redirects]]
-from = "/*"
-to = "/.netlify/functions/___netlify-server-handler"
-status = 200
+  from = "/*"
+  to = "/.netlify/functions/__netlify-server-handler"
+  status = 200
 
 [functions]
   directory = "netlify/functions"
 
+# ⏱ reminders cada 5 min
 [functions.send-reminders]
   schedule = "*/5 * * * *"
 
-  [functions.auto-cancel]
+# ⏱ auto cancel cada 5 min
+[functions.auto-cancel]
   schedule = "*/5 * * * *"
 
-  [functions."birthdays"]
-schedule = "0 12 * * *" # una vez al día
-
+# 🎂 CUMPLEAÑOS (ESTE ES EL QUE VA)
 [[schedule]]
   path = "/api/cron/birthdays"
-  schedule = "35 13 * * *"
+  schedule = "40 13 * * *"
