@@ -2,23 +2,25 @@
   command = "npm run build"
   publish = ".next"
 
-
 [[plugins]]
-package = "@netlify/plugin-nextjs"
+  package = "@netlify/plugin-nextjs"
 
 [[redirects]]
-from = "/*"
-to = "/.netlify/functions/___netlify-server-handler"
-status = 200
+  from = "/*"
+  to = "/.netlify/functions/___netlify-server-handler"
+  status = 200
 
 [functions]
   directory = "netlify/functions"
 
+# 🔔 reminders
 [functions.send-reminders]
   schedule = "*/5 * * * *"
 
-  [functions.auto-cancel]
+# ⏱ auto cancel
+[functions.auto-cancel]
   schedule = "*/5 * * * *"
 
-  [functions."birthdays"]
-schedule = "0 12 * * *" # una vez al día
+# 🎂 birthdays
+[functions.birthdays]
+  schedule = "30 13 * * *"
