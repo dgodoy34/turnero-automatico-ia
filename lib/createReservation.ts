@@ -377,7 +377,7 @@ return {
       }
     }
 
-    // =========================
+   // =========================
 // 🔟 Código + Insert (PRO)
 // =========================
 
@@ -415,31 +415,41 @@ for (let i = 0; i < 3; i++) {
   data = res.data;
   error = res.error;
 
-  // ✅ si salió bien → salimos
+  // ✅ OK → salimos
   if (!error) break;
 
-  console.warn("⚠️ Reintentando código duplicado...");
+  // 🔥 SOLO reintentar si es duplicado
+  const isDuplicate =
+    error.message?.toLowerCase().includes("duplicate") ||
+    error.code === "23505";
+
+  if (!isDuplicate) {
+    console.error("❌ Error real (no retry):", error);
+    break;
+  }
+
+  console.warn("⚠️ Código duplicado, reintentando...");
 }
 
-// ❌ si falló después de 3 intentos
+// ❌ falló después de reintentos
 if (error) {
-  console.error("❌ Supabase insert error:", error);
+  console.error("❌ Supabase insert error final:", error);
   return {
     success: false,
     message: "Error al guardar la reserva.",
   };
 }
 
-// ✅ OK
+// ✅ éxito
 return {
   success: true,
   reservation: data,
 };
-  } catch (error) {
-    console.error("❌ Unexpected error:", error);
-    return {
-      success: false,
-      message: "Error inesperado al procesar la reserva.",
-    };
-  }
-}
+
+} catch (error) {
+  console.error("❌ Unexpected error:", error);
+  return {
+    success: false,
+    message: "Error inesperado al procesar la reserva.",
+  };
+}}
