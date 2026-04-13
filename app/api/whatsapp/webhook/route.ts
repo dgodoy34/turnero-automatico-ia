@@ -330,46 +330,61 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    else if (session.state === "MODIFY_DATE") {
-      const date = formatDateToISO(text);
-      const code = session.temp_data?.reservation_code;
+   else if (session.state === "MODIFY_DATE") {
+  const date = formatDateToISO(text);
+  const reservationId = session.temp_data?.reservation_id;
 
-      if (!code) {
-        reply = "No encontré la reserva 😕";
-      } else {
-        const { error } = await supabase
-          .from("appointments")
-          .update({ date })
-          .eq("reservation_code", code);
+  if (!reservationId) {
+    reply = "No encontré la reserva 😕";
+    await setState(from, "POST_RESERVATION_MENU");
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-        reply = error ? "Error al modificar la fecha 😕" : "✅ Fecha actualizada\n\n" + getMenu();
-      }
+  const { error } = await supabase
+    .from("appointments")
+    .update({ date })
+    .eq("id", reservationId);   // ← Cambiado a id
 
-      await setState(from, "POST_RESERVATION_MENU");
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  reply = error 
+    ? "Error al modificar la fecha 😕" 
+    : "✅ Fecha actualizada\n\n" + getMenu();
 
-    else if (session.state === "MODIFY_PEOPLE") {
-      const people = parseInt(text);
-      const code = session.temp_data?.reservation_code;
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      if (isNaN(people) || people <= 0) {
-        reply = "Cantidad inválida 😕";
-      } else {
-        const { error } = await supabase
-          .from("appointments")
-          .update({ people })
-          .eq("reservation_code", code);
+   else if (session.state === "MODIFY_PEOPLE") {
+  const people = parseInt(text);
+  const reservationId = session.temp_data?.reservation_id;
 
-        reply = error ? "Error al modificar 😕" : "✅ Personas actualizadas\n\n" + getMenu();
-      }
+  if (isNaN(people) || people <= 0) {
+    reply = "Cantidad inválida 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-      await setState(from, "POST_RESERVATION_MENU");
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  if (!reservationId) {
+    reply = "No encontré la reserva 😕";
+    await setState(from, "POST_RESERVATION_MENU");
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
+  const { error } = await supabase
+    .from("appointments")
+    .update({ people })
+    .eq("id", reservationId);   // ← Cambiado a id
+
+  reply = error 
+    ? "Error al modificar 😕" 
+    : "✅ Personas actualizadas\n\n" + getMenu();
+
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
     // =====================================
     // ADD_NOTE - CORREGIDO
     // =====================================
