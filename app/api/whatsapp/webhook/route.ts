@@ -128,7 +128,7 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-        // =====================================
+    // =====================================
     // 2. CONFIRM_RESERVATION (NUEVA + MODIFICACIÓN)
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
@@ -235,6 +235,7 @@ export async function POST(req: Request) {
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
+
     // =====================================
     // 3. MENÚ POST RESERVA
     // =====================================
@@ -371,20 +372,30 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
+    // =====================================
+    // ADD_NOTE - CORREGIDO
+    // =====================================
     else if (session.state === "ADD_NOTE") {
-      const reservationCode = session.temp_data?.reservation_code;
+      const reservationCode = session.temp_data?.reservation_code || 
+                             session.temp_data?.last_reservation_code;
 
       if (!reservationCode) {
-        reply = "No encontré la reserva.";
+        console.error("❌ No hay reservation_code para agregar nota. TEMP:", JSON.stringify(session.temp_data));
+        reply = "No encontré la reserva activa. Por favor, consultá tu reserva primero con el código.";
+        await setState(from, "INIT");
+        await clearTemp(from);
       } else {
         const { error } = await supabase
           .from("appointments")
           .update({ notes: text })
           .eq("reservation_code", reservationCode);
 
-        reply = error 
-          ? "Error al guardar la nota." 
-          : "✅ Nota agregada a tu reserva.\n\n" + getMenu();
+        if (error) {
+          console.error("❌ ERROR al guardar nota:", error);
+          reply = "Error al guardar la nota 😕";
+        } else {
+          reply = "✅ Nota agregada correctamente a tu reserva.\n\n" + getMenu();
+        }
       }
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -545,6 +556,9 @@ export async function POST(req: Request) {
       await setState(from, "CONFIRM_RESERVATION");
     }
 
+    // =====================================
+    // ASK_CODE - MEJORADO
+    // =====================================
     else if (session.state === "ASK_CODE") {
       const { data } = await supabase
         .from("appointments")
@@ -558,6 +572,7 @@ export async function POST(req: Request) {
         await setTemp(from, {
           reservation_code: data.reservation_code,
           reservation_id: data.id,
+          last_reservation_code: data.reservation_code   // backup extra
         });
         reply = `📅 ${data.date}\n⏰ ${data.time}\n👥 ${data.people}\n\n` + getMenu();
         await setState(from, "POST_RESERVATION_MENU");
