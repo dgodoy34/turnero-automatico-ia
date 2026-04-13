@@ -128,7 +128,7 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // =====================================
+        // =====================================
     // 2. CONFIRM_RESERVATION (NUEVA + MODIFICACIÓN)
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
@@ -154,6 +154,14 @@ export async function POST(req: Request) {
       if (temp.is_modifying === true && temp.reservation_id) {
         console.log("→ Camino de MODIFICACIÓN");
 
+        if (!temp.date || !temp.time || !temp.people) {
+          console.error("❌ Faltan datos para modificar:", temp);
+          reply = "Error: Faltan datos de la reserva. Intentá nuevamente.";
+          await setState(from, "POST_RESERVATION_MENU");
+          await sendReply(from, reply);
+          return new Response("EVENT_RECEIVED", { status: 200 });
+        }
+
         const formattedStart = temp.time.includes(":") ? temp.time : `${temp.time}:00`;
         const startDateTime = new Date(`${temp.date}T${formattedStart}:00`);
         const endDateTime = new Date(startDateTime.getTime() + 90 * 60000);
@@ -170,6 +178,7 @@ export async function POST(req: Request) {
           .eq("id", temp.reservation_id);
 
         if (error) {
+          console.error("Error Supabase al modificar:", error);
           reply = "Error al modificar la reserva 😕";
         } else {
           reply = `✅ Reserva modificada correctamente\n\n📅 ${temp.date}\n⏰ ${formattedStart}\n👥 ${temp.people}\n\n` + getMenu();
@@ -199,7 +208,7 @@ export async function POST(req: Request) {
         dni: temp.dni!,
         date: temp.date!,
         time: temp.time!,
-        people: temp.people!,
+        people: Number(temp.people!),
       });
 
       if (!result.success) {
@@ -226,7 +235,6 @@ export async function POST(req: Request) {
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
-
     // =====================================
     // 3. MENÚ POST RESERVA
     // =====================================
