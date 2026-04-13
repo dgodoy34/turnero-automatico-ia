@@ -66,15 +66,17 @@ export async function setTemp(phone: string, temp: any) {
     ...temp,
   };
 
-  await supabase
+  // Agregamos un timestamp para ayudar con concurrencia
+  const { error } = await supabase
     .from("conversation_state")
     .upsert({
       phone,
       temp_data: mergedTemp,
       updated_at: new Date().toISOString(),
     });
-}
 
+  if (error) console.error("Error setTemp:", error);
+}
 // ==========================
 // 🧹 CLEAR TEMP (RECOMENDADO)
 // ==========================
