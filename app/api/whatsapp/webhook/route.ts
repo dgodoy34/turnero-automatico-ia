@@ -128,13 +128,13 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // =====================================
+        // =====================================
     // 2. CONFIRM_RESERVATION (NUEVA + MODIFICACIÓN)
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
       console.log("👉 ENTRANDO A CONFIRM_RESERVATION - TEMP:", JSON.stringify(session.temp_data));
 
-      const temp = session.temp_data || {};
+      let temp = { ... (session.temp_data || {}) };
       const isYes = 
         lower === "si" || 
         lower === "sí" || 
@@ -154,8 +154,25 @@ export async function POST(req: Request) {
       if (temp.is_modifying === true && temp.reservation_id) {
         console.log("→ Camino de MODIFICACIÓN");
 
+        // Si faltan date o people, intentamos recuperarlos de la base de datos
+        if (!temp.date || !temp.people) {
+          console.log("⚠️ Faltan date/people en temp, recuperando de BD...");
+
+          const { data: currentReservation } = await supabase
+            .from("appointments")
+            .select("date, people")
+            .eq("id", temp.reservation_id)
+            .single();
+
+          if (currentReservation) {
+            temp.date = temp.date || currentReservation.date;
+            temp.people = temp.people || currentReservation.people;
+            console.log("✅ Datos recuperados de BD:", { date: temp.date, people: temp.people });
+          }
+        }
+
         if (!temp.date || !temp.time || !temp.people) {
-          console.error("❌ Faltan datos para modificar:", temp);
+          console.error("❌ Aún faltan datos para modificar:", temp);
           reply = "Error: Faltan datos de la reserva. Intentá nuevamente.";
           await setState(from, "POST_RESERVATION_MENU");
           await sendReply(from, reply);
@@ -173,7 +190,7 @@ export async function POST(req: Request) {
             time: formattedStart,
             start_time: formattedStart,
             end_time: endDateTime.toTimeString().slice(0, 5),
-            people: temp.people,
+            people: Number(temp.people),
           })
           .eq("id", temp.reservation_id);
 
@@ -235,7 +252,6 @@ export async function POST(req: Request) {
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
-
     // =====================================
     // 3. MENÚ POST RESERVA
     // =====================================
