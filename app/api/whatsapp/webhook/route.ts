@@ -184,7 +184,6 @@ export async function POST(req: Request) {
       // ==================== CREACIÓN NUEVA ====================
       console.log("→ Camino de CREACIÓN NUEVA");
 
-      // Limpieza fuerte
       await setTemp(from, {
         date: temp.date,
         time: temp.time,
@@ -236,18 +235,29 @@ export async function POST(req: Request) {
 
       if (msg.includes("carta") || msg.includes("menu") || msg === "1") {
         reply = "📖 Acá tenés la carta:\nhttps://queresto.com/GARIFO\n\n" + getMenu();
-      } else if (msg.includes("nota") || msg.includes("agregar") || msg === "2") {
+      } 
+      else if (msg.includes("nota") || msg.includes("agregar") || msg === "2") {
         reply = "✍️ Dale, decime qué nota querés agregar.";
         await setState(from, "ADD_NOTE");
-      } else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
-        reply = "🔄 ¿Qué te gustaría cambiar? (fecha, hora o personas)";
-        await setTemp(from, { ...(session.temp_data || {}), is_modifying: true });
+      } 
+      else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
+        reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
+
+        await setTemp(from, {
+          ...(session.temp_data || {}),
+          is_modifying: true,
+          reservation_id: session.temp_data?.reservation_id,
+          reservation_code: session.temp_data?.reservation_code
+        });
+
         await setState(from, "MODIFY_RESERVATION");
-      } else if (msg.includes("listo") || msg.includes("finalizar") || msg === "4") {
+      } 
+      else if (msg.includes("listo") || msg.includes("finalizar") || msg === "4") {
         reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
         await setState(from, "INIT");
         await clearTemp(from);
-      } else {
+      } 
+      else {
         reply = "Perdón 😅 no te entendí.\n\n" + getMenu();
       }
 
@@ -294,11 +304,15 @@ export async function POST(req: Request) {
       }
 
       if (!newTime) {
-        await sendReply(from, "Decime la hora 🙂 (ej: 22, 22:00, 10, etc)");
+        await sendReply(from, "Decime la hora 🙂 (ej: 20, 20:30, 22, etc)");
         return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
-      await setTemp(from, { ...(session.temp_data || {}), time: newTime });
+      await setTemp(from, {
+        ...(session.temp_data || {}),
+        time: newTime
+      });
+
       await setState(from, "CONFIRM_RESERVATION");
 
       await sendReply(from, `Perfecto 👍 nueva hora: ${newTime}\n\n¿Confirmamos la reserva? (si/no)`);
@@ -371,72 +385,64 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-   // =====================================
-// 5. IA + FLUJO INICIAL
-// =====================================
-let ai: any = null;
-try {
-  ai = await interpretMessage(text);
-  console.log("AI:", ai);
-} catch (e) {
-  console.error("IA error");
-}
-
-// Manejo de intents principales cuando estamos en INIT
-if (ai && (!session.state || ["INIT", "NEW_USER"].includes(session.state))) {
-
-  await setState(from, "INIT");
-  await clearTemp(from);
-
-  if (ai.intent === "greeting") {
-    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-  }
-
-  // ==================== CREAR RESERVA ====================
-  else if (ai.intent === "create_reservation") {
-    await setTemp(from, {
-      date: ai.date,
-      time: ai.time,
-      people: ai.people,
-      is_modifying: false,
-      reservation_id: null
-    });
-
-    if (!ai.date) {
-      reply = "📅 ¿Para qué día querés la reserva?";
-      await setState(from, "ASK_DATE");
-    } else if (!ai.time) {
-      reply = "⏰ ¿A qué hora?";
-      await setState(from, "ASK_TIME");
-    } else if (!ai.people) {
-      reply = "👥 ¿Para cuántas personas?";
-      await setState(from, "ASK_PEOPLE");
-    } else {
-      reply = "Perfecto 👍 Solo necesito tu DNI.";
-      await setState(from, "ASK_DNI");
+    // =====================================
+    // 5. IA + FLUJO INICIAL
+    // =====================================
+    let ai: any = null;
+    try {
+      ai = await interpretMessage(text);
+      console.log("AI:", ai);
+    } catch (e) {
+      console.error("IA error");
     }
-  }
 
-  // ==================== CONSULTAR RESERVA ====================
-  else if (ai.intent === "consult_reservation" || lower.includes("consultar") || lower.includes("codigo") || lower.includes("reserva")) {
-    reply = "🔐 Pasame el código de tu reserva (ej: RC-001-26-0413-0004)";
-    await setState(from, "ASK_CODE");
-  }
+    if (ai && (!session.state || ["INIT", "NEW_USER"].includes(session.state))) {
 
-  // ==================== MODIFICAR RESERVA ====================
-  else if (ai.intent === "modify_reservation" || lower.includes("modificar")) {
-    reply = "🔄 Para modificar una reserva primero necesito el código.\n\nPasame el código de reserva:";
-    await setState(from, "ASK_CODE");   // Usamos el mismo flujo que consultar, luego preguntamos qué cambiar
-    await setTemp(from, { is_modifying: true });
-  }
+      await setState(from, "INIT");
+      await clearTemp(from);
 
-  else {
-    reply = "Hola 😊 ¿Querés hacer una reserva nueva, consultar una existente o modificar una?";
-  }
+      if (ai.intent === "greeting") {
+        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+      }
+      else if (ai.intent === "create_reservation") {
+        await setTemp(from, {
+          date: ai.date,
+          time: ai.time,
+          people: ai.people,
+          is_modifying: false,
+          reservation_id: null
+        });
 
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+        if (!ai.date) {
+          reply = "📅 ¿Para qué día querés la reserva?";
+          await setState(from, "ASK_DATE");
+        } else if (!ai.time) {
+          reply = "⏰ ¿A qué hora?";
+          await setState(from, "ASK_TIME");
+        } else if (!ai.people) {
+          reply = "👥 ¿Para cuántas personas?";
+          await setState(from, "ASK_PEOPLE");
+        } else {
+          reply = "Perfecto 👍 Solo necesito tu DNI.";
+          await setState(from, "ASK_DNI");
+        }
+      }
+      else if (ai.intent === "consult_reservation" || lower.includes("consultar") || lower.includes("codigo") || lower.includes("reserva")) {
+        reply = "🔐 Pasame el código de tu reserva (ej: RC-001-26-0413-0004)";
+        await setState(from, "ASK_CODE");
+      }
+      else if (ai.intent === "modify_reservation" || lower.includes("modificar")) {
+        reply = "🔄 Para modificar una reserva primero necesito el código.\n\nPasame el código de reserva:";
+        await setState(from, "ASK_CODE");
+        await setTemp(from, { is_modifying: true });
+      }
+      else {
+        reply = "Hola 😊 ¿Querés hacer una reserva nueva, consultar una existente o modificar una?";
+      }
+
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
 
     // =====================================
     // 6. FLUJOS ASK_*
