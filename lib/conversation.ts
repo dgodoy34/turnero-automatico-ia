@@ -20,10 +20,8 @@ export async function getSession(phone: string) {
       })
       .select()
       .single();
-
     return created;
   }
-
   return data;
 }
 
@@ -78,7 +76,7 @@ export async function setTemp(phone: string, temp: any) {
 }
 
 // ==========================
-// 🧹 CLEAR TEMP (opcional 🔥)
+// 🧹 CLEAR TEMP (RECOMENDADO)
 // ==========================
 export async function clearTemp(phone: string) {
   await supabase
