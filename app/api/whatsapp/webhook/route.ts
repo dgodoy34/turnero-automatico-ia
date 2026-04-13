@@ -128,19 +128,14 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-        // =====================================
-    // 2. CONFIRM_RESERVATION (NUEVA + MODIFICACIÓN)
+    // =====================================
+    // 2. CONFIRM_RESERVATION (CORREGIDO)
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
       console.log("👉 ENTRANDO A CONFIRM_RESERVATION - TEMP:", JSON.stringify(session.temp_data));
 
-      let temp = { ... (session.temp_data || {}) };
-      const isYes = 
-        lower === "si" || 
-        lower === "sí" || 
-        lower.includes("si") || 
-        lower.includes("dale") || 
-        lower.includes("ok");
+      let temp = { ...(session.temp_data || {}) };
+      const isYes = lower === "si" || lower === "sí" || lower.includes("si") || lower.includes("dale") || lower.includes("ok");
 
       if (!isYes) {
         reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
@@ -154,25 +149,24 @@ export async function POST(req: Request) {
       if (temp.is_modifying === true && temp.reservation_id) {
         console.log("→ Camino de MODIFICACIÓN");
 
-        // Si faltan date o people, intentamos recuperarlos de la base de datos
+        // Recuperar date y people si faltan
         if (!temp.date || !temp.people) {
           console.log("⚠️ Faltan date/people en temp, recuperando de BD...");
-
-          const { data: currentReservation } = await supabase
+          const { data: current } = await supabase
             .from("appointments")
             .select("date, people")
             .eq("id", temp.reservation_id)
             .single();
 
-          if (currentReservation) {
-            temp.date = temp.date || currentReservation.date;
-            temp.people = temp.people || currentReservation.people;
-            console.log("✅ Datos recuperados de BD:", { date: temp.date, people: temp.people });
+          if (current) {
+            temp.date = temp.date || current.date;
+            temp.people = temp.people || current.people;
+            console.log("✅ Datos recuperados:", { date: temp.date, people: temp.people });
           }
         }
 
         if (!temp.date || !temp.time || !temp.people) {
-          console.error("❌ Aún faltan datos para modificar:", temp);
+          console.error("❌ Aún faltan datos:", temp);
           reply = "Error: Faltan datos de la reserva. Intentá nuevamente.";
           await setState(from, "POST_RESERVATION_MENU");
           await sendReply(from, reply);
@@ -252,8 +246,9 @@ export async function POST(req: Request) {
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
+
     // =====================================
-    // 3. MENÚ POST RESERVA
+    // 3. MENÚ POST RESERVA (PRESERVA ID)
     // =====================================
     else if (session.state === "POST_RESERVATION_MENU") {
       const msg = lower;
@@ -272,7 +267,7 @@ export async function POST(req: Request) {
           ...(session.temp_data || {}),
           is_modifying: true,
           reservation_id: session.temp_data?.reservation_id,
-          reservation_code: session.temp_data?.reservation_code
+          reservation_code: session.temp_data?.reservation_code || session.temp_data?.last_reservation_code
         });
 
         await setState(from, "MODIFY_RESERVATION");
@@ -317,13 +312,9 @@ export async function POST(req: Request) {
 
       if (/^\d{1,2}$/.test(input)) {
         let hour = parseInt(input);
-        if (hour >= 0 && hour <= 6) {
-          newTime = `${hour.toString().padStart(2, "0")}:00`;
-        } else if (hour >= 7 && hour <= 11) {
-          newTime = `${(hour + 12)}:00`;
-        } else {
-          newTime = `${hour.toString().padStart(2, "0")}:00`;
-        }
+        if (hour >= 0 && hour <= 6) newTime = `${hour.toString().padStart(2, "0")}:00`;
+        else if (hour >= 7 && hour <= 11) newTime = `${(hour + 12)}:00`;
+        else newTime = `${hour.toString().padStart(2, "0")}:00`;
       } else if (/^\d{1,2}:\d{2}$/.test(input)) {
         newTime = input.length === 4 ? "0" + input : input;
       }
@@ -356,9 +347,7 @@ export async function POST(req: Request) {
           .update({ date })
           .eq("reservation_code", code);
 
-        reply = error 
-          ? "Error al modificar la fecha 😕" 
-          : "✅ Fecha actualizada\n\n" + getMenu();
+        reply = error ? "Error al modificar la fecha 😕" : "✅ Fecha actualizada\n\n" + getMenu();
       }
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -378,9 +367,7 @@ export async function POST(req: Request) {
           .update({ people })
           .eq("reservation_code", code);
 
-        reply = error 
-          ? "Error al modificar 😕" 
-          : "✅ Personas actualizadas\n\n" + getMenu();
+        reply = error ? "Error al modificar 😕" : "✅ Personas actualizadas\n\n" + getMenu();
       }
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -392,26 +379,19 @@ export async function POST(req: Request) {
     // ADD_NOTE - CORREGIDO
     // =====================================
     else if (session.state === "ADD_NOTE") {
-      const reservationCode = session.temp_data?.reservation_code || 
-                             session.temp_data?.last_reservation_code;
+      const reservationCode = session.temp_data?.reservation_code || session.temp_data?.last_reservation_code;
 
       if (!reservationCode) {
-        console.error("❌ No hay reservation_code para agregar nota. TEMP:", JSON.stringify(session.temp_data));
-        reply = "No encontré la reserva activa. Por favor, consultá tu reserva primero con el código.";
+        console.error("❌ No hay reservation_code para nota. TEMP:", JSON.stringify(session.temp_data));
+        reply = "No encontré la reserva. Consultala primero con el código.";
         await setState(from, "INIT");
-        await clearTemp(from);
       } else {
         const { error } = await supabase
           .from("appointments")
           .update({ notes: text })
           .eq("reservation_code", reservationCode);
 
-        if (error) {
-          console.error("❌ ERROR al guardar nota:", error);
-          reply = "Error al guardar la nota 😕";
-        } else {
-          reply = "✅ Nota agregada correctamente a tu reserva.\n\n" + getMenu();
-        }
+        reply = error ? "Error al guardar la nota 😕" : "✅ Nota agregada correctamente.\n\n" + getMenu();
       }
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -432,14 +412,12 @@ export async function POST(req: Request) {
     }
 
     if (ai && (!session.state || ["INIT", "NEW_USER"].includes(session.state))) {
-
       await setState(from, "INIT");
       await clearTemp(from);
 
       if (ai.intent === "greeting") {
         reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-      }
-      else if (ai.intent === "create_reservation") {
+      } else if (ai.intent === "create_reservation") {
         await setTemp(from, {
           date: ai.date,
           time: ai.time,
@@ -461,17 +439,14 @@ export async function POST(req: Request) {
           reply = "Perfecto 👍 Solo necesito tu DNI.";
           await setState(from, "ASK_DNI");
         }
-      }
-      else if (ai.intent === "consult_reservation" || lower.includes("consultar") || lower.includes("codigo") || lower.includes("reserva")) {
+      } else if (ai.intent === "consult_reservation" || lower.includes("consultar") || lower.includes("codigo") || lower.includes("reserva")) {
         reply = "🔐 Pasame el código de tu reserva (ej: RC-001-26-0413-0004)";
         await setState(from, "ASK_CODE");
-      }
-      else if (ai.intent === "modify_reservation" || lower.includes("modificar")) {
+      } else if (ai.intent === "modify_reservation" || lower.includes("modificar")) {
         reply = "🔄 Para modificar una reserva primero necesito el código.\n\nPasame el código de reserva:";
         await setState(from, "ASK_CODE");
         await setTemp(from, { is_modifying: true });
-      }
-      else {
+      } else {
         reply = "Hola 😊 ¿Querés hacer una reserva nueva, consultar una existente o modificar una?";
       }
 
@@ -480,7 +455,7 @@ export async function POST(req: Request) {
     }
 
     // =====================================
-    // 6. FLUJOS ASK_*
+    // 6. FLUJOS ASK_* 
     // =====================================
     else if (session.state === "ASK_DATE") {
       const date = formatDateToISO(text);
@@ -498,9 +473,8 @@ export async function POST(req: Request) {
       } else {
         let time = text.trim();
         if (!time.includes(":")) {
-          if (/^\d{1,2}$/.test(time)) {
-            time = `${time}:00`;
-          } else {
+          if (/^\d{1,2}$/.test(time)) time = `${time}:00`;
+          else {
             reply = "Hora inválida 😕 Ej: 21 o 21:00";
             await sendReply(from, reply);
             return new Response("EVENT_RECEIVED", { status: 200 });
@@ -536,11 +510,7 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (!client) {
-        await supabase.from("clients").insert({
-          dni: text,
-          phone: from,
-          business_id: businessId,
-        });
+        await supabase.from("clients").insert({ dni: text, phone: from, business_id: businessId });
         reply = "Perfecto 👍 ¿Cómo es tu nombre completo?";
         await setState(from, "REGISTER_NAME");
       } else {
@@ -572,9 +542,6 @@ export async function POST(req: Request) {
       await setState(from, "CONFIRM_RESERVATION");
     }
 
-    // =====================================
-    // ASK_CODE - MEJORADO
-    // =====================================
     else if (session.state === "ASK_CODE") {
       const { data } = await supabase
         .from("appointments")
@@ -588,7 +555,7 @@ export async function POST(req: Request) {
         await setTemp(from, {
           reservation_code: data.reservation_code,
           reservation_id: data.id,
-          last_reservation_code: data.reservation_code   // backup extra
+          last_reservation_code: data.reservation_code
         });
         reply = `📅 ${data.date}\n⏰ ${data.time}\n👥 ${data.people}\n\n` + getMenu();
         await setState(from, "POST_RESERVATION_MENU");
