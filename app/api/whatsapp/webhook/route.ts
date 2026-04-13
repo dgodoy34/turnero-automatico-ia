@@ -371,55 +371,72 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    // =====================================
-    // 5. IA + FLUJO INICIAL
-    // =====================================
-    let ai: any = null;
-    try {
-      ai = await interpretMessage(text);
-      console.log("AI:", ai);
-    } catch (e) {
-      console.error("IA error");
+   // =====================================
+// 5. IA + FLUJO INICIAL
+// =====================================
+let ai: any = null;
+try {
+  ai = await interpretMessage(text);
+  console.log("AI:", ai);
+} catch (e) {
+  console.error("IA error");
+}
+
+// Manejo de intents principales cuando estamos en INIT
+if (ai && (!session.state || ["INIT", "NEW_USER"].includes(session.state))) {
+
+  await setState(from, "INIT");
+  await clearTemp(from);
+
+  if (ai.intent === "greeting") {
+    reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
+  }
+
+  // ==================== CREAR RESERVA ====================
+  else if (ai.intent === "create_reservation") {
+    await setTemp(from, {
+      date: ai.date,
+      time: ai.time,
+      people: ai.people,
+      is_modifying: false,
+      reservation_id: null
+    });
+
+    if (!ai.date) {
+      reply = "📅 ¿Para qué día querés la reserva?";
+      await setState(from, "ASK_DATE");
+    } else if (!ai.time) {
+      reply = "⏰ ¿A qué hora?";
+      await setState(from, "ASK_TIME");
+    } else if (!ai.people) {
+      reply = "👥 ¿Para cuántas personas?";
+      await setState(from, "ASK_PEOPLE");
+    } else {
+      reply = "Perfecto 👍 Solo necesito tu DNI.";
+      await setState(from, "ASK_DNI");
     }
+  }
 
-    if (ai && ["greeting", "create_reservation", "consult_reservation"].includes(ai.intent) &&
-        (!session.state || ["INIT", "NEW_USER"].includes(session.state))) {
+  // ==================== CONSULTAR RESERVA ====================
+  else if (ai.intent === "consult_reservation" || lower.includes("consultar") || lower.includes("codigo") || lower.includes("reserva")) {
+    reply = "🔐 Pasame el código de tu reserva (ej: RC-001-26-0413-0004)";
+    await setState(from, "ASK_CODE");
+  }
 
-      await setState(from, "INIT");
-      await clearTemp(from);
+  // ==================== MODIFICAR RESERVA ====================
+  else if (ai.intent === "modify_reservation" || lower.includes("modificar")) {
+    reply = "🔄 Para modificar una reserva primero necesito el código.\n\nPasame el código de reserva:";
+    await setState(from, "ASK_CODE");   // Usamos el mismo flujo que consultar, luego preguntamos qué cambiar
+    await setTemp(from, { is_modifying: true });
+  }
 
-      if (ai.intent === "greeting") {
-        reply = "Hola 😊 Bienvenido. ¿Querés hacer una reserva o consultar una existente?";
-      } else if (ai.intent === "create_reservation") {
-        await setTemp(from, {
-          date: ai.date,
-          time: ai.time,
-          people: ai.people,
-          is_modifying: false,
-          reservation_id: null
-        });
+  else {
+    reply = "Hola 😊 ¿Querés hacer una reserva nueva, consultar una existente o modificar una?";
+  }
 
-        if (!ai.date) {
-          reply = "📅 ¿Para qué día querés la reserva?";
-          await setState(from, "ASK_DATE");
-        } else if (!ai.time) {
-          reply = "⏰ ¿A qué hora?";
-          await setState(from, "ASK_TIME");
-        } else if (!ai.people) {
-          reply = "👥 ¿Para cuántas personas?";
-          await setState(from, "ASK_PEOPLE");
-        } else {
-          reply = "Perfecto 👍 Solo necesito tu DNI.";
-          await setState(from, "ASK_DNI");
-        }
-      } else if (ai.intent === "consult_reservation") {
-        reply = "🔐 Pasame el código de reserva.";
-        await setState(from, "ASK_CODE");
-      }
-
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
     // =====================================
     // 6. FLUJOS ASK_*
