@@ -2,12 +2,22 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
+function getTodayArgentina() {
+  const now = new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    })
+  );
+
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return { month, day };
+}
+
 export async function GET() {
   try {
-    const today = new Date();
-
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
+    const { month, day } = getTodayArgentina();
 
     const { data: clients, error } = await supabase
       .from("clients")
@@ -19,7 +29,6 @@ export async function GET() {
     let sent = 0;
 
     for (const c of clients || []) {
-
       if (!c.birthday) continue;
 
       const b = new Date(c.birthday);
@@ -27,7 +36,6 @@ export async function GET() {
       const bDay = String(b.getDate()).padStart(2, "0");
 
       if (bMonth === month && bDay === day) {
-
         const message = `🎉 ¡Feliz cumpleaños ${c.name || ""}! 🥳
 
 Te regalamos un 🎁:
@@ -44,7 +52,7 @@ Te regalamos un 🎁:
       }
     }
 
-    console.log("BIRTHDAYS:", sent);
+    console.log("🎂 BIRTHDAYS SENT:", sent);
 
     return NextResponse.json({ ok: true, sent });
 

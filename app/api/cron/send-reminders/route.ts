@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
-import { setState, setTemp } from "@/lib/conversation"; // 🔥 CLAVE
+import { setState, setTemp } from "@/lib/conversation";
 
+// 🇦🇷 Hora Argentina REAL
 function getNowArgentina() {
   return new Date(
     new Date().toLocaleString("en-US", {
@@ -11,22 +12,23 @@ function getNowArgentina() {
   );
 }
 
-function formatDateLocal(date: Date) {
-  return date.toLocaleDateString("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  });
+// YYYY-MM-DD Argentina
+function getTodayArgentina() {
+  return new Date()
+    .toLocaleDateString("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
 }
 
 export async function GET() {
   try {
     const now = getNowArgentina();
+    const todayStr = getTodayArgentina();
 
-    // ⏰ ventana: entre 2h y 3h antes
-    const from = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const to = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    console.log("🕒 NOW:", now);
+    console.log("📅 TODAY:", todayStr);
 
-    const todayStr = formatDateLocal(now);
-
+    // 🔥 PARA TEST: traer TODAS las reservas de hoy
     const { data: reservations, error } = await supabase
       .from("appointments")
       .select("id, date, time, phone, name, reservation_code")
@@ -36,12 +38,21 @@ export async function GET() {
 
     if (error) throw error;
 
+    console.log("📊 RESERVAS HOY:", reservations?.length);
+
     let sent = 0;
 
-    for (const r of reservations) {
+    for (const r of reservations || []) {
+
       const reservationDateTime = new Date(`${r.date}T${r.time}`);
 
-      if (reservationDateTime >= from && reservationDateTime <= to) {
+      console.log("➡️ Evaluando:", r.time, reservationDateTime);
+
+      // 🔥 VERSIÓN TEST (ENVÍA TODAS)
+      const shouldSend = true;
+
+      // 🔥 (Después volvemos a lógica 2-3h)
+      if (shouldSend) {
 
         const message = `Hola ${r.name || ""} 👋
 
@@ -51,10 +62,8 @@ Respondé *SI* para confirmar 👍
 O *CANCELAR* si no podés asistir ❌`;
 
         try {
-          // 📲 ENVIAR WHATSAPP
           await sendWhatsAppMessage(r.phone, message);
 
-          // 🔥 GUARDAR CONTEXTO PARA RESPUESTA
           await setState(r.phone, "AWAITING_CONFIRMATION");
 
           await setTemp(r.phone, {
@@ -62,23 +71,24 @@ O *CANCELAR* si no podés asistir ❌`;
             reservation_code: r.reservation_code,
           });
 
-          // ✅ MARCAR EN BD
           await supabase
-  .from("appointments")
-  .update({
-    reminder_sent: true,
-    reminder_sent_at: new Date().toISOString(),
-    status: "pending_confirmation", // 🔥 CLAVE
-  })
-  .eq("id", r.id);
+            .from("appointments")
+            .update({
+              reminder_sent: true,
+              reminder_sent_at: new Date().toISOString(),
+              status: "pending_confirmation",
+            })
+            .eq("id", r.id);
 
           sent++;
 
         } catch (err) {
-          console.error("ERROR ENVIANDO:", r.phone, err);
+          console.error("❌ ERROR ENVIANDO:", r.phone, err);
         }
       }
     }
+
+    console.log("✅ REMINDERS SENT:", sent);
 
     return NextResponse.json({ ok: true, sent });
 
