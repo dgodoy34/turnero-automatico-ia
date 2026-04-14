@@ -57,11 +57,14 @@ export default function TableInventoryView({ date, shift }: Props) {
 
     appointments.forEach(a => {
 
-      if (a.date !== date) return;
-      if (a.status !== "confirmed") return;
+  console.log("CHECK", a.date, date); // 👈 DEBUG
 
-      const time = a.time || a.start_time;
-      if (!time) return;
+  if (a.date?.slice(0, 10) !== date) return; // 🔥 FIX REAL
+  if (a.status !== "confirmed") return;
+  if (!a.assigned_table_capacity) return;
+
+  const time = (a.time || "").slice(0, 5);
+  if (!time) return;
 
       const hour = parseInt(time.slice(0, 2));
 
