@@ -12,7 +12,6 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
-  time?: string; // 🔥 agregado pero opcional
 };
 
 type Props = {
@@ -33,20 +32,21 @@ export default function TableInventoryView({ date, shift }: Props) {
     const apptRes = await fetch("/api/appointments");
     const apptData = await apptRes.json();
 
-    // 🔥 NO ROMPE NADA (soporta ambas APIs)
-    setAppointments(apptData.appointments || apptData || []);
     setTables(tablesData.tables || []);
+    setAppointments(apptData.appointments || []);
   }
 
   useEffect(() => {
+
     if (!date) return;
+
     loadData();
-  }, [date, shift]);
+
+  }, [date, shift]); // 🔥 ESTE ES EL FIX
 
   function usedTables(capacity: number) {
 
     let used = 0;
-    const isDay = shift === "Día";
 
     appointments.forEach(a => {
 
@@ -54,15 +54,6 @@ export default function TableInventoryView({ date, shift }: Props) {
       if (a.status !== "confirmed") return;
       if (!a.assigned_table_capacity) return;
 
-      // 🔥 FILTRO POR TURNO (SUAVE)
-      if (a.time) {
-        const hour = parseInt(a.time.slice(0, 2));
-
-        if (isDay && hour >= 18) return;
-        if (!isDay && hour < 18) return;
-      }
-
-      // 🔥 lógica original intacta
       if (a.assigned_table_capacity >= 6 && capacity === 6) {
         used += a.tables_used || 1;
       } 
@@ -75,9 +66,6 @@ export default function TableInventoryView({ date, shift }: Props) {
     return used;
   }
 
-  // 🔥 ORDEN SIMPLE
-  const sortedTables = [...tables].sort((a, b) => a.capacity - b.capacity);
-
   return (
 
     <div className="bg-white rounded-xl shadow p-6">
@@ -88,7 +76,7 @@ export default function TableInventoryView({ date, shift }: Props) {
 
       <div className="space-y-3">
 
-        {sortedTables.map(t => {
+        {tables.map(t => {
 
           const used = usedTables(t.capacity);
           const free = Math.max(0, t.quantity - used);
@@ -132,3 +120,4 @@ export default function TableInventoryView({ date, shift }: Props) {
 
   );
 }
+
