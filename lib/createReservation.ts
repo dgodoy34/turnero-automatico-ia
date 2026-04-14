@@ -83,7 +83,7 @@ export async function createReservation({
    const { data: restaurant, error: restaurantError } = await supabase
   .from("restaurants")
   .select("*")
-  .eq("id", business_id)
+ .eq("business_id", business_id)
   .single();
 
 const businessId = business_id;
@@ -380,13 +380,29 @@ return {
 // 🔟 Código + Insert (PRO)
 // =========================
 
-let data = null;
-let error = null;
+let data: any = null;
+let error: any = null;
 
 for (let i = 0; i < 3; i++) {
 
   // ======================================
-  // 🔥 GENERAR RESERVATION CODE (FIX)
+  // 🔥 OBTENER BRANCH_CODE REAL
+  // ======================================
+
+  const { data: restaurantBranch, error: branchError } = await supabase
+    .from("restaurants")
+    .select("branch_code")
+    .eq("business_id", businessId)
+    .single();
+
+  if (branchError || !restaurantBranch?.branch_code) {
+    throw new Error("❌ branch_code no configurado");
+  }
+
+  const branch = restaurantBranch.branch_code;
+
+  // ======================================
+  // 🔥 OBTENER ÚLTIMO CÓDIGO
   // ======================================
 
   const { data: lastReservation } = await supabase
@@ -401,18 +417,17 @@ for (let i = 0; i < 3; i++) {
 
   if (lastReservation?.reservation_code) {
     const match = lastReservation.reservation_code.match(/-(\d+)$/);
-
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
   }
 
-  // 🔥 multi-tenant real
-  const branch = businessId.slice(0, 3).padStart(3, "0");
+  // ======================================
+  // 🔥 GENERAR CÓDIGO
+  // ======================================
 
   const year = new Date(date).getFullYear().toString().slice(2);
   const monthDay = date.slice(5, 7) + date.slice(8, 10);
-
   const padded = nextNumber.toString().padStart(4, "0");
 
   const reservationCode = `RC-${branch}-${year}-${monthDay}-${padded}`;
@@ -450,8 +465,8 @@ for (let i = 0; i < 3; i++) {
 
   // 🔥 SOLO reintentar si es duplicado
   const isDuplicate =
-    error.message?.toLowerCase().includes("duplicate") ||
-    error.code === "23505";
+    error?.message?.toLowerCase().includes("duplicate") ||
+    error?.code === "23505";
 
   if (!isDuplicate) {
     console.error("❌ Error real (no retry):", error);
@@ -482,4 +497,5 @@ return {
     success: false,
     message: "Error inesperado al procesar la reserva.",
   };
-}}
+}
+}
