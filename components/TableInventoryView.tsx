@@ -12,7 +12,9 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
-  time: string; // 🔥 NECESARIO para filtrar por turno
+  time?: string;
+  start_time?: string;
+  people?: number;
 };
 
 type Props = {
@@ -25,12 +27,18 @@ export default function TableInventoryView({ date, shift }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
+  const BUSINESS_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09"; // 🔥 TEMP
+
   async function loadData() {
 
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
+    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${BUSINESS_ID}`);
     const tablesData = await tablesRes.json();
 
-    const apptRes = await fetch("/api/appointments");
+    const apptRes = await fetch("/api/appointments", {
+      headers: {
+        "x-business-id": BUSINESS_ID
+      }
+    });
     const apptData = await apptRes.json();
 
     setTables(tablesData.tables || []);
@@ -45,27 +53,28 @@ export default function TableInventoryView({ date, shift }: Props) {
   function usedTables(capacity: number) {
 
     let used = 0;
-
     const isDay = shift === "Día";
 
     appointments.forEach(a => {
 
       if (a.date !== date) return;
       if (a.status !== "confirmed") return;
-      if (!a.assigned_table_capacity) return;
-      if (!a.time) return;
 
-      // 🔥 FILTRO POR TURNO
-      const hour = parseInt(a.time.slice(0, 2));
+      const time = a.time || a.start_time;
+      if (!time) return;
 
-      if (isDay && (hour < 12 || hour > 16)) return;
-      if (!isDay && (hour < 20 || hour > 23)) return;
+      const hour = parseInt(time.slice(0, 2));
 
-      // 🔥 LÓGICA DE MESAS
-      if (a.assigned_table_capacity >= 6 && capacity === 6) {
+      // 🔥 FILTRO TURNOS CORREGIDO
+      if (isDay && (hour < 12 || hour >= 17)) return;
+      if (!isDay && (hour < 17 || hour > 23)) return;
+
+      // 🔥 CAPACITY CORREGIDO
+      const cap = a.assigned_table_capacity || a.people || 2;
+
+      if (cap >= 6 && capacity === 6) {
         used += a.tables_used || 1;
-      } 
-      else if (a.assigned_table_capacity === capacity) {
+      } else if (cap === capacity) {
         used += a.tables_used || 1;
       }
 
@@ -84,8 +93,8 @@ export default function TableInventoryView({ date, shift }: Props) {
 
       <div className="space-y-3">
 
-        {tables
-          .sort((a, b) => a.capacity - b.capacity) // 🔥 ORDEN CORRECTO
+        {[...tables]
+          .sort((a, b) => a.capacity - b.capacity)
           .map(t => {
 
             const used = usedTables(t.capacity);
