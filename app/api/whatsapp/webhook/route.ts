@@ -277,61 +277,79 @@ export async function POST(req: Request) {
     }
 
     // =====================================
-    // 4. FLUJOS DE MODIFICACIÓN
-    // =====================================
-    else if (session.state === "MODIFY_RESERVATION") {
-      const msg = lower.trim();
-      if (msg.includes("fecha")) {
-        reply = "📅 Decime la nueva fecha (ej: 25/04)";
-        await setState(from, "MODIFY_DATE");
-      } else if (msg.includes("hora")) {
-        reply = "⏰ Decime la nueva hora";
-        await setState(from, "MODIFY_TIME");
-      } else if (msg.includes("persona") || msg.includes("gente")) {
-        reply = "👥 ¿Cuántas personas ahora?";
-        await setState(from, "MODIFY_PEOPLE");
-      } else {
-        reply = "No entendí 🤔\n\nPodés escribir:\n👉 fecha\n👉 hora\n👉 personas";
-      }
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+// 4. FLUJOS DE MODIFICACIÓN
+// =====================================
+
+else if (session.state === "MODIFY_RESERVATION") {
+  const msg = lower.trim();
+
+  if (msg.includes("fecha")) {
+    reply = "📅 Decime la nueva fecha (ej: 25/04)";
+    await setState(from, "MODIFY_DATE");
+
+  } else if (msg.includes("hora")) {
+    reply = "⏰ Decime la nueva hora";
+    await setState(from, "MODIFY_TIME");
+
+  } else if (msg.includes("persona") || msg.includes("gente")) {
+    reply = "👥 ¿Cuántas personas ahora?";
+    await setState(from, "MODIFY_PEOPLE");
+
+  } else {
+    reply = "No entendí 🤔\n\nPodés escribir:\n👉 fecha\n👉 hora\n👉 personas";
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+
+// =====================================
+// MODIFY TIME (usa confirmación → OK)
+// =====================================
+
+else if (session.state === "MODIFY_TIME") {
+  let input = String(text || "").trim().toLowerCase();
+  let newTime: string | null = null;
+
+  if (/^\d{1,2}$/.test(input)) {
+    let hour = parseInt(input);
+
+    if (hour >= 0 && hour <= 6) {
+      newTime = `${hour.toString().padStart(2, "0")}:00`;
+    } else if (hour >= 7 && hour <= 11) {
+      newTime = `${(hour + 12)}:00`;
+    } else {
+      newTime = `${hour.toString().padStart(2, "0")}:00`;
     }
 
-    else if (session.state === "MODIFY_TIME") {
-      let input = String(text || "").trim().toLowerCase();
-      let newTime: string | null = null;
+  } else if (/^\d{1,2}:\d{2}$/.test(input)) {
+    newTime = input.length === 4 ? "0" + input : input;
+  }
 
-      if (/^\d{1,2}$/.test(input)) {
-        let hour = parseInt(input);
-        if (hour >= 0 && hour <= 6) {
-          newTime = `${hour.toString().padStart(2, "0")}:00`;
-        } else if (hour >= 7 && hour <= 11) {
-          newTime = `${(hour + 12)}:00`;
-        } else {
-          newTime = `${hour.toString().padStart(2, "0")}:00`;
-        }
-      } else if (/^\d{1,2}:\d{2}$/.test(input)) {
-        newTime = input.length === 4 ? "0" + input : input;
-      }
+  if (!newTime) {
+    await sendReply(from, "Decime la hora 🙂 (ej: 20, 20:30, 22, etc)");
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-      if (!newTime) {
-        await sendReply(from, "Decime la hora 🙂 (ej: 20, 20:30, 22, etc)");
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      }
+  await setTemp(from, {
+    ...(session.temp_data || {}),
+    time: newTime
+  });
 
-      await setTemp(from, {
-        ...(session.temp_data || {}),
-        time: newTime
-      });
+  await setState(from, "CONFIRM_RESERVATION");
 
-      await setState(from, "CONFIRM_RESERVATION");
+  await sendReply(from, `Perfecto 👍 nueva hora: ${newTime}\n\n¿Confirmamos la reserva? (si/no)`);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      await sendReply(from, `Perfecto 👍 nueva hora: ${newTime}\n\n¿Confirmamos la reserva? (si/no)`);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
 
-   else if (session.state === "MODIFY_DATE") {
-  const date = formatDateToISO(text);
+// =====================================
+// MODIFY DATE (CORREGIDO)
+// =====================================
+
+else if (session.state === "MODIFY_DATE") {
+  const newDate = formatDateToISO(text);
   const reservationId = session.temp_data?.reservation_id;
 
   if (!reservationId) {
@@ -341,21 +359,49 @@ export async function POST(req: Request) {
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
 
-  const { error } = await supabase
+  // 🔥 traer reserva original
+  const { data: existing } = await supabase
     .from("appointments")
-    .update({ date })
-    .eq("id", reservationId);   // ← Cambiado a id
+    .select("*")
+    .eq("id", reservationId)
+    .single();
 
-  reply = error 
-    ? "Error al modificar la fecha 😕" 
-    : "✅ Fecha actualizada\n\n" + getMenu();
+  if (!existing) {
+    reply = "No encontré la reserva 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 🔥 eliminar reserva vieja
+  await supabase
+    .from("appointments")
+    .delete()
+    .eq("id", reservationId);
+
+  // 🔥 recrear con lógica completa
+  const result = await createReservation({
+    business_id: existing.business_id,
+    dni: existing.client_dni,
+    date: newDate,
+    time: existing.time,
+    people: existing.people,
+  });
+
+  reply = result.success
+    ? "✅ Fecha actualizada\n\n" + getMenu()
+    : "No hay disponibilidad 😕";
 
   await setState(from, "POST_RESERVATION_MENU");
   await sendReply(from, reply);
   return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
-   else if (session.state === "MODIFY_PEOPLE") {
+
+// =====================================
+// MODIFY PEOPLE (CORREGIDO)
+// =====================================
+
+else if (session.state === "MODIFY_PEOPLE") {
   const people = parseInt(text);
   const reservationId = session.temp_data?.reservation_id;
 
@@ -372,14 +418,37 @@ export async function POST(req: Request) {
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
 
-  const { error } = await supabase
+  // 🔥 traer reserva original
+  const { data: existing } = await supabase
     .from("appointments")
-    .update({ people })
-    .eq("id", reservationId);   // ← Cambiado a id
+    .select("*")
+    .eq("id", reservationId)
+    .single();
 
-  reply = error 
-    ? "Error al modificar 😕" 
-    : "✅ Personas actualizadas\n\n" + getMenu();
+  if (!existing) {
+    reply = "No encontré la reserva 😕";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 🔥 eliminar reserva vieja
+  await supabase
+    .from("appointments")
+    .delete()
+    .eq("id", reservationId);
+
+  // 🔥 recrear con lógica completa
+  const result = await createReservation({
+    business_id: existing.business_id,
+    dni: existing.client_dni,
+    date: existing.date,
+    time: existing.time,
+    people,
+  });
+
+  reply = result.success
+    ? "✅ Personas actualizadas\n\n" + getMenu()
+    : "No hay disponibilidad 😕";
 
   await setState(from, "POST_RESERVATION_MENU");
   await sendReply(from, reply);
