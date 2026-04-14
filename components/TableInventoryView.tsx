@@ -21,7 +21,6 @@ type Props = {
 };
 
 export default function TableInventoryView({ date, shift }: Props) {
-
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
@@ -36,7 +35,7 @@ export default function TableInventoryView({ date, shift }: Props) {
       setTables(tablesData.tables || []);
       setAppointments(apptData.appointments || []);
     } catch (error) {
-      console.error("Error cargando datos del plano:", error);
+      console.error("Error cargando inventario:", error);
     }
   }
 
@@ -45,13 +44,11 @@ export default function TableInventoryView({ date, shift }: Props) {
     loadData();
   }, [date, shift]);
 
-  // Función para calcular mesas usadas
   function usedTables(capacity: number): number {
     let used = 0;
-
     const isDay = shift === "Día";
 
-    appointments.forEach(a => {
+    appointments.forEach((a) => {
       if (a.date !== date) return;
       if (a.status !== "confirmed") return;
       if (!a.assigned_table_capacity || !a.time) return;
@@ -83,44 +80,40 @@ export default function TableInventoryView({ date, shift }: Props) {
   return (
     <div className="bg-white rounded-xl shadow p-6">
       <h2 className="font-semibold text-lg mb-6">
-        Plano de mesas ({shift})
+        Inventario de mesas ({shift})
       </h2>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {sortedTables.map((t) => {
           const used = usedTables(t.capacity);
           const free = Math.max(0, t.quantity - used);
-          const is6Plus = t.capacity === 6;
 
           return (
-            <div key={t.capacity} className="space-y-3">
-              <h3 className="font-medium text-gray-700">
-                {is6Plus ? "6+ personas" : `${t.capacity} personas`} ({t.quantity})
-              </h3>
+            <div key={t.capacity} className="border rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-medium">
+                  {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`}
+                </h3>
+                <span className="text-sm text-gray-500">Total: {t.quantity}</span>
+              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {Array.from({ length: t.quantity }).map((_, index) => {
-                  const isOccupied = index < used;
-                  return (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border text-center font-medium transition-all ${
-                        isOccupied 
-                          ? "bg-red-50 border-red-200 text-red-700" 
-                          : "bg-green-50 border-green-200 text-green-700"
-                      }`}
-                    >
-                      Mesa {is6Plus ? "6+" : t.capacity}
-                      <div className="text-xs mt-1">
-                        {isOccupied ? "Ocupada" : "Libre"}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="flex gap-4 text-sm">
+                <span className="text-red-600 font-medium">
+                  Ocupadas: {used}
+                </span>
+                <span className="text-green-600 font-medium">
+                  Libres: {free}
+                </span>
               </div>
             </div>
           );
         })}
+
+        {sortedTables.length === 0 && (
+          <p className="text-gray-500 text-center py-8">
+            No hay mesas configuradas para este turno.
+          </p>
+        )}
       </div>
     </div>
   );
