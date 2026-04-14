@@ -30,19 +30,24 @@ export default function TableInventoryView({ date, shift }: Props) {
   const BUSINESS_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09"; // 🔥 TEMP
 
   async function loadData() {
+    try {
+      const tablesRes = await fetch(
+        `/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${BUSINESS_ID}`
+      );
+      const tablesData = await tablesRes.json();
 
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${BUSINESS_ID}`);
-    const tablesData = await tablesRes.json();
+      const apptRes = await fetch("/api/appointments", {
+        headers: {
+          "x-business-id": BUSINESS_ID,
+        },
+      });
+      const apptData = await apptRes.json();
 
-    const apptRes = await fetch("/api/appointments", {
-      headers: {
-        "x-business-id": BUSINESS_ID
-      }
-    });
-    const apptData = await apptRes.json();
-
-    setTables(tablesData.tables || []);
-    setAppointments(apptData.appointments || []);
+      setTables(tablesData.tables || []);
+      setAppointments(apptData.appointments || []);
+    } catch (err) {
+      console.error("Error cargando datos:", err);
+    }
   }
 
   useEffect(() => {
@@ -50,34 +55,36 @@ export default function TableInventoryView({ date, shift }: Props) {
     loadData();
   }, [date, shift]);
 
-  function usedTables(capacity: number) {
-
+  function usedTables(capacityParam: number) {
     let used = 0;
     const isDay = shift === "Día";
 
-    appointments.forEach(a => {
+    appointments.forEach((a) => {
 
-  console.log("CHECK", a.date, date); // 👈 DEBUG
+      // 🔥 FIX FECHA
+      if (a.date?.slice(0, 10) !== date) return;
 
-  if (a.date?.slice(0, 10) !== date) return; // 🔥 FIX REAL
-  if (a.status !== "confirmed") return;
-  if (!a.assigned_table_capacity) return;
+      // 🔥 SOLO CONFIRMADAS
+      if (a.status !== "confirmed") return;
 
-  const time = (a.time || "").slice(0, 5);
-  if (!time) return;
+      // 🔥 HORA SEGURA
+      const time = (a.time || a.start_time || "").slice(0, 5);
+      if (!time) return;
 
       const hour = parseInt(time.slice(0, 2));
 
-      // 🔥 FILTRO TURNOS CORREGIDO
+      // 🔥 FILTRO POR TURNO
       if (isDay && (hour < 12 || hour >= 17)) return;
       if (!isDay && (hour < 17 || hour > 23)) return;
 
-      // 🔥 CAPACITY CORREGIDO
-      const cap = a.assigned_table_capacity || a.people || 2;
+      // 🔥 CAPACIDAD (FALLBACK A PEOPLE)
+      const cap = a.assigned_table_capacity || a.people;
+      if (!cap) return;
 
-      if (cap >= 6 && capacity === 6) {
+      // 🔥 LÓGICA DE OCUPACIÓN
+      if (cap >= 6 && capacityParam === 6) {
         used += a.tables_used || 1;
-      } else if (cap === capacity) {
+      } else if (cap === capacityParam) {
         used += a.tables_used || 1;
       }
 
@@ -87,7 +94,6 @@ export default function TableInventoryView({ date, shift }: Props) {
   }
 
   return (
-
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
@@ -98,24 +104,21 @@ export default function TableInventoryView({ date, shift }: Props) {
 
         {[...tables]
           .sort((a, b) => a.capacity - b.capacity)
-          .map(t => {
+          .map((t) => {
 
             const used = usedTables(t.capacity);
             const free = Math.max(0, t.quantity - used);
 
             return (
-
               <div
                 key={t.capacity}
                 className="flex justify-between items-center border p-3 rounded"
               >
-
                 <div>
                   Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
                 </div>
 
                 <div className="flex gap-3 text-sm">
-
                   <span className="text-gray-500">
                     Total: {t.quantity}
                   </span>
@@ -127,18 +130,13 @@ export default function TableInventoryView({ date, shift }: Props) {
                   <span className="text-green-600">
                     Libres: {free}
                   </span>
-
                 </div>
-
               </div>
-
             );
-
           })}
 
       </div>
 
     </div>
-
   );
 }
