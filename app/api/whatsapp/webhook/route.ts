@@ -373,23 +373,16 @@ else if (session.state === "MODIFY_DATE") {
   }
 
   // 🔥 eliminar reserva vieja
-  await supabase
-    .from("appointments")
-    .delete()
-    .eq("id", reservationId);
+  const { error } = await supabase
+  .from("appointments")
+  .update({
+    date: newDate
+  })
+  .eq("id", reservationId);
 
-  // 🔥 recrear con lógica completa
-  const result = await createReservation({
-    business_id: existing.business_id,
-    dni: existing.client_dni,
-    date: newDate,
-    time: existing.time,
-    people: existing.people,
-  });
-
-  reply = result.success
-    ? "✅ Fecha actualizada\n\n" + getMenu()
-    : "No hay disponibilidad 😕";
+reply = error
+  ? "Error al modificar la fecha 😕"
+  : `✅ Fecha actualizada\n\n📅 ${newDate}\n\n` + getMenu();
 
   await setState(from, "POST_RESERVATION_MENU");
   await sendReply(from, reply);
@@ -432,23 +425,16 @@ else if (session.state === "MODIFY_PEOPLE") {
   }
 
   // 🔥 eliminar reserva vieja
-  await supabase
-    .from("appointments")
-    .delete()
-    .eq("id", reservationId);
+  const { error } = await supabase
+  .from("appointments")
+  .update({
+    people
+  })
+  .eq("id", reservationId);
 
-  // 🔥 recrear con lógica completa
-  const result = await createReservation({
-    business_id: existing.business_id,
-    dni: existing.client_dni,
-    date: existing.date,
-    time: existing.time,
-    people,
-  });
-
-  reply = result.success
-    ? "✅ Personas actualizadas\n\n" + getMenu()
-    : "No hay disponibilidad 😕";
+reply = error
+  ? "Error al modificar 😕"
+  : `✅ Personas actualizadas\n\n👥 ${people}\n\n` + getMenu();
 
   await setState(from, "POST_RESERVATION_MENU");
   await sendReply(from, reply);
