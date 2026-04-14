@@ -18,11 +18,11 @@ type Appointment = {
 type Props = {
   date: string;
   shift: "Día" | "Noche";
+  appointments?: Appointment[];   // ← Agregado
 };
 
-export default function TableInventoryView({ date, shift }: Props) {
+export default function TableFloorView({ date, shift, appointments = [] }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
@@ -31,13 +31,10 @@ export default function TableInventoryView({ date, shift }: Props) {
       const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
       const tablesData = await tablesRes.json();
 
-      const apptRes = await fetch("/api/appointments");
-      const apptData = await apptRes.json();
-
       setTables(tablesData.tables || tablesData || []);
-      setAppointments(apptData.appointments || apptData || []);
     } catch (err) {
-      console.error("Error cargando datos:", err);
+      console.error("Error cargando mesas:", err);
+      setTables([]);
     } finally {
       setLoading(false);
     }
@@ -71,32 +68,25 @@ export default function TableInventoryView({ date, shift }: Props) {
     return used;
   }
 
-  // Orden fijo correcto: 2 → 4 → 6+
   const sortedTables = [...tables].sort((a, b) => {
     if (a.capacity === 6) return 1;
     if (b.capacity === 6) return -1;
     return a.capacity - b.capacity;
   });
 
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Cargando plano de mesas...</div>;
-  }
+  if (loading) return <div className="p-8 text-center">Cargando plano...</div>;
 
   return (
     <div className="space-y-8">
-      {/* ==================== INVENTARIO LINEAL ==================== */}
+      {/* Inventario Lineal */}
       <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="font-semibold text-lg mb-6">
-          Inventario de mesas ({shift})
-        </h2>
-
+        <h2 className="font-semibold text-lg mb-6">Inventario de mesas ({shift})</h2>
         <div className="space-y-4">
           {sortedTables.map((t) => {
             const used = usedTables(t.capacity);
             const free = Math.max(0, t.quantity - used);
-
             return (
-              <div key={t.capacity} className="border rounded-lg p-4 flex justify-between items-center">
+              <div key={t.capacity} className="border rounded-lg p-4 flex justify-between">
                 <div>
                   <span className="font-medium">
                     {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`}
@@ -113,12 +103,9 @@ export default function TableInventoryView({ date, shift }: Props) {
         </div>
       </div>
 
-      {/* ==================== PLANO VISUAL DE MESAS ==================== */}
+      {/* Plano Visual */}
       <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="font-semibold text-lg mb-6">
-          Plano de mesas ({shift})
-        </h2>
-
+        <h2 className="font-semibold text-lg mb-6">Plano de mesas ({shift})</h2>
         <div className="space-y-8">
           {sortedTables.map((t) => {
             const used = usedTables(t.capacity);
@@ -129,14 +116,13 @@ export default function TableInventoryView({ date, shift }: Props) {
                 <h3 className="font-medium">
                   {is6Plus ? "6+ personas" : `${t.capacity} personas`} ({t.quantity})
                 </h3>
-
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                   {Array.from({ length: t.quantity }).map((_, index) => {
                     const isOccupied = index < used;
                     return (
                       <div
                         key={index}
-                        className={`p-4 rounded-lg border text-center font-medium transition-all ${
+                        className={`p-4 rounded-lg border text-center font-medium ${
                           isOccupied
                             ? "bg-red-50 border-red-200 text-red-700"
                             : "bg-green-50 border-green-200 text-green-700"
