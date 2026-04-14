@@ -14,17 +14,14 @@ function getNowArgentina() {
 
 // 🇦🇷 Crear fecha/hora en Argentina
 function getArgentinaDateTime(date: string, time: string) {
-  return new Date(
-    `${date}T${time}:00-03:00` // 🔥 CLAVE
-  );
+  return new Date(`${date}T${time}:00-03:00`);
 }
 
 // YYYY-MM-DD Argentina
 function getTodayArgentina() {
-  return new Date()
-    .toLocaleDateString("en-CA", {
-      timeZone: "America/Argentina/Buenos_Aires",
-    });
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
 }
 
 export async function GET() {
@@ -37,16 +34,39 @@ export async function GET() {
 
     const { data: reservations, error } = await supabase
       .from("appointments")
-      .select("id, date, time, phone, name, reservation_code")
+      .select(`
+        id,
+        date,
+        time,
+        reservation_code,
+        status,
+        reminder_sent,
+        responded_at,
+        clients (
+          phone,
+          name
+        )
+      `)
       .eq("date", todayStr)
       .eq("reminder_sent", false)
-      .not("phone", "is", null);
+      .is("responded_at", null)
+      .in("status", ["confirmed", "pending_confirmation"]);
 
     if (error) throw error;
 
+    console.log("📊 RESERVAS FILTRADAS:", reservations?.length);
+
     let sent = 0;
 
+    // 🔥 ESTE ERA EL PROBLEMA: FALTABA EL LOOP
     for (const r of reservations || []) {
+
+      const client = r.clients?.[0];
+
+      const phone = client?.phone;
+      const name = client?.name;
+
+      if (!phone) continue;
 
       const reservationDateTime = getArgentinaDateTime(r.date, r.time);
 
@@ -55,43 +75,41 @@ export async function GET() {
 
       console.log("⏱ diffMinutes:", diffMinutes, "reserva:", r.time);
 
-      // 🔥 ENVIAR ENTRE 2HS Y 1H50 ANTES
       const shouldSend =
         diffMinutes <= 120 && diffMinutes > 100;
 
-      if (shouldSend) {
+      if (!shouldSend) continue;
 
-        const message = `Hola ${r.name || ""} 👋
+      const message = `Hola ${name || ""} 👋
 
 Te recordamos tu reserva hoy a las *${r.time} hs* 🕒
 
 Respondé *SI* para confirmar 👍
 O *CANCELAR* si no podés asistir ❌`;
 
-        try {
-          await sendWhatsAppMessage(r.phone, message);
+      try {
+        await sendWhatsAppMessage(phone, message);
 
-          await setState(r.phone, "AWAITING_CONFIRMATION");
+        await setState(phone, "AWAITING_CONFIRMATION");
 
-          await setTemp(r.phone, {
-            reservation_id: r.id,
-            reservation_code: r.reservation_code,
-          });
+        await setTemp(phone, {
+          reservation_id: r.id,
+          reservation_code: r.reservation_code,
+        });
 
-          await supabase
-            .from("appointments")
-            .update({
-              reminder_sent: true,
-              reminder_sent_at: new Date().toISOString(),
-              status: "pending_confirmation",
-            })
-            .eq("id", r.id);
+        await supabase
+          .from("appointments")
+          .update({
+            reminder_sent: true,
+            reminder_sent_at: new Date().toISOString(),
+            status: "pending_confirmation",
+          })
+          .eq("id", r.id);
 
-          sent++;
+        sent++;
 
-        } catch (err) {
-          console.error("❌ ERROR ENVIANDO:", r.phone, err);
-        }
+      } catch (err) {
+        console.error("❌ ERROR ENVIANDO:", phone, err);
       }
     }
 
