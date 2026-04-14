@@ -376,8 +376,7 @@ return {
         };
       }
     }
-
-   // =========================
+// =========================
 // 🔟 Código + Insert (PRO)
 // =========================
 
@@ -386,10 +385,41 @@ let error = null;
 
 for (let i = 0; i < 3; i++) {
 
-  const reservationCode = await generateReservationCode(
-    businessId,
-    date
-  );
+  // ======================================
+  // 🔥 GENERAR RESERVATION CODE (FIX)
+  // ======================================
+
+  const { data: lastReservation } = await supabase
+    .from("appointments")
+    .select("reservation_code")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let nextNumber = 1;
+
+  if (lastReservation?.reservation_code) {
+    const match = lastReservation.reservation_code.match(/-(\d{4})$/);
+
+    if (match) {
+      nextNumber = parseInt(match[1]) + 1;
+    }
+  }
+
+  // 🔥 multi-tenant real
+  const branch = businessId.slice(0, 3).padStart(3, "0");
+
+  const year = new Date(date).getFullYear().toString().slice(2);
+  const monthDay = date.slice(5, 7) + date.slice(8, 10);
+
+  const padded = nextNumber.toString().padStart(4, "0");
+
+  const reservationCode = `RC-${branch}-${year}-${monthDay}-${padded}`;
+
+  // ======================================
+  // 🔥 INSERT
+  // ======================================
 
   const res = await supabase
     .from("appointments")
