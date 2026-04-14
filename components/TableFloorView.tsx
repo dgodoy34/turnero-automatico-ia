@@ -12,36 +12,36 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
-  time: string;        // ← Agregado para filtrar por turno
+  time: string;
 };
 
 type Props = {
   date: string;
   shift: "Día" | "Noche";
+  appointments?: Appointment[];   // ← Agregado
 };
 
-export default function TableInventoryView({ date, shift }: Props) {
+export default function TableFloorView({ date, shift, appointments = [] }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   async function loadData() {
+    setLoading(true);
     try {
       const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
       const tablesData = await tablesRes.json();
 
-      const apptRes = await fetch("/api/appointments");
-      const apptData = await apptRes.json();
-
-      setTables(tablesData.tables || []);
-      setAppointments(apptData.appointments || []);
-    } catch (error) {
-      console.error("Error cargando datos:", error);
+      setTables(tablesData.tables || tablesData || []);
+    } catch (err) {
+      console.error("Error cargando mesas:", err);
+      setTables([]);
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!date) return;
-    loadData();
+    if (date) loadData();
   }, [date, shift]);
 
   function usedTables(capacity: number): number {
@@ -55,11 +55,9 @@ export default function TableInventoryView({ date, shift }: Props) {
 
       const hour = parseInt(a.time.slice(0, 2));
 
-      // Filtro por turno
       if (isDay && (hour < 12 || hour > 16)) return;
       if (!isDay && (hour < 20 || hour > 23)) return;
 
-      // Lógica de capacidad
       if (capacity === 6 && a.assigned_table_capacity >= 6) {
         used += a.tables_used || 1;
       } else if (a.assigned_table_capacity === capacity) {
@@ -70,20 +68,23 @@ export default function TableInventoryView({ date, shift }: Props) {
     return used;
   }
 
-  // Orden correcto: 2 → 4 → 6+
   const sortedTables = [...tables].sort((a, b) => {
     if (a.capacity === 6) return 1;
     if (b.capacity === 6) return -1;
     return a.capacity - b.capacity;
   });
 
+  if (loading) {
+    return <div className="p-8 text-center">Cargando plano de mesas...</div>;
+  }
+
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4">
+      <h2 className="font-semibold text-lg mb-6">
         Inventario de mesas ({shift})
       </h2>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {sortedTables.map((t) => {
           const used = usedTables(t.capacity);
           const free = Math.max(0, t.quantity - used);
