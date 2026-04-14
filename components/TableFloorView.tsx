@@ -12,6 +12,8 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
+  time: string;
+  people?: number;
 };
 
 type Props = {
@@ -19,13 +21,12 @@ type Props = {
   shift: "Día" | "Noche";
 };
 
-export default function TableInventoryView({ date, shift }: Props) {
+export default function TableFloorView({ date, shift }: Props) {
 
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   async function loadData() {
-
     const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
     const tablesData = await tablesRes.json();
 
@@ -37,87 +38,80 @@ export default function TableInventoryView({ date, shift }: Props) {
   }
 
   useEffect(() => {
-
     if (!date) return;
-
     loadData();
+  }, [date, shift]);
 
-  }, [date, shift]); // 🔥 ESTE ES EL FIX
-
-  function usedTables(capacity: number) {
-
+  function getUsed(capacity: number) {
     let used = 0;
+    const isDay = shift === "Día";
 
     appointments.forEach(a => {
-
       if (a.date !== date) return;
       if (a.status !== "confirmed") return;
-      if (!a.assigned_table_capacity) return;
+      if (!a.time) return;
 
-      if (a.assigned_table_capacity >= 6 && capacity === 6) {
+      const hour = parseInt(a.time.slice(0, 2));
+
+      if (isDay && (hour < 12 || hour >= 17)) return;
+      if (!isDay && (hour < 17 || hour > 23)) return;
+
+      const cap = a.assigned_table_capacity || a.people || 2;
+
+      if (cap >= 6 && capacity === 6) {
         used += a.tables_used || 1;
-      } 
-      else if (a.assigned_table_capacity === capacity) {
+      } else if (cap === capacity) {
         used += a.tables_used || 1;
       }
-
     });
 
     return used;
   }
 
   return (
+    <div className="space-y-6">
 
-    <div className="bg-white rounded-xl shadow p-6">
+      {[...tables]
+        .sort((a, b) => a.capacity - b.capacity)
+        .map(t => {
 
-      <h2 className="font-semibold mb-4">
-        Inventario de mesas ({shift})
-      </h2>
-
-      <div className="space-y-3">
-
-        {tables.map(t => {
-
-          const used = usedTables(t.capacity);
+          const used = getUsed(t.capacity);
           const free = Math.max(0, t.quantity - used);
 
           return (
+            <div key={t.capacity}>
+              
+              <h3 className="font-semibold mb-2">
+                {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`} ({t.quantity})
+              </h3>
 
-            <div
-              key={t.capacity}
-              className="flex justify-between items-center border p-3 rounded"
-            >
+              <div className="grid grid-cols-4 gap-3">
 
-              <div>
-                Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+                {Array.from({ length: t.quantity }).map((_, i) => {
+                  const isOccupied = i < used;
+
+                  return (
+                    <div
+                      key={i}
+                      className={`border rounded p-3 text-center ${
+                        isOccupied
+                          ? "bg-red-100 border-red-400"
+                          : "bg-green-100 border-green-400"
+                      }`}
+                    >
+                      Mesa {t.capacity}
+                      <div className="text-xs">
+                        {isOccupied ? "Ocupada" : "Libre"}
+                      </div>
+                    </div>
+                  );
+                })}
+
               </div>
-
-              <div className="flex gap-3 text-sm">
-
-                <span className="text-gray-500">
-                  Total: {t.quantity}
-                </span>
-
-                <span className="text-red-600">
-                  Ocupadas: {used}
-                </span>
-
-                <span className="text-green-600">
-                  Libres: {free}
-                </span>
-
-              </div>
-
             </div>
-
           );
-
         })}
 
-      </div>
-
     </div>
-
   );
 }
-
