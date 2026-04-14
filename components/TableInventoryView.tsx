@@ -12,6 +12,7 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
+  time: string; // 🔥 NECESARIO para filtrar por turno
 };
 
 type Props = {
@@ -37,23 +38,30 @@ export default function TableInventoryView({ date, shift }: Props) {
   }
 
   useEffect(() => {
-
     if (!date) return;
-
     loadData();
-
-  }, [date, shift]); // 🔥 ESTE ES EL FIX
+  }, [date, shift]);
 
   function usedTables(capacity: number) {
 
     let used = 0;
+
+    const isDay = shift === "Día";
 
     appointments.forEach(a => {
 
       if (a.date !== date) return;
       if (a.status !== "confirmed") return;
       if (!a.assigned_table_capacity) return;
+      if (!a.time) return;
 
+      // 🔥 FILTRO POR TURNO
+      const hour = parseInt(a.time.slice(0, 2));
+
+      if (isDay && (hour < 12 || hour > 16)) return;
+      if (!isDay && (hour < 20 || hour > 23)) return;
+
+      // 🔥 LÓGICA DE MESAS
       if (a.assigned_table_capacity >= 6 && capacity === 6) {
         used += a.tables_used || 1;
       } 
@@ -76,43 +84,45 @@ export default function TableInventoryView({ date, shift }: Props) {
 
       <div className="space-y-3">
 
-        {tables.map(t => {
+        {tables
+          .sort((a, b) => a.capacity - b.capacity) // 🔥 ORDEN CORRECTO
+          .map(t => {
 
-          const used = usedTables(t.capacity);
-          const free = Math.max(0, t.quantity - used);
+            const used = usedTables(t.capacity);
+            const free = Math.max(0, t.quantity - used);
 
-          return (
+            return (
 
-            <div
-              key={t.capacity}
-              className="flex justify-between items-center border p-3 rounded"
-            >
+              <div
+                key={t.capacity}
+                className="flex justify-between items-center border p-3 rounded"
+              >
 
-              <div>
-                Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+                <div>
+                  Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+                </div>
+
+                <div className="flex gap-3 text-sm">
+
+                  <span className="text-gray-500">
+                    Total: {t.quantity}
+                  </span>
+
+                  <span className="text-red-600">
+                    Ocupadas: {used}
+                  </span>
+
+                  <span className="text-green-600">
+                    Libres: {free}
+                  </span>
+
+                </div>
+
               </div>
 
-              <div className="flex gap-3 text-sm">
+            );
 
-                <span className="text-gray-500">
-                  Total: {t.quantity}
-                </span>
-
-                <span className="text-red-600">
-                  Ocupadas: {used}
-                </span>
-
-                <span className="text-green-600">
-                  Libres: {free}
-                </span>
-
-              </div>
-
-            </div>
-
-          );
-
-        })}
+          })}
 
       </div>
 
