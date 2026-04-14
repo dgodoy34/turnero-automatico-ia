@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRestaurant } from "@/lib/useRestaurant";
 
 type TableType = {
   capacity: number;
@@ -8,16 +9,18 @@ type TableType = {
 };
 
 export default function DailyTableSetup({ date }: { date: string }) {
-  const [tables, setTables] = useState<TableType[]>([]);
 
-  // ID temporal - después lo reemplazarás con tu sistema multi-tenant
-  const RESTAURANT_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+  const [tables, setTables] = useState<TableType[]>([]);
+  const restaurantId = useRestaurant(); // 🔥 MULTI-TENANT REAL
 
   async function loadInventory() {
     try {
+      if (!restaurantId) return;
+
       const res = await fetch(
-        `/api/table-inventory?date=${date}&restaurant_id=${RESTAURANT_ID}`
+        `/api/table-inventory?date=${date}&restaurant_id=${restaurantId}`
       );
+
       const data = await res.json();
 
       if (data?.tables) {
@@ -25,6 +28,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
       } else {
         setTables([]);
       }
+
     } catch (err) {
       console.error("Error cargando inventario", err);
       setTables([]);
@@ -32,8 +36,10 @@ export default function DailyTableSetup({ date }: { date: string }) {
   }
 
   useEffect(() => {
-    if (date) loadInventory();
-  }, [date]);
+    if (date && restaurantId) {
+      loadInventory();
+    }
+  }, [date, restaurantId]);
 
   function updateQuantity(index: number, value: number) {
     const copy = [...tables];
@@ -43,13 +49,15 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
   async function saveOverride() {
     try {
+      if (!restaurantId) return;
+
       const res = await fetch("/api/daily-table-override", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date,
           tables,
-          business_id: RESTAURANT_ID
+          business_id: restaurantId // 🔥 CLAVE
         }),
       });
 
@@ -61,7 +69,8 @@ export default function DailyTableSetup({ date }: { date: string }) {
       }
 
       alert("Configuración guardada correctamente");
-      loadInventory(); // recargar
+      loadInventory(); // 🔄 recargar
+
     } catch (err) {
       console.error("Error guardando override", err);
       alert("Error al guardar la configuración");
@@ -70,23 +79,35 @@ export default function DailyTableSetup({ date }: { date: string }) {
 
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-4">
-      <h2 className="font-semibold">Configuración de mesas para el día</h2>
+
+      <h2 className="font-semibold">
+        Configuración de mesas para el día
+      </h2>
 
       <div className="space-y-3">
+
         {tables.map((t, i) => (
+
           <div
             key={t.capacity}
             className="flex justify-between items-center border p-3 rounded"
           >
-            <div>Mesa {t.capacity} personas</div>
+
+            <div>
+              Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+            </div>
+
             <input
               type="number"
               value={t.quantity}
               onChange={(e) => updateQuantity(i, Number(e.target.value))}
               className="border p-2 w-24 rounded"
             />
+
           </div>
+
         ))}
+
       </div>
 
       <button
@@ -95,6 +116,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
       >
         Guardar configuración para este día
       </button>
+
     </div>
   );
 }
