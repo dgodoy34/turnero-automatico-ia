@@ -91,7 +91,7 @@ export default function Mesas() {
         {loading && <p>Cargando mesas...</p>}
 
         <TableFloorView
-          appointments={appointments}
+          
           date={date}
           shift={selectedShift} // 🔥 CLAVE
         />
