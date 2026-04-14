@@ -12,6 +12,13 @@ function getNowArgentina() {
   );
 }
 
+// 🇦🇷 Crear fecha/hora en Argentina
+function getArgentinaDateTime(date: string, time: string) {
+  return new Date(
+    `${date}T${time}:00-03:00` // 🔥 CLAVE
+  );
+}
+
 // YYYY-MM-DD Argentina
 function getTodayArgentina() {
   return new Date()
@@ -28,7 +35,6 @@ export async function GET() {
     console.log("🕒 NOW:", now);
     console.log("📅 TODAY:", todayStr);
 
-    // 🔥 PARA TEST: traer TODAS las reservas de hoy
     const { data: reservations, error } = await supabase
       .from("appointments")
       .select("id, date, time, phone, name, reservation_code")
@@ -38,20 +44,21 @@ export async function GET() {
 
     if (error) throw error;
 
-    console.log("📊 RESERVAS HOY:", reservations?.length);
-
     let sent = 0;
 
     for (const r of reservations || []) {
 
-      const reservationDateTime = new Date(`${r.date}T${r.time}`);
+      const reservationDateTime = getArgentinaDateTime(r.date, r.time);
 
-      console.log("➡️ Evaluando:", r.time, reservationDateTime);
+      const diffMinutes =
+        (reservationDateTime.getTime() - now.getTime()) / 60000;
 
-      // 🔥 VERSIÓN TEST (ENVÍA TODAS)
-      const shouldSend = true;
+      console.log("⏱ diffMinutes:", diffMinutes, "reserva:", r.time);
 
-      // 🔥 (Después volvemos a lógica 2-3h)
+      // 🔥 ENVIAR ENTRE 2HS Y 1H50 ANTES
+      const shouldSend =
+        diffMinutes <= 120 && diffMinutes > 100;
+
       if (shouldSend) {
 
         const message = `Hola ${r.name || ""} 👋

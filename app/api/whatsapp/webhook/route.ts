@@ -111,12 +111,27 @@ export async function POST(req: Request) {
       const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
       if (normalized.includes("si")) {
-        await supabase.from("appointments").update({ status: "confirmed" }).eq("id", reservationId);
-        reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
-      } else if (normalized.includes("cancel")) {
-        await supabase.from("appointments").update({ status: "cancelled" }).eq("id", reservationId);
-        reply = "❌ Tu reserva fue cancelada correctamente.";
-      } else {
+  await supabase
+    .from("appointments")
+    .update({
+      status: "confirmed",
+      responded_at: new Date().toISOString(), // 🔥 CLAVE
+    })
+    .eq("id", reservationId);
+
+  reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
+} 
+else if (normalized.includes("cancel")) {
+  await supabase
+    .from("appointments")
+    .update({
+      status: "cancelled",
+      responded_at: new Date().toISOString(), // 🔥 CLAVE
+    })
+    .eq("id", reservationId);
+
+  reply = "❌ Tu reserva fue cancelada correctamente.";
+} else {
         reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
         await sendReply(from, reply);
         return new Response("EVENT_RECEIVED", { status: 200 });
