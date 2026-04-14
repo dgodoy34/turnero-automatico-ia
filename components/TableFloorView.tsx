@@ -1,125 +1,126 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Appointment } from "@/types/Appointment";
 
 type TableType = {
   capacity: number;
   quantity: number;
 };
 
+type Appointment = {
+  assigned_table_capacity?: number;
+  tables_used?: number;
+  status: string;
+  date: string;
+  time: string;
+};
+
 type Props = {
-  appointments?: Appointment[];
   date: string;
   shift: "Día" | "Noche";
 };
 
-export default function TableFloorView({
-  appointments = [],
-  date,
-  shift,
-}: Props) {
+export default function TableInventoryView({ date, shift }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  async function loadTables() {
-    if (!date) return;
-
+  async function loadData() {
+    setLoading(true);
     try {
-      const restaurantId = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+      // Cargar mesas
+      const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
+      const tablesData = await tablesRes.json();
+      const receivedTables = tablesData.tables || tablesData || [];
 
-      const res = await fetch(
-        `/api/table-inventory?date=${date}&shift=${shift}&restaurant_id=${restaurantId}`,
-        { cache: "no-store" }
-      );
+      // Cargar appointments
+      const apptRes = await fetch("/api/appointments");
+      const apptData = await apptRes.json();
+      const receivedAppts = apptData.appointments || apptData || [];
 
-      if (!res.ok) throw new Error("Fetch falló");
-
-      const data = await res.json();
-      console.log("✅ Mesas desde API:", data.tables);
-
-      setTables(data.tables || []);
+      setTables(receivedTables);
+      setAppointments(receivedAppts);
     } catch (err) {
-      console.error("❌ Error cargando mesas:", err);
+      console.error("Error cargando inventario:", err);
       setTables([]);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadTables();
+    if (date) loadData();
   }, [date, shift]);
 
-  // 🔥 CLAVE: calcular mesas ocupadas
-function usedTables(capacity: number) {
-  let used = 0;
+  // Calcular mesas usadas (tu lógica original mejorada)
+  function usedTables(capacity: number): number {
+    let used = 0;
+    const isDay = shift === "Día";
 
-  appointments.forEach((a) => {
-    if (a.date !== date) return;
-    if (a.status !== "confirmed") return;
-    if (!a.assigned_table_capacity) return;
+    appointments.forEach((a) => {
+      if (a.date !== date) return;
+      if (a.status !== "confirmed") return;
+      if (!a.assigned_table_capacity || !a.time) return;
 
-    // 🔥 FILTRO POR TURNO
-    const hour = a.start_time?.slice(0, 2); // "20:30" → "20"
+      const hour = parseInt(a.time.slice(0, 2));
 
-    if (shift === "Día" && hour && Number(hour) >= 17) return;
-    if (shift === "Noche" && hour && Number(hour) < 17) return;
+      if (isDay && (hour < 12 || hour > 16)) return;
+      if (!isDay && (hour < 20 || hour > 23)) return;
 
-    // 🔥 LÓGICA ORIGINAL
-    if (a.assigned_table_capacity >= 6 && capacity === 6) {
-      used += a.tables_used || 1;
-    } else if (a.assigned_table_capacity === capacity) {
-      used += a.tables_used || 1;
-    }
+      if (capacity === 6 && a.assigned_table_capacity >= 6) {
+        used += a.tables_used || 1;
+      } else if (a.assigned_table_capacity === capacity) {
+        used += a.tables_used || 1;
+      }
+    });
+
+    return used;
+  }
+
+  // Orden correcto: 2 → 4 → 6+
+  const sortedTables = [...tables].sort((a, b) => {
+    if (a.capacity === 6) return 1;
+    if (b.capacity === 6) return -1;
+    return a.capacity - b.capacity;
   });
 
-  return used;
-}
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Cargando plano de mesas...</div>;
+  }
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-6 text-2xl">
-        Plano de mesas ({shift})
+      <h2 className="font-semibold text-lg mb-6">
+        Inventario de mesas ({shift})
       </h2>
 
-      {tables.length === 0 ? (
-        <div className="p-8 text-center text-amber-600 border border-amber-200 rounded-lg">
-          Sin mesas para este turno
-        </div>
+      {sortedTables.length === 0 ? (
+        <p className="text-center py-12 text-gray-500">
+          No hay mesas configuradas para este turno.
+        </p>
       ) : (
         <div className="space-y-6">
-          {tables.map((t) => {
+          {sortedTables.map((t) => {
             const used = usedTables(t.capacity);
+            const free = Math.max(0, t.quantity - used);
 
             return (
-              <div key={t.capacity}>
-                <h3 className="font-semibold mb-2">
-                  {t.capacity === 6 ? "6+" : t.capacity} personas ({t.quantity})
-                </h3>
+              <div key={t.capacity} className="border rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium text-lg">
+                    {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`}
+                  </h3>
+                  <span className="text-sm text-gray-500">Total: {t.quantity}</span>
+                </div>
 
-                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                  {Array.from({ length: t.quantity }).map((_, idx) => {
-                    const isUsed = idx < used;
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-2 rounded border text-xs text-center ${
-                          isUsed
-                            ? "bg-red-100 border-red-400"
-                            : "bg-green-100 border-green-400"
-                        }`}
-                      >
-                        <div className="font-semibold">Mesa</div>
-                        <div>{t.capacity}</div>
-                        <div
-                          className={
-                            isUsed ? "text-red-700" : "text-green-700"
-                          }
-                        >
-                          {isUsed ? "Ocupada" : "Libre"}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex gap-6 mt-3 text-sm">
+                  <span className="text-red-600 font-medium">
+                    Ocupadas: {used}
+                  </span>
+                  <span className="text-green-600 font-medium">
+                    Libres: {free}
+                  </span>
                 </div>
               </div>
             );
@@ -129,4 +130,3 @@ function usedTables(capacity: number) {
     </div>
   );
 }
-  
