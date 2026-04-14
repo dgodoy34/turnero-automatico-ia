@@ -149,18 +149,18 @@ async function addAppointment(){
  0
 );
 
-  const foundReservation = useMemo(()=>{
+  const foundReservations = useMemo(()=>{
 
-    const value = searchCode.trim().toLowerCase();
-    if(!value) return null;
+  const value = searchCode.trim().toLowerCase();
+  if(!value) return [];
 
-    return appointments.find(a =>
-      a.reservation_code?.toLowerCase() === value ||
-      a.client_dni === value ||
-      a.clients?.name?.toLowerCase().includes(value)
-    ) || null;
+  return appointments.filter(a =>
+    a.reservation_code?.toLowerCase() === value ||
+    a.client_dni === value ||
+    a.clients?.name?.toLowerCase().includes(value)
+  );
 
-  },[appointments,searchCode]);
+},[appointments,searchCode]);
 
   const upcoming = useMemo(()=>{
 
@@ -176,6 +176,7 @@ async function addAppointment(){
   return (
 
 <div className="min-h-screen bg-gray-50 text-gray-900 p-8 space-y-10">
+
 
 {/* HEADER */}
 
@@ -275,61 +276,60 @@ value={searchCode}
 onChange={(e)=>setSearchCode(e.target.value)}
 className="border p-3 rounded w-full"
 />
+{foundReservations.length > 0 && (
+  <div className="space-y-4">
+    {foundReservations.map(r => (
 
-{foundReservation && (
+      <div key={r.id} className="border rounded p-4 space-y-2">
 
-<div className="border rounded p-4 space-y-2">
+        <div className="flex justify-between">
+          <div>
+            {r.date} • {r.time}
+          </div>
 
-<div className="flex justify-between">
+          <span className={`px-2 py-1 text-xs rounded ${statusColor(r.status)}`}>
+            {r.status}
+          </span>
+        </div>
 
-<div>
-{foundReservation.date} • {foundReservation.time}
-</div>
+        <div>
+          {r.people} personas
+        </div>
 
-<span className={`px-2 py-1 text-xs rounded ${statusColor(foundReservation.status)}`}>
-{foundReservation.status}
-</span>
+        <div>
+          Cliente: {r.clients?.name}
+        </div>
 
-</div>
+        <div className="flex gap-3 pt-3">
 
-<div>
-{foundReservation.people} personas
-</div>
+          <button
+            onClick={()=>updateAppointmentStatus(r.id,"completed")}
+            className="px-3 py-1 bg-green-600 text-white rounded"
+          >
+            Check-in
+          </button>
 
-<div>
-Cliente: {foundReservation.clients?.name}
-</div>
+          <button
+            onClick={()=>updateAppointmentStatus(r.id,"no_show")}
+            className="px-3 py-1 bg-orange-500 text-white rounded"
+          >
+            No-show
+          </button>
 
-<div className="flex gap-3 pt-3">
+          <button
+            onClick={()=>deleteAppointment(r.id)}
+            className="px-3 py-1 bg-red-600 text-white rounded"
+          >
+            Eliminar
+          </button>
 
-<button
-onClick={()=>updateAppointmentStatus(foundReservation.id,"completed")}
-className="px-3 py-1 bg-green-600 text-white rounded"
->
-Check-in
-</button>
+        </div>
 
-<button
-onClick={()=>updateAppointmentStatus(foundReservation.id,"no_show")}
-className="px-3 py-1 bg-orange-500 text-white rounded"
->
-No-show
-</button>
+      </div>
 
-<button
-onClick={()=>deleteAppointment(foundReservation.id)}
-className="px-3 py-1 bg-red-600 text-white rounded"
->
-Eliminar
-</button>
-
-</div>
-
-</div>
-
+    ))}
+  </div>
 )}
-
-</div>
 
 {/* AGENDA + CREAR RESERVA */}
 
@@ -539,7 +539,5 @@ Próximas reservas
 </div>
 
 </div>
-
-  );
-
-}
+</div>
+)}
