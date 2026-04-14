@@ -400,7 +400,7 @@ for (let i = 0; i < 3; i++) {
   let nextNumber = 1;
 
   if (lastReservation?.reservation_code) {
-    const match = lastReservation.reservation_code.match(/-(\d{4})$/);
+    const match = lastReservation.reservation_code.match(/-(\d+)$/);
 
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
