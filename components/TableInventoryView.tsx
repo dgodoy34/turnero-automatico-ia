@@ -14,6 +14,7 @@ type Appointment = {
   date: string;
   time?: string;
   start_time?: string;
+  end_time?: string; // 🔥 AGREGADO
   people?: number;
 };
 
@@ -67,11 +68,14 @@ export default function TableInventoryView({ date, shift }: Props) {
       // 🔥 SOLO CONFIRMADAS
       if (a.status !== "confirmed") return;
 
-      // 🔥 HORA SEGURA
-      const time = (a.time || a.start_time || "").slice(0, 5);
-      if (!time) return;
+      // 🔥 HORA SEGURA (FIX REAL)
+      const rawTime = a.time || a.start_time || a.end_time;
+      if (!rawTime) return;
 
-      const hour = parseInt(time.slice(0, 2));
+      const hour = parseInt(rawTime.slice(0, 2));
+
+      // 🔥 DEBUG (podés sacarlo después)
+      console.log("HORA:", rawTime, "→", hour);
 
       // 🔥 FILTRO POR TURNO
       if (isDay && (hour < 12 || hour >= 17)) return;
