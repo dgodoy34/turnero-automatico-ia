@@ -99,50 +99,75 @@ export async function POST(req: Request) {
     // 1. RECORDATORIO / CONFIRMACIÓN EXTERNA
     // =====================================
     if (session.state === "AWAITING_CONFIRMATION") {
-      const reservationId = session.temp_data?.reservation_id;
-      if (!reservationId) {
-        reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
-        await setState(from, "INIT");
-        await clearTemp(from);
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      }
 
-      const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const reservationId = session.temp_data?.reservation_id;
 
-      if (normalized.includes("si")) {
-  await supabase
+  if (!reservationId) {
+    reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
+    await setState(from, "INIT");
+    await clearTemp(from);
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 🔥 TRAER RESERVA ACTUAL
+  const { data: reservation } = await supabase
     .from("appointments")
-    .update({
-      status: "confirmed",
-      responded_at: new Date().toISOString(), // 🔥 CLAVE
-    })
-    .eq("id", reservationId);
+    .select("status, responded_at")
+    .eq("id", reservationId)
+    .single();
 
-  reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
-} 
-else if (normalized.includes("cancel")) {
-  await supabase
-    .from("appointments")
-    .update({
-      status: "cancelled",
-      responded_at: new Date().toISOString(), // 🔥 CLAVE
-    })
-    .eq("id", reservationId);
+  // 🔥 ANTI LOOP
+  if (reservation?.responded_at) {
+    console.log("⛔ YA RESPONDIDA - IGNORANDO");
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-  reply = "❌ Tu reserva fue cancelada correctamente.";
-} else {
-        reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
-      }
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
-      await setState(from, "INIT");
-      await clearTemp(from);
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+  if (normalized.includes("si")) {
 
+    await supabase
+      .from("appointments")
+      .update({
+        status: "confirmed",
+        responded_at: new Date().toISOString(),
+      })
+      .eq("id", reservationId);
+
+    reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
+
+  } 
+  else if (normalized.includes("cancel")) {
+
+    await supabase
+      .from("appointments")
+      .update({
+        status: "cancelled",
+        responded_at: new Date().toISOString(),
+      })
+      .eq("id", reservationId);
+
+    reply = "❌ Tu reserva fue cancelada correctamente.";
+
+  } 
+  else {
+    reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+
+  // 🔥 LIMPIAR TODO
+  await setState(from, "INIT");
+  await clearTemp(from);
+
+  await sendReply(from, reply);
+
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
     // =====================================
     // 2. CONFIRM_RESERVATION (ROBUSTO)
     // =====================================
