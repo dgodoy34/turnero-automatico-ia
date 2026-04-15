@@ -9,6 +9,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
 
+  // 🔥 NUEVO (usuarios)
+  const [newEmail, setNewEmail] = useState("");
+  const [newPass, setNewPass] = useState("");
+
   // =========================
   // 🔹 STATS
   // =========================
@@ -20,7 +24,6 @@ export default function AdminPage() {
       if (data.success) {
         setStats(data);
       }
-
     } catch (err) {
       console.error(err);
     }
@@ -37,7 +40,6 @@ export default function AdminPage() {
       if (data.success) {
         setRestaurants(data.restaurants);
       }
-
     } catch (err) {
       console.error(err);
     }
@@ -88,6 +90,62 @@ export default function AdminPage() {
     }
   }
 
+  // =========================
+  // 🔥 CREATE USER
+  // =========================
+  async function createUser() {
+
+    if (!newEmail || !newPass) {
+      alert("Completar email y password");
+      return;
+    }
+
+    const res = await fetch("/api/admin/create-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: newEmail,
+        password: newPass,
+        role: "owner",
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Usuario creado");
+      setNewEmail("");
+      setNewPass("");
+    } else {
+      alert(data.error || "Error creando usuario");
+    }
+  }
+
+  // =========================
+  // 🔥 CHANGE PASSWORD
+  // =========================
+  async function changePassword(userId: string) {
+
+    const newPassword = prompt("Nueva contraseña");
+
+    if (!newPassword) return;
+
+    await fetch("/api/admin/change-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        new_password: newPassword,
+      }),
+    });
+
+    alert("Password actualizada");
+  }
+
   return (
 
     <div className="space-y-10">
@@ -96,7 +154,9 @@ export default function AdminPage() {
         Panel Admin
       </h1>
 
-      {/* STATS */}
+      {/* ========================= */}
+      {/* 🔥 STATS */}
+      {/* ========================= */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
@@ -125,7 +185,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* CREAR RESTAURANTE */}
+      {/* ========================= */}
+      {/* 🔥 CREAR RESTAURANTE */}
+      {/* ========================= */}
       <div className="border p-6 rounded-lg flex gap-3">
 
         <input
@@ -145,7 +207,39 @@ export default function AdminPage() {
 
       </div>
 
-      {/* LISTADO */}
+      {/* ========================= */}
+      {/* 🔥 CREAR USUARIO */}
+      {/* ========================= */}
+      <div className="border p-6 rounded-lg space-y-3">
+
+        <h2 className="font-semibold">Crear usuario</h2>
+
+        <input
+          className="border px-4 py-2 rounded w-full"
+          placeholder="Email"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+        />
+
+        <input
+          className="border px-4 py-2 rounded w-full"
+          placeholder="Password"
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+        />
+
+        <button
+          onClick={createUser}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Crear usuario
+        </button>
+
+      </div>
+
+      {/* ========================= */}
+      {/* 🔥 LISTADO */}
+      {/* ========================= */}
       <div className="space-y-4">
 
         <h2 className="text-xl font-semibold">
@@ -171,12 +265,24 @@ export default function AdminPage() {
 
             </div>
 
-            <a
-              href={`/admin/restaurants/detail?id=${r.id}`}
-              className="bg-black text-white px-3 py-2 rounded text-sm"
-            >
-              Administrar
-            </a>
+            <div className="flex gap-2">
+
+              <a
+                href={`/admin/restaurants/detail?id=${r.id}`}
+                className="bg-black text-white px-3 py-2 rounded text-sm"
+              >
+                Administrar
+              </a>
+
+              {/* 🔥 CAMBIAR PASSWORD DEMO */}
+              <button
+                onClick={() => changePassword(r.owner_user_id)}
+                className="bg-gray-600 text-white px-3 py-2 rounded text-sm"
+              >
+                Reset Pass
+              </button>
+
+            </div>
 
           </div>
 
