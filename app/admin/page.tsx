@@ -90,6 +90,8 @@ export default function AdminPage() {
     }
   }
 
+  
+
   // =========================
   // 🔥 CREATE USER
   // =========================
@@ -122,6 +124,45 @@ export default function AdminPage() {
       alert(data.error || "Error creando usuario");
     }
   }
+  // =========================
+  // 🔥 FUNCTION RESTO ACTIVO
+  // =========================
+
+  
+  async function toggleActive(id: string, current: boolean) {
+  await fetch("/api/admin/toggle-restaurant", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id,
+      active: !current,
+    }),
+  });
+
+  loadRestaurants();
+}
+
+// =========================
+// 🔥 RESTO ACTIVO (FIX)
+// =========================
+
+const currentRestaurant = restaurants?.[0];
+
+if (currentRestaurant && currentRestaurant.active === false) {
+  return (
+    <div className="p-10">
+      <h1 className="text-xl font-bold">
+        Cuenta suspendida
+      </h1>
+
+      <p>
+        Contactanos para reactivar el servicio
+      </p>
+    </div>
+  );
+}
 
   // =========================
   // 🔥 CHANGE PASSWORD
@@ -157,6 +198,8 @@ export default function AdminPage() {
       {/* ========================= */}
       {/* 🔥 STATS */}
       {/* ========================= */}
+
+      
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
@@ -240,6 +283,8 @@ export default function AdminPage() {
       {/* ========================= */}
       {/* 🔥 LISTADO */}
       {/* ========================= */}
+
+      
       <div className="space-y-4">
 
         <h2 className="text-xl font-semibold">
@@ -281,6 +326,13 @@ export default function AdminPage() {
               >
                 Reset Pass
               </button>
+
+              <button
+  onClick={() => toggleActive(r.id, r.active)}
+  className="bg-red-600 text-white px-3 py-2 rounded"
+>
+  {r.active ? "Desactivar" : "Activar"}
+</button>
 
             </div>
 

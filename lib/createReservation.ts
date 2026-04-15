@@ -2,6 +2,8 @@ import { supabase } from "./supabaseClient";
 import { generateReservationCode } from "./reservationCode";
 import { checkLicense } from "./licenses/checkLicense";
 
+
+
 function generateTimeSlots(
   start = "12:00",
   end = "23:30",
@@ -53,6 +55,24 @@ export async function createReservation({
 }: CreateReservationParams): Promise<CreateReservationResult> {
 
   try {
+
+    // =========================
+    // 🔒🔥 BLOQUEO POR PAGO (CORRECTO)
+    // =========================
+
+     
+const { data: restaurantActive } = await supabase
+  .from("restaurants")
+  .select("active")
+  .eq("business_id", business_id)
+  .single();
+
+if (!restaurantActive?.active) {
+  return {
+    success: false,
+    message: "Servicio suspendido por falta de pago",
+  };
+}
 
     // =========================
     // 🔒 VALIDAR CLIENTE (CLAVE)
