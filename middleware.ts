@@ -16,7 +16,7 @@ export function middleware(req: NextRequest) {
 
   const isPanel = req.nextUrl.pathname.startsWith("/panel");
 
-  const session = req.cookies.get("session");
+  const session = req.cookies.get("session")?.value;
 
   if (isPanel && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
