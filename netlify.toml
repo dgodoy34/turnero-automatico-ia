@@ -24,3 +24,9 @@
 # 🎂 birthdays
 [functions.birthdays]
   schedule = "30 16 * * *"
+
+  [[redirects]]
+  from = "https://*"
+  to = "https://turiago.app/:splat"
+  status = 200
+  force = true

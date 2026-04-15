@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
 
+  console.log("HOST:", req.headers.get("host"))
+
   const host = req.headers.get("host") || "";
 
   // 🔥 limpiar puerto (localhost:3000)
@@ -26,6 +28,8 @@ export function middleware(req: NextRequest) {
 
     return NextResponse.rewrite(
       new URL(`/turnero/${subdomain}`, req.url)
+
+
     );
   }
 
