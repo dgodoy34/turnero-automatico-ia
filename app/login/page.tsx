@@ -1,5 +1,5 @@
 
-  "use client";
+ "use client";
 
 import { useState } from "react";
 
@@ -11,40 +11,51 @@ export default function LoginPage() {
     const res = await fetch("/api/login", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json", // 🔥 IMPORTANTE
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ email, password }),
     });
 
-    
     const data = await res.json();
-console.log("LOGIN RESPONSE:", data);
 
     if (data.ok) {
-      window.location.href = "/panel";
+      window.location.href = "/admin";
     } else {
       alert("Login incorrecto");
     }
   };
 
   return (
-    <div>
-      <h1>Login</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
 
-      <input
-        placeholder="email"
-        onChange={(e) => setEmail(e.target.value)}
-      />
+      <div className="bg-white p-6 rounded shadow w-80 space-y-4">
 
-      <input
-        placeholder="password"
-        type="password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
+        <h1 className="text-xl font-bold text-center">
+          Login
+        </h1>
 
-      <button onClick={handleLogin}>
-        Ingresar
-      </button>
+        <input
+          className="w-full border p-2 rounded"
+          placeholder="email"
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          className="w-full border p-2 rounded"
+          type="password"
+          placeholder="password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={handleLogin}
+          className="w-full bg-black text-white p-2 rounded"
+        >
+          Ingresar
+        </button>
+
+      </div>
+
     </div>
   );
 }
