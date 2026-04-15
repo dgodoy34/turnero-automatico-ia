@@ -96,11 +96,8 @@ export default function AdminPage() {
         Panel Admin
       </h1>
 
-      {/* ========================= */}
-      {/* 🔥 DASHBOARD STATS */}
-      {/* ========================= */}
+      {/* STATS */}
       {stats && (
-
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
           <div className="bg-white border rounded-lg p-4 shadow-sm">
@@ -126,59 +123,9 @@ export default function AdminPage() {
           </div>
 
         </div>
-
       )}
 
-      {/* ========================= */}
-      {/* 🔥 PERFORMANCE RESTAURANTES */}
-      {/* ========================= */}
-      {stats?.restaurantStats && (
-
-        <div className="space-y-3">
-
-          <h2 className="text-xl font-semibold">
-            Performance por restaurante
-          </h2>
-
-          {stats.restaurantStats.map((r: any) => (
-
-            <div
-              key={r.id || r.name}
-              className="border rounded-lg p-4 bg-white shadow-sm flex justify-between"
-            >
-
-              <div>
-                <div className="font-semibold">{r.name}</div>
-
-                <div className="text-sm text-gray-500">
-                  Reservas: {r.total_reservations}
-                </div>
-
-                <div className="text-sm text-gray-500">
-                  Clientes únicos: {r.unique_clients}
-                </div>
-              </div>
-
-              <div className="text-right">
-                <div className="text-sm text-gray-400">
-                  Promedio
-                </div>
-                <div className="font-bold">
-                  {(r.total_reservations / (r.unique_clients || 1)).toFixed(1)}
-                </div>
-              </div>
-
-            </div>
-
-          ))}
-
-        </div>
-
-      )}
-
-      {/* ========================= */}
       {/* CREAR RESTAURANTE */}
-      {/* ========================= */}
       <div className="border p-6 rounded-lg flex gap-3">
 
         <input
@@ -198,9 +145,7 @@ export default function AdminPage() {
 
       </div>
 
-      {/* ========================= */}
       {/* LISTADO */}
-      {/* ========================= */}
       <div className="space-y-4">
 
         <h2 className="text-xl font-semibold">
@@ -224,26 +169,14 @@ export default function AdminPage() {
                 WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
               </div>
 
-              <div className="text-sm text-gray-500">
-                Licencia: {r.restaurant_licenses?.[0]?.status || "sin licencia"}
-              </div>
-
-              <div className="text-sm text-gray-500">
-                Plan: {r.restaurant_licenses?.[0]?.subscription_plans?.name || "-"}
-              </div>
-
             </div>
 
-            <div className="flex gap-2">
-
-              <a
-                href={`/admin/restaurants/detail?id=${r.id}`}
-                className="bg-black text-white px-3 py-2 rounded text-sm"
-              >
-                Administrar
-              </a>
-
-            </div>
+            <a
+              href={`/admin/restaurants/detail?id=${r.id}`}
+              className="bg-black text-white px-3 py-2 rounded text-sm"
+            >
+              Administrar
+            </a>
 
           </div>
 
