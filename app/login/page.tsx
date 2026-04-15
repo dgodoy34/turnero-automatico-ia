@@ -1,41 +1,66 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
-import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+"use client";
 
-export async function POST(req: Request) {
-  const { email, password } = await req.json();
+import { useState } from "react";
 
-  const { data: user } = await supabase
-    .from("restaurant_users")
-    .select("*")
-    .eq("email", email)
-    .single();
+export default function LoginPage() {
 
-  if (!user) {
-    return NextResponse.json({ success: false });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function login() {
+
+    const res = await fetch("/api/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+
+      if (data.role === "superadmin") {
+        window.location.href = "/admin";
+      } else {
+        window.location.href = "/panel";
+      }
+
+    } else {
+      alert("Login incorrecto");
+    }
   }
 
-  const valid = await bcrypt.compare(password, user.password_hash);
+  return (
 
-  if (!valid) {
-    return NextResponse.json({ success: false });
-  }
+    <div className="h-screen flex items-center justify-center">
 
-  const cookieStore = await cookies();
+      <div className="border p-6 rounded w-80 space-y-4">
 
-  cookieStore.set(
-    "session",
-    JSON.stringify({
-      user_id: user.id,
-      restaurant_id: user.restaurant_id,
-      role: user.role,
-    }),
-    { path: "/" }
+        <h1 className="text-xl font-bold">Login</h1>
+
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="border w-full p-2"
+        />
+
+        <input
+          placeholder="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="border w-full p-2"
+        />
+
+        <button
+          onClick={login}
+          className="bg-black text-white w-full p-2"
+        >
+          Entrar
+        </button>
+
+      </div>
+
+    </div>
   );
-
-  return NextResponse.json({
-    success: true,
-    role: user.role,
-  });
 }
