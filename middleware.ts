@@ -4,21 +4,20 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
 
   const host = req.headers.get("host") || "";
-
-  // 🔥 limpiar puerto (localhost:3000)
   const hostname = host.split(":")[0];
-
   const parts = hostname.split(".");
 
   // =========================
-  // 🔐 PROTEGER PANEL
+  // 🔐 PROTEGER RUTAS
   // =========================
-
-  const isPanel = req.nextUrl.pathname.startsWith("/panel");
 
   const session = req.cookies.get("session")?.value;
 
-  if (isPanel && !session) {
+  const isProtected =
+    req.nextUrl.pathname.startsWith("/admin") ||
+    req.nextUrl.pathname.startsWith("/panel");
+
+  if (isProtected && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -29,7 +28,7 @@ export function middleware(req: NextRequest) {
   const isMainDomain =
     hostname === "turiago.app" ||
     hostname === "www.turiago.app" ||
-    hostname === "admin.turiago.app" || // 🔥 IMPORTANTE
+    hostname === "admin.turiago.app" ||
     hostname.includes("localhost");
 
   if (isMainDomain) {
