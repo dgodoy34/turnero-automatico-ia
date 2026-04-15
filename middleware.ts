@@ -3,8 +3,6 @@ import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
 
-  console.log("HOST:", req.headers.get("host"))
-
   const host = req.headers.get("host") || "";
 
   // 🔥 limpiar puerto (localhost:3000)
@@ -12,26 +10,47 @@ export function middleware(req: NextRequest) {
 
   const parts = hostname.split(".");
 
-  // 👉 dominio base
+  // =========================
+  // 🔐 PROTEGER PANEL
+  // =========================
+
+  const isPanel = req.nextUrl.pathname.startsWith("/panel");
+
+  const session = req.cookies.get("session");
+
+  if (isPanel && !session) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // =========================
+  // 🌐 DOMINIO PRINCIPAL
+  // =========================
+
   const isMainDomain =
     hostname === "turiago.app" ||
     hostname === "www.turiago.app" ||
+    hostname === "admin.turiago.app" || // 🔥 IMPORTANTE
     hostname.includes("localhost");
 
   if (isMainDomain) {
     return NextResponse.next();
   }
 
-  // 👉 subdominio real
+  // =========================
+  // 🌍 SUBDOMINIOS → SLUG
+  // =========================
+
   if (parts.length >= 3) {
     const subdomain = parts[0];
 
     return NextResponse.rewrite(
       new URL(`/turnero/${subdomain}`, req.url)
-
-
     );
   }
 
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/((?!_next|favicon.ico).*)"],
+};

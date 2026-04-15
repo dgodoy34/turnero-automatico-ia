@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import bcrypt from "bcryptjs";
 
+// =========================
+// 🔥 SLUG LIMPIO PRO
+// =========================
 function generateSlug(name: string) {
   return name
     .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w\-]+/g, "");
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export async function POST(req: Request) {
-
   try {
-
     const body = await req.json();
 
     const name = body.name;
@@ -27,23 +29,27 @@ export async function POST(req: Request) {
       );
     }
 
-    let slug = generateSlug(name);
+    let baseSlug = generateSlug(name);
+    let slug = baseSlug;
+    let counter = 1;
 
-    // evitar slug duplicado
-    const { data: existing } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
+    // 🔥 evitar duplicados PRO
+    while (true) {
+      const { data: existing } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
 
-    if (existing) {
-      slug = slug + "-" + Date.now();
+      if (!existing) break;
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
     }
 
     // =========================
-    // 1️⃣ Crear RESTAURANT (TEMP = BUSINESS)
+    // 1️⃣ RESTAURANT
     // =========================
-
     const { data: restaurant, error: restaurantError } = await supabase
       .from("restaurants")
       .insert({
@@ -53,7 +59,7 @@ export async function POST(req: Request) {
         whatsapp_number: body.whatsapp_number || null,
         max_capacity: 60,
         slot_duration_minutes: 90,
-        capacity_mode: "strict"
+        capacity_mode: "strict",
       })
       .select()
       .single();
@@ -61,16 +67,15 @@ export async function POST(req: Request) {
     if (restaurantError || !restaurant) {
       return NextResponse.json({
         success: false,
-        error: restaurantError?.message || "Error creando negocio"
+        error: restaurantError?.message || "Error creando negocio",
       });
     }
 
-    const businessId = restaurant.id; // 🔥 NORMALIZACIÓN
+    const businessId = restaurant.id;
 
     // =========================
-    // 2️⃣ Crear usuario owner
+    // 2️⃣ USER OWNER
     // =========================
-
     const passwordHash = await bcrypt.hash(password, 10);
 
     const { error: userError } = await supabase
@@ -79,116 +84,59 @@ export async function POST(req: Request) {
         business_id: businessId,
         email,
         password_hash: passwordHash,
-        role: "owner"
+        role: "owner",
       });
 
     if (userError) {
-      console.error("USER ERROR → rollback recomendado");
       return NextResponse.json({
         success: false,
-        error: userError.message
+        error: userError.message,
       });
     }
 
     // =========================
-    // 3️⃣ Crear settings iniciales
+    // 3️⃣ SETTINGS
     // =========================
-
-    const { error: settingsError } = await supabase
-      .from("settings")
-      .insert({
-        business_id: businessId,
-        open_time: "12:00",
-        close_time: "23:00",
-        slot_interval: 30,
-        reservation_duration: 90,
-        buffer_time: 15
-      });
-
-    if (settingsError) {
-      console.error("SETTINGS ERROR → rollback recomendado");
-    }
+    await supabase.from("settings").insert({
+      business_id: businessId,
+      open_time: "12:00",
+      close_time: "23:00",
+      slot_interval: 30,
+      reservation_duration: 90,
+      buffer_time: 15,
+    });
 
     // =========================
-    // 4️⃣ Inventario mesas default
+    // 4️⃣ INVENTARIO
     // =========================
-
-    const { error: inventoryError } = await supabase
-      .from("restaurant_table_inventory")
-      .insert([
-        // DÍA
-        {
-          business_id: businessId,
-          capacity: 2,
-          quantity: 5,
-          start_time: "12:00",
-          end_time: "16:00"
-        },
-        {
-          business_id: businessId,
-          capacity: 4,
-          quantity: 5,
-          start_time: "12:00",
-          end_time: "16:00"
-        },
-        {
-          business_id: businessId,
-          capacity: 6,
-          quantity: 3,
-          start_time: "12:00",
-          end_time: "16:00"
-        },
-
-        // NOCHE
-        {
-          business_id: businessId,
-          capacity: 2,
-          quantity: 8,
-          start_time: "19:00",
-          end_time: "00:30"
-        },
-        {
-          business_id: businessId,
-          capacity: 4,
-          quantity: 6,
-          start_time: "19:00",
-          end_time: "00:30"
-        },
-        {
-          business_id: businessId,
-          capacity: 6,
-          quantity: 4,
-          start_time: "19:00",
-          end_time: "00:30"
-        }
-      ]);
-
-    if (inventoryError) {
-      console.error("INVENTORY ERROR → revisar");
-    }
+    await supabase.from("restaurant_table_inventory").insert([
+      { business_id: businessId, capacity: 2, quantity: 5, start_time: "12:00", end_time: "16:00" },
+      { business_id: businessId, capacity: 4, quantity: 5, start_time: "12:00", end_time: "16:00" },
+      { business_id: businessId, capacity: 6, quantity: 3, start_time: "12:00", end_time: "16:00" },
+      { business_id: businessId, capacity: 2, quantity: 8, start_time: "19:00", end_time: "00:30" },
+      { business_id: businessId, capacity: 4, quantity: 6, start_time: "19:00", end_time: "00:30" },
+      { business_id: businessId, capacity: 6, quantity: 4, start_time: "19:00", end_time: "00:30" },
+    ]);
 
     // =========================
-    // RESPUESTA
+    // RESPONSE
     // =========================
-
     return NextResponse.json({
       success: true,
       business_id: businessId,
-      restaurant // ⚠️ legacy naming (ok por ahora)
+      slug,
+      url: `/turnero/${slug}`,
     });
 
   } catch (err: any) {
-
     console.error("CREATE BUSINESS ERROR", err);
 
     return NextResponse.json(
       {
         success: false,
-        error: err.message || "Internal error"
+        error: err.message || "Internal error",
       },
       { status: 500 }
     );
-
   }
-
 }
