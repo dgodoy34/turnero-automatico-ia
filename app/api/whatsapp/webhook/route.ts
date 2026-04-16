@@ -4,7 +4,7 @@ import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 import { hotelFlow } from "@/lib/hotel/hotelFlow";
 
-console.log("📩 WEBHOOK HIT");
+
 
 function getMenu() {
   return (
@@ -66,6 +66,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  
+console.log("📩 WEBHOOK HIT");
+
   try {
     const body = await req.json();
     
