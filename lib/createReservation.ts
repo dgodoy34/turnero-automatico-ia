@@ -34,6 +34,7 @@ type CreateReservationParams = {
   date: string;
   time: string;
   people: number;
+  source?: string; // 👈 AGREGAR ESTO
 };
 
 // 🔥 TIPADO PRO (NUNCA undefined)
@@ -474,6 +475,7 @@ for (let i = 0; i < 3; i++) {
       business_id: businessId,
       assigned_table_capacity: assignedCapacity,
       tables_used: 1,
+      source: source || "manual"
     })
     .select()
     .single();

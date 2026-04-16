@@ -36,6 +36,7 @@ export default function TurneroUI() {
   const [notes,setNotes] = useState("");
 
   const [selectedDate,setSelectedDate] = useState("");
+  const [source, setSource] = useState("manual");
 
   const [settings, setSettings] = useState<any>(null);
  
@@ -84,13 +85,14 @@ async function addAppointment(){
       "Content-Type":"application/json"
     },
     method:"POST",
-    body:JSON.stringify({
-      client_dni:clientId,
-      date,
-      time,
-      people,
-      notes
-    })
+    body: JSON.stringify({
+  client_dni: clientId,
+  date,
+  time,
+  people,
+  notes,
+  source
+})
   });
 
     if(!res.ok){
@@ -355,6 +357,16 @@ Nueva reserva
 </h2>
 
 <div className="grid grid-cols-2 gap-3">
+
+  <select
+  value={source}
+  onChange={(e) => setSource(e.target.value)}
+  className="border p-3 rounded col-span-2"
+>
+  <option value="manual">Reserva manual</option>
+  <option value="walkin">Walk-in (sin reserva)</option>
+  <option value="phone">Telefónica</option>
+</select>
 
 <input
 placeholder="DNI"

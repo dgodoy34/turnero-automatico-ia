@@ -27,6 +27,8 @@ export type Appointment = {
 
   status: AppointmentStatus;
 
+  source?: string // 👈 🔥 ESTA ES LA CLAVE
+
   created_at?: string;
 
   clients?: {
