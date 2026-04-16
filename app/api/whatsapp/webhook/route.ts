@@ -6,6 +6,8 @@ import { hotelFlow } from "@/lib/hotel/hotelFlow";
 
 console.log("🔥🔥🔥 ESTE ES EL WEBHOOK NUEVO 🔥🔥🔥");
 
+const processedMessages = new Set<string>();
+
 function getMenu() {
   return (
     "¿Qué querés hacer ahora?\n\n" +
@@ -108,21 +110,49 @@ export async function POST(req: Request) {
 
     console.log("📩 BODY PARSED:", JSON.stringify(body, null, 2));
 
-    // 🔥 MÁS ROBUSTO
-    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    // 🔥 EXTRAER VALUE SEGURO
+const value = body?.entry?.[0]?.changes?.[0]?.value;
 
-    if (!value?.messages) {
-      console.log("⚠️ Evento sin mensaje (status/update)");
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+if (!value) {
+  console.log("⚠️ Sin value");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-    const message = value.messages[0];
+// 🔥 VALIDAR MENSAJES
+if (!value.messages || value.messages.length === 0) {
+  console.log("⚠️ Evento sin mensaje (status/update)");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-    if (message.type !== "text") {
-      console.log("⚠️ No es texto:", message.type);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+const message = value.messages[0];
 
+// 🔒 VALIDAR ID
+if (!message?.id) {
+  console.log("⚠️ Mensaje sin ID");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+const messageId = message.id;
+
+// 🔥 ANTI DUPLICADOS
+if (processedMessages.has(messageId)) {
+  console.log("⛔ DUPLICADO IGNORADO:", messageId);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+processedMessages.add(messageId);
+
+// 🔒 VALIDAR REMITENTE
+if (!message.from) {
+  console.log("⚠️ Sin FROM");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// 🔥 OPCIONAL (recomendado)
+if (message.type !== "text") {
+  console.log("⚠️ No es texto:", message.type);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
     const from = message.from;
     const text = message.text.body.trim();
     const lower = text.toLowerCase();
