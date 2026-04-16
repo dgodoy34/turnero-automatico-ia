@@ -56,6 +56,7 @@ export async function GET(req: Request) {
         owner_name,
         phone,
         email,
+        active,
         phone_number_id,
         whatsapp_number,
         restaurant_licenses(
