@@ -4,7 +4,7 @@ import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 import { hotelFlow } from "@/lib/hotel/hotelFlow";
 
-
+console.log("🔥🔥🔥 ESTE ES EL WEBHOOK NUEVO 🔥🔥🔥");
 
 function getMenu() {
   return (
