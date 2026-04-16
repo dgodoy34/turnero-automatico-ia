@@ -505,6 +505,7 @@ for (let i = 0; i < 3; i++) {
 // ❌ falló después de reintentos
 if (error) {
   console.error("❌ Supabase insert error final:", error);
+  console.error("❌ CREATE RESERVATION ERROR:", error);
   return {
     success: false,
     message: "Error al guardar la reserva.",
