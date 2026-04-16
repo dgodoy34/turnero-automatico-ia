@@ -74,17 +74,38 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  
-console.log("📩 WEBHOOK HIT");
+
+  console.log("📩 WEBHOOK HIT");
 
   try {
-    const body = await req.json();
-    
 
-console.log("📩 BODY:", JSON.stringify(body, null, 2));
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    // 🔥 FIX REAL: leer como texto
+    const raw = await req.text();
+    console.log("📩 RAW:", raw);
 
-    if (!message || message.type !== "text") {
+    let body;
+
+    try {
+      body = JSON.parse(raw);
+    } catch (err) {
+      console.error("❌ ERROR PARSE JSON:", err);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+
+    console.log("📩 BODY PARSED:", JSON.stringify(body, null, 2));
+
+    // 🔥 MÁS ROBUSTO
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+
+    if (!value?.messages) {
+      console.log("⚠️ Evento sin mensaje (status/update)");
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+
+    const message = value.messages[0];
+
+    if (message.type !== "text") {
+      console.log("⚠️ No es texto:", message.type);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
@@ -94,7 +115,10 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
 
     const session = await getSession(from);
 
-    console.log(`INCOMING → "${text}" | STATE: ${session.state} | TEMP:`, JSON.stringify(session.temp_data));
+    console.log(
+      `INCOMING → "${text}" | STATE: ${session.state} | TEMP:`,
+      JSON.stringify(session.temp_data)
+    );
 
     let reply = "";
 
