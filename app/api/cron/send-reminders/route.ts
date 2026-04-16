@@ -78,7 +78,7 @@ export async function GET() {
       console.log("⏱ diffMinutes:", diffMinutes);
 
       const shouldSend =
-        diffMinutes <= 120 && diffMinutes > 100;
+        diffMinutes <= 120 && diffMinutes > 0;
 
       if (!shouldSend) continue;
 
