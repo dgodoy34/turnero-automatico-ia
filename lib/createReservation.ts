@@ -167,10 +167,11 @@ const BUFFER = settings?.buffer_time || 0;
     const formattedStart =
       time.includes(":") ? time : `${time}:00`;
 
-    const startDateTime = new Date(`${date}T${formattedStart}:00`);
-    const endDateTime = new Date(
+    const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
+   const endDateTime = new Date(
   startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
 );
+
 
     const start_time = formattedStart;
     const end_time = endDateTime.toTimeString().slice(0, 5);

@@ -29,7 +29,7 @@ export async function GET() {
     const now = getNowArgentina();
     const todayStr = getTodayArgentina();
 
-    console.log("🕒 NOW:", now);
+    console.log("🕒 NOW:", now.toISOString());
     console.log("📅 TODAY:", todayStr);
 
     const { data: reservations, error } = await supabase
@@ -58,22 +58,24 @@ export async function GET() {
 
     let sent = 0;
 
-    // 🔥 ESTE ERA EL PROBLEMA: FALTABA EL LOOP
     for (const r of reservations || []) {
 
       const client = r.clients?.[0];
-
       const phone = client?.phone;
       const name = client?.name;
 
       if (!phone) continue;
 
+      console.log("➡️ RESERVA RAW:", r.date, r.time);
+
       const reservationDateTime = getArgentinaDateTime(r.date, r.time);
+
+      console.log("🕓 RESERVA DATE:", reservationDateTime.toISOString());
 
       const diffMinutes =
         (reservationDateTime.getTime() - now.getTime()) / 60000;
 
-      console.log("⏱ diffMinutes:", diffMinutes, "reserva:", r.time);
+      console.log("⏱ diffMinutes:", diffMinutes);
 
       const shouldSend =
         diffMinutes <= 120 && diffMinutes > 100;
