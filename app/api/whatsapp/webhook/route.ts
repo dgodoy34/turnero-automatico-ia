@@ -2,9 +2,8 @@
 import { getSession, setState, setDNI, setTemp, clearTemp } from "@/lib/conversation";
 import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
-import { hotelFlow } from "@/lib/hotel/hotelFlow";
 
-
+console.log("🔥 WEBHOOK turiago.app - Netlify v5 (corregido y estable)");
 
 function getMenu() {
   return (
@@ -39,11 +38,7 @@ function formatDateToISO(input: string) {
   return input;
 }
 
-let lastReply = "";
-
 async function sendReply(to: string, reply: string) {
-  lastReply = reply;
-
   const payload = {
     messaging_product: "whatsapp",
     to,
@@ -51,53 +46,93 @@ async function sendReply(to: string, reply: string) {
     text: { body: reply },
   };
 
-  console.log("📤 ENVIANDO A WHATSAPP:", JSON.stringify(payload, null, 2));
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
 
-  const res = await fetch(
-    `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  const data = await res.text(); // 👈 IMPORTANTE para debug
-
-  console.log("📥 RESPUESTA WHATSAPP:", data);
+    const data = await res.text();
+    console.log(`📤 Enviado a ${to}:`, data);
+  } catch (err) {
+    console.error("❌ Error enviando mensaje:", err);
+  }
 }
+
+// ====================== GET - Verificación Meta ======================
 export async function GET(req: Request) {
-  return new Response("Webhook activo");
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+
+  if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    console.log("✅ Webhook verificado correctamente por Meta");
+    return new Response(challenge, { status: 200 });
+  }
+
+  console.log("❌ Verificación fallida");
+  return new Response("Verification failed", { status: 403 });
 }
 
+// ====================== POST - Webhook Principal ======================
 export async function POST(req: Request) {
-  
-console.log("📩 WEBHOOK HIT");
+  console.log("📩 WEBHOOK HIT");
 
   try {
-    const body = await req.json();
-    
+    const raw = await req.text();
+    const body = JSON.parse(raw);
 
-console.log("📩 BODY:", JSON.stringify(body, null, 2));
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    const message = value?.messages?.[0];
 
     if (!message || message.type !== "text") {
+      console.log("⚠️ Evento sin mensaje de texto (status, delivery, etc.)");
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
+    const messageId = message.id;
     const from = message.from;
     const text = message.text.body.trim();
     const lower = text.toLowerCase();
 
+    // 🔥 DEDUPLICACIÓN (arreglada)
+    const { data: alreadyProcessed } = await supabase
+      .from("processed_messages")
+      .select("id")
+      .eq("message_id", messageId)
+      .maybeSingle();
+
+    if (alreadyProcessed) {
+      console.log(`⛔ Mensaje duplicado ignorado: ${messageId}`);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
+
+    // Marcar como procesado (forma correcta en Supabase)
+    const { error: insertError } = await supabase
+      .from("processed_messages")
+      .upsert(
+        { message_id: messageId, phone: from },
+        { onConflict: "message_id", ignoreDuplicates: true }
+      );
+
+    if (insertError) {
+      console.error("Error al guardar processed_message:", insertError);
+    }
+
+    console.log(`✅ Procesando mensaje ${messageId} de ${from}: "${text}"`);
+
     const session = await getSession(from);
-
-    console.log(`INCOMING → "${text}" | STATE: ${session.state} | TEMP:`, JSON.stringify(session.temp_data));
-
     let reply = "";
 
+    // Buscar restaurante
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("id")
@@ -112,83 +147,64 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
     const businessId = restaurant.id;
 
     // =====================================
-    // 1. RECORDATORIO / CONFIRMACIÓN EXTERNA
+    // 1. AWAITING_CONFIRMATION
     // =====================================
     if (session.state === "AWAITING_CONFIRMATION") {
+      const reservationId = session.temp_data?.reservation_id;
 
-  const reservationId = session.temp_data?.reservation_id;
+      if (!reservationId) {
+        reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
+        await setState(from, "INIT");
+        await clearTemp(from);
+        await sendReply(from, reply);
+        return new Response("EVENT_RECEIVED", { status: 200 });
+      }
 
-  if (!reservationId) {
-    reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
-    await setState(from, "INIT");
-    await clearTemp(from);
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
+      const { data: reservation } = await supabase
+        .from("appointments")
+        .select("status, responded_at")
+        .eq("id", reservationId)
+        .single();
 
-  // 🔥 TRAER RESERVA ACTUAL
-  const { data: reservation } = await supabase
-    .from("appointments")
-    .select("status, responded_at")
-    .eq("id", reservationId)
-    .single();
+      if (reservation?.responded_at) {
+        console.log("⛔ YA RESPONDIDA - IGNORANDO");
+        return new Response("EVENT_RECEIVED", { status: 200 });
+      }
 
-  // 🔥 ANTI LOOP
-  if (reservation?.responded_at) {
-    console.log("⛔ YA RESPONDIDA - IGNORANDO");
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
+      const normalized = text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
 
-  const normalized = text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+      if (normalized.includes("si")) {
+        await supabase
+          .from("appointments")
+          .update({ status: "confirmed", responded_at: new Date().toISOString() })
+          .eq("id", reservationId);
+        reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
+      } else if (normalized.includes("cancel")) {
+        await supabase
+          .from("appointments")
+          .update({ status: "cancelled", responded_at: new Date().toISOString() })
+          .eq("id", reservationId);
+        reply = "❌ Tu reserva fue cancelada correctamente.";
+      } else {
+        reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
+        await sendReply(from, reply);
+        return new Response("EVENT_RECEIVED", { status: 200 });
+      }
 
-  if (normalized.includes("si")) {
+      await setState(from, "INIT");
+      await clearTemp(from);
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
 
-    await supabase
-      .from("appointments")
-      .update({
-        status: "confirmed",
-        responded_at: new Date().toISOString(),
-      })
-      .eq("id", reservationId);
-
-    reply = "✅ ¡Reserva confirmada! Te esperamos 🙌";
-
-  } 
-  else if (normalized.includes("cancel")) {
-
-    await supabase
-      .from("appointments")
-      .update({
-        status: "cancelled",
-        responded_at: new Date().toISOString(),
-      })
-      .eq("id", reservationId);
-
-    reply = "❌ Tu reserva fue cancelada correctamente.";
-
-  } 
-  else {
-    reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
-
-  // 🔥 LIMPIAR TODO
-  await setState(from, "INIT");
-  await clearTemp(from);
-
-  await sendReply(from, reply);
-
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
     // =====================================
-    // 2. CONFIRM_RESERVATION (ROBUSTO)
+    // 2. CONFIRM_RESERVATION
     // =====================================
     if (session.state === "CONFIRM_RESERVATION") {
-      console.log("👉 ENTRANDO A CONFIRM_RESERVATION - TEMP:", JSON.stringify(session.temp_data));
+      console.log("👉 CONFIRM_RESERVATION - TEMP:", JSON.stringify(session.temp_data));
 
       let temp = { ...(session.temp_data || {}) };
       const isYes = lower === "si" || lower === "sí" || lower.includes("si") || lower.includes("dale") || lower.includes("ok");
@@ -199,18 +215,14 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
         return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
-      // ==================== MODIFICACIÓN ====================
+      // MODIFICACIÓN
       if (temp.is_modifying === true && temp.reservation_id) {
-        console.log("→ Camino de MODIFICACIÓN (usando reservation_id)");
-
-        // Recuperar datos si faltan
         if (!temp.date || !temp.people) {
           const { data: current } = await supabase
             .from("appointments")
             .select("date, people")
             .eq("id", temp.reservation_id)
             .single();
-
           if (current) {
             temp.date = temp.date || current.date;
             temp.people = temp.people || current.people;
@@ -239,8 +251,8 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
           })
           .eq("id", temp.reservation_id);
 
-        reply = error 
-          ? "Error al modificar la reserva 😕" 
+        reply = error
+          ? "Error al modificar la reserva 😕"
           : `✅ Reserva modificada correctamente\n\n📅 ${temp.date}\n⏰ ${formattedStart}\n👥 ${temp.people}\n\n` + getMenu();
 
         await setState(from, "POST_RESERVATION_MENU");
@@ -248,9 +260,8 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
         return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
-      // ==================== CREACIÓN NUEVA ====================
-      console.log("→ Camino de CREACIÓN NUEVA");
-
+      // CREACIÓN NUEVA
+      console.log("→ Creación nueva");
       await setTemp(from, {
         date: temp.date,
         time: temp.time,
@@ -279,53 +290,44 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
         }
       } else {
         const reservation = result.reservation;
-
         await setTemp(from, {
           reservation_code: reservation.reservation_code,
           reservation_id: reservation.id,
           is_modifying: false,
         });
-
         reply = `🎉 ¡Reserva confirmada!\n\n📅 ${reservation.date}\n⏰ ${reservation.time}\n👥 ${reservation.people}\n🔑 Código: ${reservation.reservation_code}\n\n` + getMenu();
         await setState(from, "POST_RESERVATION_MENU");
-        
       }
 
-      await sendReply(from, "🔥 TEST DIRECTO");
-return new Response("EVENT_RECEIVED", { status: 200 });
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     // =====================================
-    // 3. MENÚ POST RESERVA - PRESERVA ID
+    // 3. POST_RESERVATION_MENU
     // =====================================
     else if (session.state === "POST_RESERVATION_MENU") {
       const msg = lower;
 
       if (msg.includes("carta") || msg.includes("menu") || msg === "1") {
         reply = "📖 Acá tenés la carta:\nhttps://queresto.com/GARIFO\n\n" + getMenu();
-      } 
-      else if (msg.includes("nota") || msg.includes("agregar") || msg === "2") {
+      } else if (msg.includes("nota") || msg.includes("agregar") || msg === "2") {
         reply = "✍️ Dale, decime qué nota querés agregar.";
         await setState(from, "ADD_NOTE");
-      } 
-      else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
+      } else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
         reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
-
         await setTemp(from, {
           ...(session.temp_data || {}),
           is_modifying: true,
           reservation_id: session.temp_data?.reservation_id,
-          reservation_code: session.temp_data?.reservation_code || session.temp_data?.last_reservation_code
+          reservation_code: session.temp_data?.reservation_code || session.temp_data?.last_reservation_code,
         });
-
         await setState(from, "MODIFY_RESERVATION");
-      } 
-      else if (msg.includes("listo") || msg.includes("finalizar") || msg === "4") {
+      } else if (msg.includes("listo") || msg.includes("finalizar") || msg === "4") {
         reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
         await setState(from, "INIT");
         await clearTemp(from);
-      } 
-      else {
+      } else {
         reply = "Perdón 😅 no te entendí.\n\n" + getMenu();
       }
 
@@ -334,7 +336,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     // =====================================
-    // 4. FLUJOS DE MODIFICACIÓN
+    // 4. MODIFICACIONES
     // =====================================
     else if (session.state === "MODIFY_RESERVATION") {
       const msg = lower.trim();
@@ -374,7 +376,6 @@ return new Response("EVENT_RECEIVED", { status: 200 });
 
       await setTemp(from, { ...(session.temp_data || {}), time: newTime });
       await setState(from, "CONFIRM_RESERVATION");
-
       await sendReply(from, `Perfecto 👍 nueva hora: ${newTime}\n\n¿Confirmamos la reserva? (si/no)`);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
@@ -395,9 +396,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         .update({ date: newDate })
         .eq("id", reservationId);
 
-      reply = error 
-        ? "Error al modificar la fecha 😕" 
-        : `✅ Fecha actualizada a ${newDate}\n\n` + getMenu();
+      reply = error ? "Error al modificar la fecha 😕" : `✅ Fecha actualizada a ${newDate}\n\n` + getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
       await sendReply(from, reply);
@@ -426,9 +425,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         .update({ people })
         .eq("id", reservationId);
 
-      reply = error 
-        ? "Error al modificar 😕" 
-        : `✅ Personas actualizadas a ${people}\n\n` + getMenu();
+      reply = error ? "Error al modificar 😕" : `✅ Personas actualizadas a ${people}\n\n` + getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
       await sendReply(from, reply);
@@ -442,7 +439,6 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       const reservationCode = session.temp_data?.reservation_code || session.temp_data?.last_reservation_code;
 
       if (!reservationCode) {
-        console.error("❌ No hay reservation_code para nota. TEMP:", JSON.stringify(session.temp_data));
         reply = "No encontré la reserva. Consultala primero con el código.";
         await setState(from, "INIT");
       } else {
@@ -451,9 +447,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
           .update({ notes: text })
           .eq("reservation_code", reservationCode);
 
-        reply = error 
-          ? "Error al guardar la nota 😕" 
-          : "✅ Nota agregada correctamente.\n\n" + getMenu();
+        reply = error ? "Error al guardar la nota 😕" : "✅ Nota agregada correctamente.\n\n" + getMenu();
       }
 
       await setState(from, "POST_RESERVATION_MENU");
@@ -467,7 +461,6 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     let ai: any = null;
     try {
       ai = await interpretMessage(text);
-      console.log("AI:", ai);
     } catch (e) {
       console.error("IA error");
     }
@@ -484,7 +477,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
           time: ai.time,
           people: ai.people,
           is_modifying: false,
-          reservation_id: null
+          reservation_id: null,
         });
 
         if (!ai.date) {
@@ -616,7 +609,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         await setTemp(from, {
           reservation_code: data.reservation_code,
           reservation_id: data.id,
-          last_reservation_code: data.reservation_code
+          last_reservation_code: data.reservation_code,
         });
         reply = `📅 ${data.date}\n⏰ ${data.time}\n👥 ${data.people}\n\n` + getMenu();
         await setState(from, "POST_RESERVATION_MENU");
@@ -651,10 +644,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     return new Response("EVENT_RECEIVED", { status: 200 });
 
   } catch (err) {
-    console.error("❌ ERROR GENERAL:", err);
-    return new Response(
-      JSON.stringify({ reply: lastReply }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    console.error("❌ ERROR GENERAL EN WEBHOOK:", err);
+    return new Response("EVENT_RECEIVED", { status: 200 });
   }
 }
