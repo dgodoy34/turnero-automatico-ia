@@ -1,6 +1,7 @@
 "use client";
 
 type Appointment = {
+  id?: number
   date: string
   start_time: string
   end_time: string
@@ -17,66 +18,77 @@ type Props = {
 
 export default function DayAgenda(props: Props){
 
-const { appointments, date } = props
+  const { appointments, date } = props
 
-if(!appointments) return null
+  if(!appointments) return null
 
-const hours = [
-"18:00","18:30","19:00","19:30",
-"20:00","20:30","21:00","21:30",
-"22:00","22:30","23:00"
-]
+  const hours = [
+    "18:00","18:30","19:00","19:30",
+    "20:00","20:30","21:00","21:30",
+    "22:00","22:30","23:00"
+  ]
 
-function reservationAtHour(time:string){
+  // 🔥 CAMBIO CLAVE: ahora devuelve ARRAY
+  function reservationsAtHour(time:string){
 
-return appointments.find(a=>{
+    return appointments.filter(a => {
 
-if(a.date !== date) return false
+      if(a.date !== date) return false
 
-return a.start_time.slice(0,5) === time
+      return a.start_time.slice(0,5) === time
 
-})
+    })
 
-}
+  }
 
-return(
+  return(
 
-<div className="bg-white rounded-xl shadow p-6">
+    <div className="bg-white rounded-xl shadow p-6">
 
-<h2 className="font-semibold mb-4">
-Agenda del día
-</h2>
+      <h2 className="font-semibold mb-4">
+        Agenda del día
+      </h2>
 
-<div className="space-y-2">
+      <div className="space-y-2">
 
-{hours.map(h=>{
+        {hours.map(h=>{
 
-const r = reservationAtHour(h)
+          const reservations = reservationsAtHour(h)
 
-return(
+          return(
 
-<div key={h} className="flex justify-between border-b pb-2">
+            <div key={h} className="flex justify-between border-b pb-2">
 
-<div>{h}</div>
+              <div>{h}</div>
 
-<div>
+              <div className="text-right">
 
-{r
-? `${r.clients?.name || "Reserva"} • ${r.people} personas`
-: "Libre"}
+                {reservations.length > 0 ? (
 
-</div>
+                  <div className="space-y-1">
 
-</div>
+                    {reservations.map((r, i) => (
+                      <div key={r.id || i}>
+                        {r.clients?.name || "Reserva"} • {r.people} personas
+                      </div>
+                    ))}
 
-)
+                  </div>
 
-})}
+                ) : "Libre"}
 
-</div>
+              </div>
 
-</div>
+            </div>
 
-)
+          )
+
+        })}
+
+      </div>
+
+    </div>
+
+  )
 
 }

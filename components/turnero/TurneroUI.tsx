@@ -149,18 +149,25 @@ async function addAppointment(){
  0
 );
 
-  const foundReservations = useMemo(()=>{
+  const foundReservations = useMemo(() => {
 
   const value = searchCode.trim().toLowerCase();
-  if(!value) return [];
+  if (!value) return [];
 
   return appointments.filter(a =>
-    a.reservation_code?.toLowerCase() === value ||
-    a.client_dni === value ||
-    a.clients?.name?.toLowerCase().includes(value)
+
+    // 🔥 FILTRO POR FECHA (LA CLAVE)
+    a.date === selectedDate && (
+
+      a.reservation_code?.toLowerCase() === value ||
+      a.client_dni === value ||
+      a.clients?.name?.toLowerCase().includes(value)
+
+    )
+
   );
 
-},[appointments,searchCode]);
+}, [appointments, searchCode, selectedDate]);
 
   const upcoming = useMemo(()=>{
 
