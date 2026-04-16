@@ -309,6 +309,13 @@ className="border p-3 rounded w-full"
           Cliente: {r.clients?.name}
         </div>
 
+        <div className="text-xs text-gray-500">
+  {r.source === "walkin" && "🚶 Walk-in"}
+  {r.source === "phone" && "📞 Telefónica"}
+  {r.source === "manual" && "🧾 Manual"}
+  {r.source === "online" && "🌐 Online"}
+</div>
+
         <div className="flex gap-3 pt-3">
 
           <button

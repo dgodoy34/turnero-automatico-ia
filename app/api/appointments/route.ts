@@ -79,27 +79,27 @@ export async function POST(req: Request) {
 
   try {
 
-    const businessId = await resolveBusinessId(req);
+   const businessId = await resolveBusinessId(req);
 
-    const body = await req.json();
-    const { client_dni, date, time, people } = body;
+const body = await req.json();
 
-    if (!client_dni || !date || !time || !people) {
+const { client_dni, date, time, people, source } = body;
 
-      return NextResponse.json(
-        { success: false, error: "Faltan datos obligatorios" },
-        { status: 400 }
-      );
+if (!client_dni || !date || !time || !people) {
+  return NextResponse.json(
+    { success: false, error: "Faltan datos obligatorios" },
+    { status: 400 }
+  );
+}
 
-    }
-
-    const result = await createReservation({
-      business_id: businessId,
-      dni: client_dni,
-      date,
-      time,
-      people: Number(people),
-    });
+const result = await createReservation({
+  business_id: businessId,
+  dni: client_dni,
+  date,
+  time,
+  people,
+  source: source || "manual",
+});
 
     if (!result.success) {
 
