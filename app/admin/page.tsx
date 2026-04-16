@@ -141,27 +141,7 @@ export default function AdminPage() {
     }),
   });
 
-  loadRestaurants();
-}
-
-// =========================
-// 🔥 RESTO ACTIVO (FIX)
-// =========================
-
-const currentRestaurant = restaurants?.[0];
-
-if (currentRestaurant && currentRestaurant.active === false) {
-  return (
-    <div className="p-10">
-      <h1 className="text-xl font-bold">
-        Cuenta suspendida
-      </h1>
-
-      <p>
-        Contactanos para reactivar el servicio
-      </p>
-    </div>
-  );
+  await loadRestaurants(); // 🔥 IMPORTANTE
 }
 
   // =========================
