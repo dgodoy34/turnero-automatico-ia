@@ -5,6 +5,7 @@ import { interpretMessage } from "@/lib/ai";
 import { hotelFlow } from "@/lib/hotel/hotelFlow";
 
 console.log("📩 WEBHOOK HIT");
+
 function getMenu() {
   return (
     "¿Qué querés hacer ahora?\n\n" +
@@ -67,6 +68,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    
+
+console.log("📩 BODY:", JSON.stringify(body, null, 2));
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message || message.type !== "text") {
