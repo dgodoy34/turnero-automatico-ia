@@ -288,10 +288,11 @@ console.log("📩 BODY:", JSON.stringify(body, null, 2));
 
         reply = `🎉 ¡Reserva confirmada!\n\n📅 ${reservation.date}\n⏰ ${reservation.time}\n👥 ${reservation.people}\n🔑 Código: ${reservation.reservation_code}\n\n` + getMenu();
         await setState(from, "POST_RESERVATION_MENU");
+        
       }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+      await sendReply(from, "🔥 TEST DIRECTO");
+return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     // =====================================
