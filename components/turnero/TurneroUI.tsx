@@ -36,7 +36,7 @@ export default function TurneroUI() {
   const [notes,setNotes] = useState("");
 
   const [selectedDate,setSelectedDate] = useState("");
-  const [source, setSource] = useState("manual");
+ 
   const [selectedSource, setSelectedSource] = useState("manual");
 
   const [settings, setSettings] = useState<any>(null);
@@ -96,10 +96,15 @@ async function addAppointment(){
 })
   });
 
-    if(!res.ok){
-      alert("Error creando reserva");
-      return;
-    }
+    const data = await res.json();
+
+if (!res.ok) {
+  console.error("❌ ERROR BACKEND:", data);
+
+  alert(data.error || "Error creando reserva");
+
+  return;
+}
 
     setClientId("");
     setTime("");

@@ -168,10 +168,11 @@ const BUFFER = settings?.buffer_time || 0;
     // =========================
     // 3️⃣ Normalizar hora
     // =========================
-    const formattedStart =
-      time.includes(":") ? time : `${time}:00`;
+    // 🔥 normalizar SIEMPRE a HH:mm
+const formattedStart = time.slice(0, 5);
 
-    const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
+// 🔥 crear fecha correctamente
+const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
    const endDateTime = new Date(
   startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
 );
