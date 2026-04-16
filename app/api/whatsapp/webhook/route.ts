@@ -70,7 +70,21 @@ async function sendReply(to: string, reply: string) {
   console.log("📥 RESPUESTA WHATSAPP:", data);
 }
 export async function GET(req: Request) {
-  return new Response("Webhook activo");
+  const url = new URL(req.url);
+
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+
+  if (
+    mode === "subscribe" &&
+    token === process.env.WHATSAPP_VERIFY_TOKEN
+  ) {
+    console.log("✅ WEBHOOK VERIFICADO");
+    return new Response(challenge, { status: 200 });
+  }
+
+  return new Response("Forbidden", { status: 403 });
 }
 
 export async function POST(req: Request) {
@@ -684,5 +698,3 @@ export async function POST(req: Request) {
 
 
 
-
-//https://turiact.netlify.app/
