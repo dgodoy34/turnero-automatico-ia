@@ -129,19 +129,26 @@ export default function AdminPage() {
   // =========================
 
   
-  async function toggleActive(id: string, current: boolean) {
-  await fetch("/api/admin/toggle-restaurant", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      id,
-      active: !current,
-    }),
-  });
+ async function toggleActive(id: string, current: boolean) {
+  try {
+    await fetch("/api/admin/toggle-restaurant", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        active: !current,
+      }),
+    });
 
-  await loadRestaurants(); // 🔥 IMPORTANTE
+    // 🔥 solución simple que funciona siempre
+    window.location.reload();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error al cambiar estado");
+  }
 }
 
   // =========================
