@@ -43,7 +43,17 @@ let lastReply = "";
 
 async function sendReply(to: string, reply: string) {
   lastReply = reply;
-  await fetch(
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body: reply },
+  };
+
+  console.log("📤 ENVIANDO A WHATSAPP:", JSON.stringify(payload, null, 2));
+
+  const res = await fetch(
     `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
     {
       method: "POST",
@@ -51,16 +61,14 @@ async function sendReply(to: string, reply: string) {
         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: reply },
-      }),
+      body: JSON.stringify(payload),
     }
   );
-}
 
+  const data = await res.text(); // 👈 IMPORTANTE para debug
+
+  console.log("📥 RESPUESTA WHATSAPP:", data);
+}
 export async function GET(req: Request) {
   return new Response("Webhook activo");
 }
