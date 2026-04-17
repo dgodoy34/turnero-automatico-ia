@@ -8,6 +8,7 @@ import type { Appointment, AppointmentStatus } from "@/types/Appointment";
 import { getDateISOInTimezone } from "@/lib/time";
 import RestaurantClock from "@/components/RestaurantClock";
 import { useRestaurant } from "@/lib/useRestaurant";
+import Modal from "@/components/ui/Modal";
 
 function statusColor(status: AppointmentStatus) {
   switch (status) {
@@ -24,6 +25,8 @@ function statusColor(status: AppointmentStatus) {
 
 export default function TurneroUI() {
 
+  
+
   const [appointments,setAppointments] = useState<Appointment[]>([]);
   const [loading,setLoading] = useState(true);
 
@@ -38,10 +41,15 @@ export default function TurneroUI() {
   const [selectedDate,setSelectedDate] = useState("");
  
   const [selectedSource, setSelectedSource] = useState("manual");
+  const [showClientModal, setShowClientModal] = useState(false);
+
+const [clientName, setClientName] = useState("");
+const [clientPhone, setClientPhone] = useState("");
 
   const [settings, setSettings] = useState<any>(null);
  
 const restaurantId = useRestaurant();
+
 
   
   async function loadAll(){
@@ -80,40 +88,48 @@ const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
 async function addAppointment(){
 
-  const res = await fetch("/api/appointments", {
-    headers: {
-      "x-restaurant-id": restaurantId!,
-      "Content-Type":"application/json"
-    },
-    method:"POST",
-   body: JSON.stringify({
-  client_dni: clientId,
-  date,
-  time,
-  people: Number(people), // 🔥 importante
-  notes,
-  source: selectedSource || "manual" // 🔥 clave
-})
-  });
+  // 🔥 si NO es walk-in → abrir modal
+  if (selectedSource !== "walkin") {
+    setShowClientModal(true);
+    return;
+  }
 
-    const data = await res.json();
-
-if (!res.ok) {
-  console.error("❌ ERROR BACKEND:", data);
-
-  alert(data.error || "Error creando reserva");
-
-  return;
+  await createReservationRequest();
 }
 
-    setClientId("");
-    setTime("");
-    setPeople(2);
-    setNotes("");
+async function createReservationRequest(){
 
-    await loadAll();
+  const res = await fetch("/api/appointments", {
+    method: "POST",
+    headers: {
+      "Content-Type":"application/json",
+      "x-restaurant-id": restaurantId!
+    },
+    body: JSON.stringify({
+      client_dni: clientId || "0",
+      date,
+      time,
+      people,
+      notes,
+      source: selectedSource,
+      client_name: clientName,
+      client_phone: clientPhone
+    })
+  });
 
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error || "Error creando reserva");
+    return;
   }
+
+  setShowClientModal(false);
+  setClientName("");
+  setClientPhone("");
+
+  await loadAll();
+}
 
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
 
@@ -361,6 +377,8 @@ className="border p-3 rounded w-full"
 
 
 
+
+
 {/* NUEVA RESERVA */}
 
 <div className="bg-white rounded-xl shadow p-6 space-y-4">
@@ -373,12 +391,12 @@ Nueva reserva
 
   <select
   value={selectedSource}
-  onChange={(e) => setSelectedSource(e.target.value)}
-  className="border p-3 rounded w-full"
+  onChange={(e)=>setSelectedSource(e.target.value)}
+  className="border p-3 rounded"
 >
   <option value="manual">📋 Manual</option>
-  <option value="walkin">🚶 Walk-in</option>
   <option value="phone">📞 Telefónica</option>
+  <option value="walkin">🚶 Walk-in</option>
   <option value="online">🌐 Online</option>
 </select>
 
@@ -569,8 +587,44 @@ Próximas reservas
 
 </div>
 
+
+
 </div>
 
 </div>
+
+{/* MODAL CLIENTE */}
+
+<Modal open={showClientModal} onClose={()=>setShowClientModal(false)}>
+
+  <h2 className="font-semibold text-lg mb-4">
+    Datos del cliente
+  </h2>
+
+  <input
+    placeholder="Nombre"
+    value={clientName}
+    onChange={(e)=>setClientName(e.target.value)}
+    className="border p-2 rounded w-full mb-3"
+  />
+
+  <input
+    placeholder="Teléfono"
+    value={clientPhone}
+    onChange={(e)=>setClientPhone(e.target.value)}
+    className="border p-2 rounded w-full mb-4"
+  />
+
+  <button
+    onClick={createReservationRequest}
+    className="w-full bg-indigo-600 text-white py-2 rounded"
+  >
+    Confirmar reserva
+  </button>
+
+</Modal>
 </div>
+
+
 )}
+

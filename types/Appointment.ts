@@ -31,6 +31,9 @@ export type Appointment = {
 
   created_at?: string;
 
+  client_name?: string;
+  client_phone?: string;
+
   clients?: {
     name?: string;
     phone?: string;

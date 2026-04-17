@@ -37,6 +37,8 @@ type CreateReservationParams = {
   time: string;
   people: number;
   source?: string; // 👈 AGREGAR ESTO
+  client_name?: string;
+  client_phone?: string;
 };
 
 // 🔥 TIPADO PRO (NUNCA undefined)
@@ -56,6 +58,8 @@ export async function createReservation({
   time,
   people,
   source, // 👈 AGREGAR ESTO
+  client_name,
+  client_phone,
 }: CreateReservationParams): Promise<CreateReservationResult> {
 
   try {
@@ -79,28 +83,48 @@ if (!restaurantActive?.active) {
 }
 
     // =========================
-    // 🔒 VALIDAR CLIENTE (CLAVE)
-    // =========================
-    const { data: client } = await supabase
-      .from("clients")
-      .select("dni, phone, name")
-      .eq("dni", dni)
-      .maybeSingle();
+// 🔒 VALIDAR CLIENTE (CLAVE)
+// =========================
 
-    if (!client) {
-      return {
-        success: false,
-        message: "El cliente no está registrado.",
-      };
-    }
+let { data: client } = await supabase
+  .from("clients")
+  .select("dni, phone, name")
+  .eq("dni", dni)
+  .maybeSingle();
 
-    if (!client.phone) {
+// 🔥 SI NO EXISTE Y NO ES WALK-IN → CREAR
+if (!client && source !== "walkin") {
+
+  console.log("👤 Cliente no existe, creando...");
+
+  const { data: newClient, error } = await supabase
+    .from("clients")
+    .insert({
+      dni: dni,
+      name: client_name || "Cliente",
+      phone: client_phone || "0000000000",
+      business_id: business_id,
+    })
+    .select()
+    .single();
+
+  if (error || !newClient) {
+    return {
+      success: false,
+      message: "Error creando cliente",
+    };
+  }
+
+  client = newClient;
+}
+
+// 🔥 VALIDAR TELÉFONO SOLO SI NO ES WALK-IN
+if (source !== "walkin" && !client?.phone) {
   return {
     success: false,
     message: "El cliente no tiene teléfono registrado.",
   };
 }
-
     // =========================
     // 1️⃣ Obtener restaurante
     // =========================
@@ -466,8 +490,8 @@ for (let i = 0; i < 3; i++) {
     .from("appointments")
     .insert({
       client_dni: dni,
-      phone: client.phone,
-      name: client.name,
+      phone: client_phone,
+      name: client_name,
       date,
       time: formattedStart,
       start_time,
