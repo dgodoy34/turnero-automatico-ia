@@ -82,33 +82,32 @@ if (!restaurantActive?.active) {
   };
 }
 
-    // =========================
-// 🔒 VALIDAR CLIENTE (CLAVE)
+   // =========================
+// 🔒 ASEGURAR CLIENTE (FIX REAL)
 // =========================
 
 let { data: client } = await supabase
   .from("clients")
-  .select("dni, phone, name")
+  .select("*")
   .eq("dni", dni)
   .maybeSingle();
 
-// 🔥 SI NO EXISTE Y NO ES WALK-IN → CREAR
-if (!client && source !== "walkin") {
+// 👉 SI NO EXISTE → CREAR
+if (!client) {
 
-  console.log("👤 Cliente no existe, creando...");
-
-  const { data: newClient, error } = await supabase
+  const { data: newClient, error: clientError } = await supabase
     .from("clients")
     .insert({
       dni: dni,
       name: client_name || "Cliente",
       phone: client_phone || "0000000000",
-      business_id: business_id,
+      business_id: business_id
     })
     .select()
     .single();
 
-  if (error || !newClient) {
+  if (clientError || !newClient) {
+    console.error("❌ ERROR creando cliente:", clientError);
     return {
       success: false,
       message: "Error creando cliente",
@@ -116,14 +115,6 @@ if (!client && source !== "walkin") {
   }
 
   client = newClient;
-}
-
-// 🔥 VALIDAR TELÉFONO SOLO SI NO ES WALK-IN
-if (source !== "walkin" && !client?.phone) {
-  return {
-    success: false,
-    message: "El cliente no tiene teléfono registrado.",
-  };
 }
     // =========================
     // 1️⃣ Obtener restaurante
