@@ -119,10 +119,10 @@ async function createReservationRequest(){
 
   const data = await res.json();
 
-  if (!res.ok) {
-    alert(data.error || "Error creando reserva");
-    return;
-  }
+if (!res.ok || !data.success) {
+  alert(data.error || data.message || "Error creando reserva");
+  return;
+}
 
   setShowClientModal(false);
   setClientName("");
