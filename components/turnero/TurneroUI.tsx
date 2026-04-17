@@ -45,6 +45,9 @@ export default function TurneroUI() {
 
 const [clientName, setClientName] = useState("");
 const [clientPhone, setClientPhone] = useState("");
+const [clientEmail, setClientEmail] = useState("")
+const [clientBirthday, setClientBirthday] = useState("")
+const [successMessage, setSuccessMessage] = useState("")
 
   const [settings, setSettings] = useState<any>(null);
  
@@ -86,51 +89,62 @@ const restaurantId = useRestaurant();
 
 const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
-async function addAppointment(){
+async function addAppointment() {
+  try {
 
-  // 🔥 si NO es walk-in → abrir modal
-  if (selectedSource !== "walkin") {
-    setShowClientModal(true);
-    return;
+    // 👉 SI NO ES WALK-IN → abrir modal primero
+    if (selectedSource !== "walkin" && !clientName) {
+      setShowClientModal(true);
+      return;
+    }
+
+    const res = await fetch("/api/appointments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_dni: clientId,
+        date,
+        time,
+        people,
+        notes,
+        source: selectedSource,
+
+        // 🔥 datos extra del modal
+        client_name: clientName,
+        client_phone: clientPhone,
+        client_email: clientEmail,
+        client_birthday: clientBirthday,
+      }),
+    });
+
+    const data = await res.json();
+
+    // ❌ ERROR REAL
+    if (!res.ok || !data.success) {
+      alert(data.error || data.message || "Error creando reserva");
+      return;
+    }
+
+    // ✅ ÉXITO
+    setSuccessMessage("Reserva creada correctamente");
+
+    // limpiar form
+    setClientId("");
+    setClientName("");
+    setClientPhone("");
+    setClientEmail("");
+    setClientBirthday("");
+    setNotes("");
+
+    await loadAll();
+
+  } catch (err) {
+    console.error("ERROR FRONT:", err);
+    alert("Error inesperado");
   }
-
-  await createReservationRequest();
 }
-
-async function createReservationRequest(){
-
-  const res = await fetch("/api/appointments", {
-    method: "POST",
-    headers: {
-      "Content-Type":"application/json",
-      "x-restaurant-id": restaurantId!
-    },
-    body: JSON.stringify({
-      client_dni: clientId || "0",
-      date,
-      time,
-      people,
-      notes,
-      source: selectedSource,
-      client_name: clientName,
-      client_phone: clientPhone
-    })
-  });
-
-  const data = await res.json();
-
-if (!res.ok || !data.success) {
-  alert(data.error || data.message || "Error creando reserva");
-  return;
-}
-
-  setShowClientModal(false);
-  setClientName("");
-  setClientPhone("");
-
-  await loadAll();
-}
-
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
 
     await fetch("/api/appointments", {
@@ -145,6 +159,11 @@ if (!res.ok || !data.success) {
     await loadAll();
 
   }
+
+  async function createReservationRequest() {
+  setShowClientModal(false);
+  await addAppointment();
+}
 
   async function deleteAppointment(id:number){
 
@@ -597,24 +616,43 @@ Próximas reservas
 
 <Modal open={showClientModal} onClose={()=>setShowClientModal(false)}>
 
+  {successMessage && (
+  <div className="bg-green-100 text-green-700 p-3 rounded mb-4">
+    {successMessage}
+  </div>
+)}
+
   <h2 className="font-semibold text-lg mb-4">
     Datos del cliente
   </h2>
 
   <input
-    placeholder="Nombre"
-    value={clientName}
-    onChange={(e)=>setClientName(e.target.value)}
-    className="border p-2 rounded w-full mb-3"
-  />
+  placeholder="Nombre"
+  value={clientName}
+  onChange={(e)=>setClientName(e.target.value)}
+  className="border p-2 rounded w-full mb-3"
+/>
 
-  <input
-    placeholder="Teléfono"
-    value={clientPhone}
-    onChange={(e)=>setClientPhone(e.target.value)}
-    className="border p-2 rounded w-full mb-4"
-  />
+<input
+  placeholder="Teléfono"
+  value={clientPhone}
+  onChange={(e)=>setClientPhone(e.target.value)}
+  className="border p-2 rounded w-full mb-3"
+/>
 
+<input
+  placeholder="Email"
+  value={clientEmail}
+  onChange={(e)=>setClientEmail(e.target.value)}
+  className="border p-2 rounded w-full mb-3"
+/>
+
+<input
+  type="date"
+  value={clientBirthday}
+  onChange={(e)=>setClientBirthday(e.target.value)}
+  className="border p-2 rounded w-full mb-4"
+/>
   <button
     onClick={createReservationRequest}
     className="w-full bg-indigo-600 text-white py-2 rounded"
