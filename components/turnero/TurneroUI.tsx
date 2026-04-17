@@ -35,6 +35,7 @@ export default function TurneroUI() {
   const [clientId,setClientId] = useState("");
   const [date,setDate] = useState("");
   const [time,setTime] = useState("");
+  const [shift, setShift] = useState<"day" | "night">("night")
   const [people,setPeople] = useState(2);
   const [notes,setNotes] = useState("");
 
@@ -50,6 +51,7 @@ const [clientBirthday, setClientBirthday] = useState("")
 const [successMessage, setSuccessMessage] = useState("")
 
   const [settings, setSettings] = useState<any>(null);
+  const [schedules, setSchedules] = useState<any[]>([])
  
 const restaurantId = useRestaurant();
 
@@ -71,6 +73,15 @@ const restaurantId = useRestaurant();
 
   }
 
+async function loadSchedules(){
+
+  const res = await fetch(`/api/schedules?date=${selectedDate}`)
+  const data = await res.json()
+
+  setSchedules(data)
+
+}
+
   useEffect(() => {
   if (restaurantId) {
     loadAll();
@@ -85,7 +96,11 @@ const restaurantId = useRestaurant();
   }
 }, [settings]);
 
-
+useEffect(() => {
+  if (selectedDate) {
+    loadSchedules()
+  }
+}, [selectedDate])
 
 const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
 
@@ -388,12 +403,40 @@ className="border p-3 rounded w-full"
   </div>
 )}
 
+{/*switch UI según turno*/}
+
+
+<div className="flex gap-2 mb-4">
+
+  <button
+    onClick={()=>setShift("day")}
+    className={`px-4 py-2 rounded ${shift==="day" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+  >
+    Día
+  </button>
+
+  <button
+    onClick={()=>setShift("night")}
+    className={`px-4 py-2 rounded ${shift==="night" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+  >
+    Noche
+  </button>
+
+</div>
+
+
+
 {/* AGENDA + CREAR RESERVA */}
 
 <div className="grid grid-cols-2 gap-6">
 
-<DayAgenda appointments={appointments} date={selectedDate} />
-
+<DayAgenda
+  appointments={appointments}
+  date={selectedDate}
+  schedules={schedules}
+  shift={shift}
+  interval={15} // 🔥 podés cambiar a 10, 12, etc
+/>
 
 
 

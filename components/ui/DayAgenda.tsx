@@ -4,41 +4,80 @@ type Appointment = {
   id?: number
   date: string
   start_time: string
-  end_time: string
   people: number
   clients?: {
     name?: string
   }
 }
 
+type Schedule = {
+  start_time: string
+  end_time: string
+}
+
 type Props = {
   appointments: Appointment[]
   date: string
+  schedules: Schedule[]
+  shift: "day" | "night"
+  interval?: number
 }
 
-export default function DayAgenda(props: Props){
+// 🔥 genera slots dinámicos
+function generateSlots(start: string, end: string, interval: number) {
+  const slots: string[] = []
 
-  const { appointments, date } = props
+  let [h, m] = start.split(":").map(Number)
+  const [endH, endM] = end.split(":").map(Number)
+
+  while (h < endH || (h === endH && m <= endM)) {
+    const hh = String(h).padStart(2, "0")
+    const mm = String(m).padStart(2, "0")
+    slots.push(`${hh}:${mm}`)
+
+    m += interval
+    if (m >= 60) {
+      h++
+      m -= 60
+    }
+  }
+
+  return slots
+}
+
+export default function DayAgenda({
+  appointments,
+  date,
+  schedules,
+  shift,
+  interval = 30
+}: Props){
 
   if(!appointments) return null
 
-  const hours = [
-    "18:00","18:30","19:00","19:30",
-    "20:00","20:30","21:00","21:30",
-    "22:00","22:30","23:00"
-  ]
+  // 🔥 filtramos turnos según shift
+  const filteredSchedules = schedules.filter(s => {
+    const hour = Number(s.start_time.slice(0,2))
+    return shift === "day" ? hour < 18 : hour >= 18
+  })
 
-  // 🔥 CAMBIO CLAVE: ahora devuelve ARRAY
+  // 🔥 generamos horarios reales
+  let hours: string[] = []
+
+  filteredSchedules.forEach(s => {
+    const slots = generateSlots(
+      s.start_time.slice(0,5),
+      s.end_time.slice(0,5),
+      interval
+    )
+    hours = [...hours, ...slots]
+  })
+
   function reservationsAtHour(time:string){
-
     return appointments.filter(a => {
-
       if(a.date !== date) return false
-
       return a.start_time.slice(0,5) === time
-
     })
-
   }
 
   return(
@@ -46,7 +85,7 @@ export default function DayAgenda(props: Props){
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
-        Agenda del día
+        Agenda del día ({shift === "day" ? "Día" : "Noche"})
       </h2>
 
       <div className="space-y-2">
@@ -69,7 +108,7 @@ export default function DayAgenda(props: Props){
 
                     {reservations.map((r, i) => (
                       <div key={r.id || i}>
-                        {r.clients?.name || "Reserva"} • {r.people} personas
+                        {r.clients?.name || "Reserva"} • {r.people}
                       </div>
                     ))}
 
