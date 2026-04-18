@@ -13,7 +13,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // 🔥 USAR HEADER (MISMO QUE APPOINTMENTS)
     const business_id = req.headers.get("x-restaurant-id");
 
     if (!business_id) {
@@ -26,18 +25,19 @@ export async function GET(req: Request) {
     console.log("👉 DATE:", date);
     console.log("👉 BUSINESS ID:", business_id);
 
-    // 🔥 1. OVERRIDE
-    const { data: override, error: overrideError } = await supabase
+    // 🔥 RANGO DE FECHA (FIX REAL)
+    const startDate = `${date}T00:00:00`;
+    const endDate = `${date}T23:59:59`;
+
+    // 🔥 OVERRIDE
+    const { data: override } = await supabase
       .from("restaurant_daily_table_override")
       .select("*")
       .eq("business_id", business_id)
-      .eq("date", date);
-
-    if (overrideError) throw overrideError;
+      .gte("date", startDate)
+      .lte("date", endDate);
 
     if (override && override.length > 0) {
-      console.log("✅ USING OVERRIDE");
-
       return NextResponse.json({
         success: true,
         source: "override",
@@ -45,26 +45,23 @@ export async function GET(req: Request) {
       });
     }
 
-    // 🔥 2. SCHEDULE BASE (CORRECTO)
-    const { data: schedule, error: scheduleError } = await supabase
+    // 🔥 SCHEDULE BASE (FIX)
+    const { data: schedule, error } = await supabase
       .from("restaurant_table_schedule")
       .select("*")
       .eq("business_id", business_id)
-      .eq("date", date);
+      .gte("date", startDate)
+      .lte("date", endDate);
 
-    if (scheduleError) throw scheduleError;
+    if (error) throw error;
 
     console.log("📦 SCHEDULE FOUND:", schedule);
 
-    // 🔥 3. INVENTORY (CAPACIDAD)
-    const { data: tables, error: tablesError } = await supabase
+    // 🔥 TABLES
+    const { data: tables } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
       .eq("business_id", business_id);
-
-    if (tablesError) throw tablesError;
-
-    console.log("📦 TABLES:", tables);
 
     return NextResponse.json({
       success: true,
@@ -74,7 +71,7 @@ export async function GET(req: Request) {
     });
 
   } catch (err: any) {
-    console.error("❌ API ERROR:", err);
+    console.error("❌ ERROR:", err);
 
     return NextResponse.json(
       { success: false, error: err.message },
