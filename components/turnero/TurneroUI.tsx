@@ -74,18 +74,22 @@ const restaurantId = useRestaurant();
 
   }
 
-async function loadSchedules(){
+async function loadSchedules() {
+  if (!restaurantId) return;
 
-  const res = await fetch(`/api/table-schedule?date=${selectedDate}`)
-const json = await res.json()
+  const res = await fetch(`/api/table-schedule?date=${selectedDate}`, {
+    headers: {
+      "x-restaurant-id": restaurantId
+    }
+  });
 
-console.log("SCHEDULES API:", json) // debug
+  const json = await res.json();
 
-setSchedules(json.schedule || [])
-setTables(json.tables || [])
+  console.log("SCHEDULES API:", json);
 
+  setSchedules(json.schedule || []);
+  setTables(json.tables || []);
 }
-
   useEffect(() => {
   if (restaurantId) {
     loadAll();
