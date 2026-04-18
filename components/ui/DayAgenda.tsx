@@ -3,7 +3,8 @@
 type Appointment = {
   id?: number;
   date: string;
-  start_time: string;
+  start_time?: string;
+  time?: string;
   people: number;
   clients?: {
     name?: string;
@@ -29,9 +30,7 @@ function generateSlots(start: string, end: string, interval: number) {
   const [endH, endM] = end.split(":").map(Number);
 
   while (h < endH || (h === endH && m <= endM)) {
-    slots.push(
-      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-    );
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 
     m += interval;
     if (m >= 60) {
@@ -43,18 +42,19 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots;
 }
 
+function normalizeTime(t?: string) {
+  return t?.slice(0, 5);
+}
+
 export default function DayAgenda({
   appointments,
   date,
   schedules,
   interval = 30,
 }: Props) {
+
   if (!schedules?.length) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6">
-        No hay horarios configurados
-      </div>
-    );
+    return <div>No hay horarios configurados</div>;
   }
 
   let hours: string[] = [];
@@ -73,39 +73,35 @@ export default function DayAgenda({
   function reservationsAtHour(time: string) {
     return appointments.filter((a) => {
       if (a.date !== date) return false;
-      return a.start_time.slice(0, 5) === time;
+
+      const t = normalizeTime(a.start_time || a.time);
+      return t === time;
     });
   }
 
   return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4">
-        Agenda del día
-      </h2>
+    <div className="space-y-2">
+      {hours.map((h) => {
+        const reservations = reservationsAtHour(h);
 
-      <div className="space-y-2">
-        {hours.map((h) => {
-          const reservations = reservationsAtHour(h);
+        return (
+          <div key={h} className="flex justify-between border-b pb-2">
+            <div>{h}</div>
 
-          return (
-            <div key={h} className="flex justify-between border-b pb-2">
-              <div>{h}</div>
-
-              <div className="text-right">
-                {reservations.length > 0 ? (
-                  reservations.map((r, i) => (
-                    <div key={r.id || i}>
-                      {r.clients?.name || "Reserva"} • {r.people}
-                    </div>
-                  ))
-                ) : (
-                  "Libre"
-                )}
-              </div>
+            <div className="text-right">
+              {reservations.length > 0 ? (
+                reservations.map((r, i) => (
+                  <div key={r.id || i}>
+                    {r.clients?.name || "Reserva"} • {r.people}
+                  </div>
+                ))
+              ) : (
+                "Libre"
+              )}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

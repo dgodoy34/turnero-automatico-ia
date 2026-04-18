@@ -594,7 +594,10 @@ Ocupación por horario
   appointments={appointments}
   date={selectedDate}
   schedules={schedules}
-  tables={[]} // 👈 SAFE FIX
+  tables={[
+    { capacity: 4, quantity: 5 },
+    { capacity: 2, quantity: 5 }
+  ]}
   interval={15}
 />
 </div>

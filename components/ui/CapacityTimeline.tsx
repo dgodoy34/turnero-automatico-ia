@@ -3,7 +3,8 @@
 type Appointment = {
   id: number;
   date: string;
-  start_time: string;
+  start_time?: string;
+  time?: string;
   people: number;
 };
 
@@ -21,7 +22,7 @@ type Props = {
   appointments: Appointment[];
   date: string;
   schedules: Schedule[];
-  tables: Table[]; // 👈 IMPORTANTE
+  tables: Table[];
   interval?: number;
 };
 
@@ -32,9 +33,7 @@ function generateSlots(start: string, end: string, interval: number) {
   const [endH, endM] = end.split(":").map(Number);
 
   while (h < endH || (h === endH && m <= endM)) {
-    slots.push(
-      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-    );
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 
     m += interval;
     if (m >= 60) {
@@ -46,6 +45,10 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots;
 }
 
+function normalizeTime(t?: string) {
+  return t?.slice(0, 5);
+}
+
 export default function CapacityTimeline({
   appointments,
   date,
@@ -53,15 +56,12 @@ export default function CapacityTimeline({
   tables,
   interval = 30,
 }: Props) {
+
   if (!schedules?.length) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6">
-        No hay horarios configurados
-      </div>
-    );
+    return <div>No hay horarios configurados</div>;
   }
 
-  // 🔥 generar horas desde schedule
+  // 🔥 generar slots
   let hours: string[] = [];
 
   schedules.forEach((s) => {
@@ -75,56 +75,50 @@ export default function CapacityTimeline({
 
   hours = [...new Set(hours)].sort();
 
-  // 🔥 capacidad real desde inventory
+  // 🔥 capacidad total
   const maxCapacity = tables.reduce(
-    (acc, t) => acc + t.capacity * t.quantity,
+    (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
     0
   );
 
   function peopleAtHour(time: string) {
     return appointments
-      .filter(
-        (a) =>
-          a.date === date && a.start_time.slice(0, 5) === time
-      )
+      .filter((a) => {
+        if (a.date !== date) return false;
+
+        const t = normalizeTime(a.start_time || a.time);
+        return t === time;
+      })
       .reduce((sum, a) => sum + (a.people || 0), 0);
   }
 
   return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4">
-        Ocupación por horario
-      </h2>
+    <div className="space-y-2">
+      {hours.map((h) => {
+        const people = peopleAtHour(h);
+        const percent = maxCapacity > 0 ? (people / maxCapacity) * 100 : 0;
 
-      <div className="space-y-2">
-        {hours.map((h) => {
-          const people = peopleAtHour(h);
-          const percent = maxCapacity
-            ? (people / maxCapacity) * 100
-            : 0;
+        let color = "bg-green-400";
+        if (percent > 50) color = "bg-yellow-400";
+        if (percent > 80) color = "bg-red-500";
 
-          let color = "bg-green-400";
-          if (percent > 50) color = "bg-yellow-400";
-          if (percent > 80) color = "bg-red-500";
+        return (
+          <div key={h} className="flex items-center gap-3">
+            <div className="w-16 text-sm">{h}</div>
 
-          return (
-            <div key={h} className="flex items-center gap-3">
-              <div className="w-16 text-sm">{h}</div>
-
-              <div className="flex-1 bg-gray-200 rounded h-4">
-                <div
-                  className={`h-4 rounded ${color}`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-
-              <div className="text-xs w-12 text-right">
-                {people} / {maxCapacity}
-              </div>
+            <div className="flex-1 bg-gray-200 rounded h-4">
+              <div
+                className={`h-4 rounded ${color}`}
+                style={{ width: `${percent}%` }}
+              />
             </div>
-          );
-        })}
-      </div>
+
+            <div className="text-xs w-16 text-right">
+              {people} / {maxCapacity}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

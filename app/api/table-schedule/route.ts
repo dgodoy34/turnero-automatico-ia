@@ -18,7 +18,7 @@ export async function GET(req: Request) {
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
-    // 🔥 1. OVERRIDE (prioridad alta)
+    // 🔥 1. OVERRIDE (por fecha específica)
     const { data: override, error: overrideError } = await supabase
       .from("restaurant_daily_table_override")
       .select("*")
@@ -31,26 +31,27 @@ export async function GET(req: Request) {
       return NextResponse.json({
         success: true,
         source: "override",
-        schedule: override
+        schedule: override,
       });
     }
 
-    // 🔥 2. FALLBACK (schedule base)
+    // 🔥 2. FALLBACK (SCHEDULE BASE SIN FILTRAR POR DATE)
     const { data: fallback, error: fallbackError } = await supabase
       .from("restaurant_table_schedule")
       .select("*")
-      .eq("business_id", business_id)
-      .eq("date", date); // ✅ FIX CLAVE
+      .eq("business_id", business_id);
 
     if (fallbackError) throw fallbackError;
 
     return NextResponse.json({
       success: true,
       source: "fallback",
-      schedule: fallback ?? []
+      schedule: fallback ?? [],
     });
 
   } catch (err: any) {
+    console.error("TABLE-SCHEDULE ERROR:", err);
+
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
