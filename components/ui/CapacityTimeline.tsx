@@ -10,12 +10,14 @@ type Appointment = {
 type Schedule = {
   start_time: string
   end_time: string
+  capacity: number
+  quantity: number
 }
 
 type Props = {
   appointments: Appointment[]
   date: string
-  schedules: any[]
+  schedules: Schedule[]
   shift: "day" | "night"
   interval?: number
 }
@@ -45,22 +47,26 @@ export default function CapacityTimeline({
   appointments,
   date,
   schedules,
-  interval = 15
+  shift,
+  interval = 30
 }: Props) {
-
-  if (!appointments) return null
 
   if (!schedules || schedules.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow p-6">
-        <h2>No hay horarios configurados</h2>
+        No hay horarios configurados
       </div>
     )
   }
 
+  const filteredSchedules = schedules.filter(s => {
+    const hour = Number(s.start_time.slice(0,2))
+    return shift === "day" ? hour < 18 : hour >= 18
+  })
+
   let hours: string[] = []
 
-  schedules.forEach(s => {
+  filteredSchedules.forEach(s => {
     const slots = generateSlots(
       s.start_time.slice(0,5),
       s.end_time.slice(0,5),
@@ -77,36 +83,62 @@ export default function CapacityTimeline({
       .reduce((sum, a) => sum + (a.people || 0), 0)
   }
 
+  function capacityAtHour(time: string) {
+    const schedule = filteredSchedules.find(s =>
+      time >= s.start_time.slice(0,5) &&
+      time <= s.end_time.slice(0,5)
+    )
+
+    if (!schedule) return 0
+
+    return schedule.capacity * schedule.quantity
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="bg-white rounded-xl shadow p-6">
 
-      {hours.map(h => {
+      <h2 className="font-semibold mb-4">
+        Ocupación por horario ({shift === "day" ? "Día" : "Noche"})
+      </h2>
 
-        const people = peopleAtHour(h)
+      <div className="space-y-2">
 
-        let color = "bg-green-400"
-        if (people > 20) color = "bg-yellow-400"
-        if (people > 40) color = "bg-red-400"
+        {hours.map(h => {
 
-        return (
-          <div key={h} className="flex items-center gap-3">
+          const people = peopleAtHour(h)
+          const capacity = capacityAtHour(h)
 
-            <div className="w-16 text-sm">{h}</div>
+          const percentage = capacity > 0
+            ? (people / capacity) * 100
+            : 0
 
-            <div className="flex-1 bg-gray-200 rounded h-4">
-              <div
-                className={`h-4 rounded ${color}`}
-                style={{ width: `${Math.min(people * 2, 100)}%` }}
-              />
+          let color = "bg-green-400"
+          if (percentage > 50) color = "bg-yellow-400"
+          if (percentage > 80) color = "bg-red-500"
+
+          return (
+            <div key={h} className="flex items-center gap-3">
+
+              <div className="w-16 text-sm">{h}</div>
+
+              <div className="flex-1 bg-gray-200 rounded h-4">
+
+                <div
+                  className={`h-4 rounded ${color}`}
+                  style={{ width: `${Math.min(percentage, 100)}%` }}
+                />
+
+              </div>
+
+              <div className="text-xs w-20 text-right">
+                {people} / {capacity}
+              </div>
+
             </div>
+          )
+        })}
 
-            <div className="text-xs w-10 text-right">
-              {people}
-            </div>
-
-          </div>
-        )
-      })}
+      </div>
 
     </div>
   )
