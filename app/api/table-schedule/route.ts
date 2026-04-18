@@ -4,56 +4,43 @@ import { getRestaurantId } from "@/lib/getRestaurantId";
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
 
-    const { searchParams } = new URL(req.url)
-    const date = searchParams.get("date")
-
-    const business_id = await getRestaurantId(
-      process.env.WHATSAPP_PHONE_NUMBER_ID!
-    )
-
-    const { data, error } = await supabase
-      .from("restaurant_daily_table_override")
-      .select("*")
-      .eq("business_id", business_id)
-      .eq("date", date)
-
-    if (error) throw error
-
-    return NextResponse.json({
-      success: true,
-      schedule: data ?? []
-    })
-
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message },
-      { status: 500 }
-    )
-  }
-}
-export async function POST(req: Request) {
-  try {
     const business_id = await getRestaurantId(
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
-    const body = await req.json();
-
-    const { data, error } = await supabase
+    // 🔥 1. BUSCAR OVERRIDE
+    const { data: override, error: overrideError } = await supabase
       .from("restaurant_daily_table_override")
-      .insert({
-        ...body,
-        business_id // 🔥 corregido (antes estaba mal)
-      })
-      .select()
-      .single();
+      .select("*")
+      .eq("business_id", business_id)
+      .eq("date", date);
 
-    if (error) throw error;
+    if (overrideError) throw overrideError;
+
+    // 🔥 SI HAY OVERRIDE → USARLO
+    if (override && override.length > 0) {
+      return NextResponse.json({
+        success: true,
+        source: "override",
+        schedule: override
+      });
+    }
+
+    // 🔥 2. FALLBACK (schedule base)
+    const { data: fallback, error: fallbackError } = await supabase
+      .from("restaurant_table_schedule")
+      .select("*")
+      .eq("business_id", business_id);
+
+    if (fallbackError) throw fallbackError;
 
     return NextResponse.json({
       success: true,
-      schedule: data
+      source: "fallback",
+      schedule: fallback ?? []
     });
 
   } catch (err: any) {
