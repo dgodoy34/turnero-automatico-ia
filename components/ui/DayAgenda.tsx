@@ -43,24 +43,22 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots
 }
 
-function isInSlot(time: string, start: string, interval: number) {
-  const [h1, m1] = time.split(":").map(Number)
-  const [h2, m2] = start.split(":").map(Number)
-
-  const t1 = h1 * 60 + m1
-  const t2 = h2 * 60 + m2
-
-  return t2 >= t1 && t2 < t1 + interval
-}
-
 export default function DayAgenda({
   appointments,
   date,
   schedules,
-  interval = 30
+  interval = 15
 }: Props){
 
-  if(!appointments || !schedules) return null
+  if (!appointments) return null
+
+  if (!schedules || schedules.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2>No hay horarios configurados</h2>
+      </div>
+    )
+  }
 
   let hours: string[] = []
 
@@ -73,25 +71,26 @@ export default function DayAgenda({
     hours = [...hours, ...slots]
   })
 
-  hours = [...new Set(hours)]
-  hours.sort()
+  hours = [...new Set(hours)].sort()
+
+  function isInSlot(time: string, start: string) {
+    const [h1, m1] = time.split(":").map(Number)
+    const [h2, m2] = start.split(":").map(Number)
+
+    const t1 = h1 * 60 + m1
+    const t2 = h2 * 60 + m2
+
+    return t2 >= t1 && t2 < t1 + interval
+  }
 
   function reservationsAtHour(time: string) {
     return appointments.filter(a => {
       if (a.date !== date) return false
-      return isInSlot(time, a.start_time.slice(0,5), interval)
+      return isInSlot(time, a.start_time.slice(0,5))
     })
   }
 
-  if (hours.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6">
-        No hay horarios configurados
-      </div>
-    )
-  }
-
-  return(
+  return (
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
@@ -100,11 +99,11 @@ export default function DayAgenda({
 
       <div className="space-y-2">
 
-        {hours.map(h=>{
+        {hours.map(h => {
 
           const reservations = reservationsAtHour(h)
 
-          return(
+          return (
             <div key={h} className="flex justify-between border-b pb-2">
 
               <div>{h}</div>
@@ -112,13 +111,11 @@ export default function DayAgenda({
               <div className="text-right">
 
                 {reservations.length > 0 ? (
-                  <div className="space-y-1">
-                    {reservations.map((r, i) => (
-                      <div key={r.id || i}>
-                        {r.clients?.name || "Reserva"} • {r.people}
-                      </div>
-                    ))}
-                  </div>
+                  reservations.map((r, i) => (
+                    <div key={r.id || i}>
+                      {r.clients?.name || "Reserva"} • {r.people}
+                    </div>
+                  ))
                 ) : "Libre"}
 
               </div>
@@ -128,7 +125,6 @@ export default function DayAgenda({
         })}
 
       </div>
-
     </div>
   )
 }

@@ -75,10 +75,12 @@ const restaurantId = useRestaurant();
 
 async function loadSchedules(){
 
-  const res = await fetch(`/api/schedules?date=${selectedDate}`)
-  const data = await res.json()
+  const res = await fetch(`/api/table-schedule?date=${selectedDate}`)
+const json = await res.json()
 
-  setSchedules(data)
+console.log("SCHEDULES API:", json) // debug
+
+setSchedules(json.schedule || [])
 
 }
 

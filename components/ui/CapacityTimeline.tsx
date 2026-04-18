@@ -4,7 +4,6 @@ type Appointment = {
   id: number
   date: string
   start_time: string
-  end_time: string
   people: number
 }
 
@@ -20,7 +19,6 @@ type Props = {
   interval?: number
 }
 
-// genera slots
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = []
 
@@ -42,95 +40,72 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots
 }
 
-// match por rango
-function isInSlot(time: string, start: string, interval: number) {
-  const [h1, m1] = time.split(":").map(Number)
-  const [h2, m2] = start.split(":").map(Number)
-
-  const t1 = h1 * 60 + m1
-  const t2 = h2 * 60 + m2
-
-  return t2 >= t1 && t2 < t1 + interval
-}
-
 export default function CapacityTimeline({
   appointments,
   date,
   schedules,
-  interval = 30
+  interval = 15
 }: Props) {
 
-  if (!appointments || !schedules) return null
+  if (!appointments) return null
+
+  if (!schedules || schedules.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2>No hay horarios configurados</h2>
+      </div>
+    )
+  }
 
   let hours: string[] = []
 
   schedules.forEach(s => {
     const slots = generateSlots(
-      s.start_time.slice(0, 5),
-      s.end_time.slice(0, 5),
+      s.start_time.slice(0,5),
+      s.end_time.slice(0,5),
       interval
     )
     hours = [...hours, ...slots]
   })
 
-  hours = [...new Set(hours)]
-  hours.sort()
+  hours = [...new Set(hours)].sort()
 
   function peopleAtHour(time: string) {
     return appointments
-      .filter(a =>
-        a.date === date &&
-        isInSlot(time, a.start_time.slice(0, 5), interval)
-      )
+      .filter(a => a.date === date && a.start_time.slice(0,5) === time)
       .reduce((sum, a) => sum + (a.people || 0), 0)
   }
 
-  if (hours.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6">
-        No hay horarios configurados
-      </div>
-    )
-  }
-
   return (
-    <div className="bg-white rounded-xl shadow p-6">
+    <div className="space-y-2">
 
-      <h2 className="font-semibold mb-4">
-        Ocupación por horario
-      </h2>
+      {hours.map(h => {
 
-      <div className="space-y-2">
+        const people = peopleAtHour(h)
 
-        {hours.map(h => {
+        let color = "bg-green-400"
+        if (people > 20) color = "bg-yellow-400"
+        if (people > 40) color = "bg-red-400"
 
-          const people = peopleAtHour(h)
+        return (
+          <div key={h} className="flex items-center gap-3">
 
-          let color = "bg-green-400"
-          if (people > 20) color = "bg-yellow-400"
-          if (people > 40) color = "bg-red-400"
+            <div className="w-16 text-sm">{h}</div>
 
-          return (
-            <div key={h} className="flex items-center gap-3">
-
-              <div className="w-16 text-sm">{h}</div>
-
-              <div className="flex-1 bg-gray-200 rounded h-4">
-                <div
-                  className={`h-4 rounded ${color}`}
-                  style={{ width: `${Math.min(people * 2, 100)}%` }}
-                />
-              </div>
-
-              <div className="text-xs w-10 text-right">
-                {people}
-              </div>
-
+            <div className="flex-1 bg-gray-200 rounded h-4">
+              <div
+                className={`h-4 rounded ${color}`}
+                style={{ width: `${Math.min(people * 2, 100)}%` }}
+              />
             </div>
-          )
-        })}
 
-      </div>
+            <div className="text-xs w-10 text-right">
+              {people}
+            </div>
+
+          </div>
+        )
+      })}
 
     </div>
   )
