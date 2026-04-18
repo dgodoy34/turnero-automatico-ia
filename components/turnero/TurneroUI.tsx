@@ -590,10 +590,12 @@ Ocupación por horario
 </h2>
 
 <CapacityTimeline
-appointments={appointments}
-date={selectedDate}
+  appointments={appointments}
+  date={selectedDate}
+  schedules={schedules}
+  shift={shift}
+  interval={15}
 />
-
 </div>
 
 
