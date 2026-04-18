@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
-import { getRestaurantId } from "@/lib/getRestaurantId";
 
 export async function GET(req: Request) {
   try {
@@ -14,18 +13,31 @@ export async function GET(req: Request) {
       );
     }
 
-    const business_id = await getRestaurantId(
-      process.env.WHATSAPP_PHONE_NUMBER_ID!
-    );
+    // 🔥 USAR HEADER (MISMO QUE APPOINTMENTS)
+    const business_id = req.headers.get("x-restaurant-id");
+
+    if (!business_id) {
+      return NextResponse.json(
+        { success: false, error: "Missing business_id" },
+        { status: 400 }
+      );
+    }
+
+    console.log("👉 DATE:", date);
+    console.log("👉 BUSINESS ID:", business_id);
 
     // 🔥 1. OVERRIDE
-    const { data: override } = await supabase
+    const { data: override, error: overrideError } = await supabase
       .from("restaurant_daily_table_override")
       .select("*")
       .eq("business_id", business_id)
       .eq("date", date);
 
+    if (overrideError) throw overrideError;
+
     if (override && override.length > 0) {
+      console.log("✅ USING OVERRIDE");
+
       return NextResponse.json({
         success: true,
         source: "override",
@@ -33,23 +45,36 @@ export async function GET(req: Request) {
       });
     }
 
-    // 🔥 2. SCHEDULE BASE (POR FECHA)
-    const { data: fallback, error } = await supabase
+    // 🔥 2. SCHEDULE BASE (CORRECTO)
+    const { data: schedule, error: scheduleError } = await supabase
       .from("restaurant_table_schedule")
       .select("*")
       .eq("business_id", business_id)
       .eq("date", date);
 
-    if (error) throw error;
+    if (scheduleError) throw scheduleError;
+
+    console.log("📦 SCHEDULE FOUND:", schedule);
+
+    // 🔥 3. INVENTORY (CAPACIDAD)
+    const { data: tables, error: tablesError } = await supabase
+      .from("restaurant_table_inventory")
+      .select("capacity, quantity")
+      .eq("business_id", business_id);
+
+    if (tablesError) throw tablesError;
+
+    console.log("📦 TABLES:", tables);
 
     return NextResponse.json({
       success: true,
       source: "fallback",
-      schedule: fallback || [],
+      schedule: schedule || [],
+      tables: tables || [],
     });
 
   } catch (err: any) {
-    console.error("ERROR SCHEDULE:", err);
+    console.error("❌ API ERROR:", err);
 
     return NextResponse.json(
       { success: false, error: err.message },
