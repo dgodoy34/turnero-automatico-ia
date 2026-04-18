@@ -18,41 +18,38 @@ export async function GET(req: Request) {
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
-    // 🔥 1. OVERRIDE (horarios especiales)
+    // 🔥 1. OVERRIDE
     const { data: override } = await supabase
       .from("restaurant_daily_table_override")
       .select("*")
       .eq("business_id", business_id)
       .eq("date", date);
 
-    let schedules = [];
-
     if (override && override.length > 0) {
-      schedules = override;
-    } else {
-      // 🔥 2. SCHEDULE BASE
-      const { data: fallback } = await supabase
-        .from("restaurant_table_schedule")
-        .select("*")
-        .eq("business_id", business_id);
-
-      schedules = fallback || [];
+      return NextResponse.json({
+        success: true,
+        source: "override",
+        schedule: override,
+      });
     }
 
-    // 🔥 3. CAPACIDAD REAL (MESAS)
-    const { data: tables } = await supabase
-      .from("restaurant_table_inventory")
-      .select("capacity, quantity")
-      .eq("business_id", business_id);
+    // 🔥 2. SCHEDULE BASE (POR FECHA)
+    const { data: fallback, error } = await supabase
+      .from("restaurant_table_schedule")
+      .select("*")
+      .eq("business_id", business_id)
+      .eq("date", date);
+
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
-      schedule: schedules,
-      tables: tables || [],
+      source: "fallback",
+      schedule: fallback || [],
     });
 
   } catch (err: any) {
-    console.error("TABLE-SCHEDULE ERROR:", err);
+    console.error("ERROR SCHEDULE:", err);
 
     return NextResponse.json(
       { success: false, error: err.message },
