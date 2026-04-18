@@ -15,7 +15,8 @@ type Schedule = {
 type Props = {
   appointments: Appointment[]
   date: string
-  schedules: Schedule[]
+  schedules: any[]
+  shift: "day" | "night"
   interval?: number
 }
 
