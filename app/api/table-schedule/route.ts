@@ -7,11 +7,18 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
 
+    if (!date) {
+      return NextResponse.json(
+        { success: false, error: "Missing date" },
+        { status: 400 }
+      );
+    }
+
     const business_id = await getRestaurantId(
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
-    // 🔥 1. BUSCAR OVERRIDE
+    // 🔥 1. OVERRIDE (prioridad alta)
     const { data: override, error: overrideError } = await supabase
       .from("restaurant_daily_table_override")
       .select("*")
@@ -20,7 +27,6 @@ export async function GET(req: Request) {
 
     if (overrideError) throw overrideError;
 
-    // 🔥 SI HAY OVERRIDE → USARLO
     if (override && override.length > 0) {
       return NextResponse.json({
         success: true,
@@ -33,7 +39,8 @@ export async function GET(req: Request) {
     const { data: fallback, error: fallbackError } = await supabase
       .from("restaurant_table_schedule")
       .select("*")
-      .eq("business_id", business_id);
+      .eq("business_id", business_id)
+      .eq("date", date); // ✅ FIX CLAVE
 
     if (fallbackError) throw fallbackError;
 
