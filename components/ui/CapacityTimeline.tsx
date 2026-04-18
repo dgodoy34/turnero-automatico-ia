@@ -23,30 +23,47 @@ type Props = {
   date: string;
   schedules: Schedule[];
   tables: Table[];
+  shift?: "day" | "night";
   interval?: number;
 };
 
+// 🔥 soporta horarios nocturnos (cruce de día)
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
   let [h, m] = start.split(":").map(Number);
-  const [endH, endM] = end.split(":").map(Number);
+  let [endH, endM] = end.split(":").map(Number);
 
-  while (h < endH || (h === endH && m <= endM)) {
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  const startTotal = h * 60 + m;
+  let endTotal = endH * 60 + endM;
 
-    m += interval;
-    if (m >= 60) {
-      h++;
-      m -= 60;
-    }
+  if (endTotal <= startTotal) {
+    endTotal += 24 * 60; // cruce de medianoche
+  }
+
+  let current = startTotal;
+
+  while (current <= endTotal) {
+    const hour = Math.floor(current / 60) % 24;
+    const min = current % 60;
+
+    slots.push(
+      `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`
+    );
+
+    current += interval;
   }
 
   return slots;
 }
 
 function normalizeTime(t?: string) {
-  return t?.slice(0, 5);
+  return t ? t.slice(0, 5) : null;
+}
+
+function isNightTime(time: string) {
+  const hour = Number(time.split(":")[0]);
+  return hour >= 18 || hour < 6;
 }
 
 export default function CapacityTimeline({
@@ -54,6 +71,7 @@ export default function CapacityTimeline({
   date,
   schedules,
   tables,
+  shift = "night",
   interval = 30,
 }: Props) {
 
@@ -61,7 +79,6 @@ export default function CapacityTimeline({
     return <div>No hay horarios configurados</div>;
   }
 
-  // 🔥 generar slots
   let hours: string[] = [];
 
   schedules.forEach((s) => {
@@ -75,7 +92,11 @@ export default function CapacityTimeline({
 
   hours = [...new Set(hours)].sort();
 
-  // 🔥 capacidad total
+  // 🔥 FILTRO POR SHIFT
+  hours = hours.filter((h) =>
+    shift === "day" ? !isNightTime(h) : isNightTime(h)
+  );
+
   const maxCapacity = tables.reduce(
     (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
     0
@@ -87,6 +108,8 @@ export default function CapacityTimeline({
         if (a.date !== date) return false;
 
         const t = normalizeTime(a.start_time || a.time);
+        if (!t) return false;
+
         return t === time;
       })
       .reduce((sum, a) => sum + (a.people || 0), 0);

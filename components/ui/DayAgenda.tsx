@@ -20,6 +20,7 @@ type Props = {
   appointments: Appointment[];
   date: string;
   schedules: Schedule[];
+  shift?: "day" | "night";
   interval?: number;
 };
 
@@ -27,29 +28,45 @@ function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
   let [h, m] = start.split(":").map(Number);
-  const [endH, endM] = end.split(":").map(Number);
+  let [endH, endM] = end.split(":").map(Number);
 
-  while (h < endH || (h === endH && m <= endM)) {
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  const startTotal = h * 60 + m;
+  let endTotal = endH * 60 + endM;
 
-    m += interval;
-    if (m >= 60) {
-      h++;
-      m -= 60;
-    }
+  if (endTotal <= startTotal) {
+    endTotal += 24 * 60;
+  }
+
+  let current = startTotal;
+
+  while (current <= endTotal) {
+    const hour = Math.floor(current / 60) % 24;
+    const min = current % 60;
+
+    slots.push(
+      `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`
+    );
+
+    current += interval;
   }
 
   return slots;
 }
 
 function normalizeTime(t?: string) {
-  return t?.slice(0, 5);
+  return t ? t.slice(0, 5) : null;
+}
+
+function isNightTime(time: string) {
+  const hour = Number(time.split(":")[0]);
+  return hour >= 18 || hour < 6;
 }
 
 export default function DayAgenda({
   appointments,
   date,
   schedules,
+  shift = "night",
   interval = 30,
 }: Props) {
 
@@ -70,11 +87,18 @@ export default function DayAgenda({
 
   hours = [...new Set(hours)].sort();
 
+  // 🔥 FILTRO POR SHIFT
+  hours = hours.filter((h) =>
+    shift === "day" ? !isNightTime(h) : isNightTime(h)
+  );
+
   function reservationsAtHour(time: string) {
     return appointments.filter((a) => {
       if (a.date !== date) return false;
 
       const t = normalizeTime(a.start_time || a.time);
+      if (!t) return false;
+
       return t === time;
     });
   }
