@@ -45,6 +45,17 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots
 }
 
+// 🔥 MATCH POR RANGO
+function isInSlot(time: string, start: string, interval: number) {
+  const [h1, m1] = time.split(":").map(Number)
+  const [h2, m2] = start.split(":").map(Number)
+
+  const t1 = h1 * 60 + m1
+  const t2 = h2 * 60 + m2
+
+  return t2 >= t1 && t2 < t1 + interval
+}
+
 export default function DayAgenda({
   appointments,
   date,
@@ -53,15 +64,13 @@ export default function DayAgenda({
   interval = 30
 }: Props){
 
-  if(!appointments) return null
+  if(!appointments || !schedules) return null
 
-  // 🔥 filtramos turnos según shift
   const filteredSchedules = schedules.filter(s => {
     const hour = Number(s.start_time.slice(0,2))
     return shift === "day" ? hour < 18 : hour >= 18
   })
 
-  // 🔥 generamos horarios reales
   let hours: string[] = []
 
   filteredSchedules.forEach(s => {
@@ -73,15 +82,26 @@ export default function DayAgenda({
     hours = [...hours, ...slots]
   })
 
-  function reservationsAtHour(time:string){
+  // 🔥 FIXS IMPORTANTES
+  hours = [...new Set(hours)]
+  hours.sort()
+
+  function reservationsAtHour(time: string) {
     return appointments.filter(a => {
-      if(a.date !== date) return false
-      return a.start_time.slice(0,5) === time
+      if (a.date !== date) return false
+      return isInSlot(time, a.start_time.slice(0,5), interval)
     })
   }
 
-  return(
+  if (hours.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2>No hay horarios configurados</h2>
+      </div>
+    )
+  }
 
+  return(
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
@@ -95,7 +115,6 @@ export default function DayAgenda({
           const reservations = reservationsAtHour(h)
 
           return(
-
             <div key={h} className="flex justify-between border-b pb-2">
 
               <div>{h}</div>
@@ -103,23 +122,18 @@ export default function DayAgenda({
               <div className="text-right">
 
                 {reservations.length > 0 ? (
-
                   <div className="space-y-1">
-
                     {reservations.map((r, i) => (
                       <div key={r.id || i}>
                         {r.clients?.name || "Reserva"} • {r.people}
                       </div>
                     ))}
-
                   </div>
-
                 ) : "Libre"}
 
               </div>
 
             </div>
-
           )
 
         })}
@@ -127,7 +141,5 @@ export default function DayAgenda({
       </div>
 
     </div>
-
   )
-
 }

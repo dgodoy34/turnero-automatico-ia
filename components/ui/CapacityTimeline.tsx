@@ -21,7 +21,7 @@ type Props = {
   interval?: number
 }
 
-// 🔥 genera slots dinámicos (igual que DayAgenda)
+// 🔥 genera slots dinámicos
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = []
 
@@ -43,6 +43,17 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots
 }
 
+// 🔥 MATCH POR RANGO (CLAVE)
+function isInSlot(time: string, start: string, interval: number) {
+  const [h1, m1] = time.split(":").map(Number)
+  const [h2, m2] = start.split(":").map(Number)
+
+  const t1 = h1 * 60 + m1
+  const t2 = h2 * 60 + m2
+
+  return t2 >= t1 && t2 < t1 + interval
+}
+
 export default function CapacityTimeline({
   appointments,
   date,
@@ -53,13 +64,11 @@ export default function CapacityTimeline({
 
   if (!appointments || !schedules) return null
 
-  // 🔥 filtramos turnos según día / noche
   const filteredSchedules = schedules.filter(s => {
     const hour = Number(s.start_time.slice(0, 2))
     return shift === "day" ? hour < 18 : hour >= 18
   })
 
-  // 🔥 generamos horarios reales
   let hours: string[] = []
 
   filteredSchedules.forEach(s => {
@@ -71,21 +80,28 @@ export default function CapacityTimeline({
     hours = [...hours, ...slots]
   })
 
-  // 🔥 eliminar duplicados (por si hay varios turnos)
+  // 🔥 FIXS IMPORTANTES
   hours = [...new Set(hours)]
-
-  // 🔥 ordenar horarios
   hours.sort()
 
-  // 🔥 calcular personas por horario
   function peopleAtHour(time: string) {
     return appointments
-      .filter(a => a.date === date && a.start_time.slice(0, 5) === time)
+      .filter(a =>
+        a.date === date &&
+        isInSlot(time, a.start_time.slice(0, 5), interval)
+      )
       .reduce((sum, a) => sum + (a.people || 0), 0)
   }
 
-  return (
+  if (hours.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2>No hay horarios configurados</h2>
+      </div>
+    )
+  }
 
+  return (
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
@@ -98,14 +114,11 @@ export default function CapacityTimeline({
 
           const people = peopleAtHour(h)
 
-          // 🔥 colores dinámicos (simple por ahora)
           let color = "bg-green-400"
-
           if (people > 20) color = "bg-yellow-400"
           if (people > 40) color = "bg-red-400"
 
           return (
-
             <div key={h} className="flex items-center gap-3">
 
               <div className="w-16 text-sm">
@@ -113,12 +126,10 @@ export default function CapacityTimeline({
               </div>
 
               <div className="flex-1 bg-gray-200 rounded h-4">
-
                 <div
                   className={`h-4 rounded ${color}`}
                   style={{ width: `${Math.min(people * 2, 100)}%` }}
                 />
-
               </div>
 
               <div className="text-xs w-10 text-right">
@@ -126,7 +137,6 @@ export default function CapacityTimeline({
               </div>
 
             </div>
-
           )
 
         })}
@@ -134,6 +144,5 @@ export default function CapacityTimeline({
       </div>
 
     </div>
-
   )
 }
