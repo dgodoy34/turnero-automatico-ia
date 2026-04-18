@@ -17,11 +17,10 @@ type Props = {
   appointments: Appointment[]
   date: string
   schedules: Schedule[]
-  shift: "day" | "night"
   interval?: number
 }
 
-// 🔥 genera slots dinámicos
+// genera slots
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = []
 
@@ -43,7 +42,7 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots
 }
 
-// 🔥 MATCH POR RANGO (CLAVE)
+// match por rango
 function isInSlot(time: string, start: string, interval: number) {
   const [h1, m1] = time.split(":").map(Number)
   const [h2, m2] = start.split(":").map(Number)
@@ -58,20 +57,14 @@ export default function CapacityTimeline({
   appointments,
   date,
   schedules,
-  shift,
   interval = 30
 }: Props) {
 
   if (!appointments || !schedules) return null
 
-  const filteredSchedules = schedules.filter(s => {
-    const hour = Number(s.start_time.slice(0, 2))
-    return shift === "day" ? hour < 18 : hour >= 18
-  })
-
   let hours: string[] = []
 
-  filteredSchedules.forEach(s => {
+  schedules.forEach(s => {
     const slots = generateSlots(
       s.start_time.slice(0, 5),
       s.end_time.slice(0, 5),
@@ -80,7 +73,6 @@ export default function CapacityTimeline({
     hours = [...hours, ...slots]
   })
 
-  // 🔥 FIXS IMPORTANTES
   hours = [...new Set(hours)]
   hours.sort()
 
@@ -96,7 +88,7 @@ export default function CapacityTimeline({
   if (hours.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow p-6">
-        <h2>No hay horarios configurados</h2>
+        No hay horarios configurados
       </div>
     )
   }
@@ -105,7 +97,7 @@ export default function CapacityTimeline({
     <div className="bg-white rounded-xl shadow p-6">
 
       <h2 className="font-semibold mb-4">
-        Ocupación por horario ({shift === "day" ? "Día" : "Noche"})
+        Ocupación por horario
       </h2>
 
       <div className="space-y-2">
@@ -121,9 +113,7 @@ export default function CapacityTimeline({
           return (
             <div key={h} className="flex items-center gap-3">
 
-              <div className="w-16 text-sm">
-                {h}
-              </div>
+              <div className="w-16 text-sm">{h}</div>
 
               <div className="flex-1 bg-gray-200 rounded h-4">
                 <div
@@ -138,7 +128,6 @@ export default function CapacityTimeline({
 
             </div>
           )
-
         })}
 
       </div>

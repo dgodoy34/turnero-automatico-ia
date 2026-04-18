@@ -434,8 +434,7 @@ className="border p-3 rounded w-full"
   appointments={appointments}
   date={selectedDate}
   schedules={schedules}
-  shift={shift}
-  interval={15} // 🔥 podés cambiar a 10, 12, etc
+    interval={15} // 🔥 podés cambiar a 10, 12, etc
 />
 
 
@@ -593,7 +592,6 @@ Ocupación por horario
   appointments={appointments}
   date={selectedDate}
   schedules={schedules}
-  shift={shift}
   interval={15}
 />
 </div>
