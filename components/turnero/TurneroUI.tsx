@@ -52,6 +52,7 @@ const [successMessage, setSuccessMessage] = useState("")
 
   const [settings, setSettings] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([])
+  const [tables, setTables] = useState<any[]>([])
  
 const restaurantId = useRestaurant();
 
@@ -81,6 +82,7 @@ const json = await res.json()
 console.log("SCHEDULES API:", json) // debug
 
 setSchedules(json.schedule || [])
+setTables(json.tables || [])
 
 }
 
@@ -594,10 +596,7 @@ Ocupación por horario
   appointments={appointments}
   date={selectedDate}
   schedules={schedules}
-  tables={[
-    { capacity: 4, quantity: 5 },
-    { capacity: 2, quantity: 5 }
-  ]}
+ tables={tables}
   interval={15}
 />
 </div>
