@@ -22,8 +22,8 @@ type Props = {
   appointments: Appointment[];
   date: string;
   schedules: Schedule[];
-  shift: "day" | "night"; // 👈 AGREGAR
   tables: Table[];
+  shift: "day" | "night";
   interval?: number;
 };
 
@@ -33,96 +33,89 @@ function generateSlots(start: string, end: string, interval: number) {
   let [h, m] = start.split(":").map(Number);
   let [endH, endM] = end.split(":").map(Number);
 
-  let startMinutes = h * 60 + m;
-  let endMinutes = endH * 60 + endM;
-
-  if (endMinutes <= startMinutes) {
-    endMinutes += 24 * 60;
+  if (endH < h) {
+    endH += 24;
   }
 
-  for (let t = startMinutes; t <= endMinutes; t += interval) {
-    const hh = Math.floor((t % (24 * 60)) / 60);
-    const mm = t % 60;
+  while (h < endH || (h === endH && m <= endM)) {
+    const displayH = h % 24;
 
     slots.push(
-      `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`
+      `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")}`
     );
+
+    m += interval;
+    if (m >= 60) {
+      h++;
+      m -= 60;
+    }
   }
 
   return slots;
 }
 
-function toMinutes(t?: string) {
-  if (!t) return null;
-  const [h, m] = t.slice(0, 5).split(":").map(Number);
-  return h * 60 + m;
+function normalizeTime(t?: string) {
+  return t ? t.slice(0, 5) : null;
 }
 
 export default function CapacityTimeline({
   appointments,
   date,
   schedules,
-  shift, // 👈 AGREGAR
   tables,
+  shift,
   interval = 15,
 }: Props) {
-  if (!schedules?.length) {
+
+  // ✅ MISMO FIX DEL SWITCH
+  const filteredSchedules = schedules.filter((s) => {
+    if (!s.start_time || !s.end_time) return false;
+
+    const startHour = Number(s.start_time.slice(0, 2));
+    const endHour = Number(s.end_time.slice(0, 2));
+
+    const crossesMidnight = endHour < startHour;
+
+    if (shift === "day") {
+      return !crossesMidnight;
+    }
+
+    if (shift === "night") {
+      return crossesMidnight || startHour >= 18;
+    }
+
+    return true;
+  });
+
+  if (!filteredSchedules.length) {
     return <div>No hay horarios configurados</div>;
   }
 
   let hours: string[] = [];
 
-  schedules.forEach((s) => {
-    if (!s.start_time || !s.end_time) return;
-
+  filteredSchedules.forEach((s) => {
     const slots = generateSlots(
       s.start_time.slice(0, 5),
       s.end_time.slice(0, 5),
       interval
     );
-
     hours = [...hours, ...slots];
   });
 
   hours = [...new Set(hours)].sort();
 
   const maxCapacity = tables.reduce(
-    (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
+    (acc, t) => acc + (t.capacity || 0) * (t.quantity || 0),
     0
   );
 
   function peopleAtHour(time: string) {
-    const minutesSlot = toMinutes(time);
-
-   hours = hours.filter((h) => {
-  return schedules.some((s) => {
-    const start = s.start_time.slice(0, 5);
-    const end = s.end_time.slice(0, 5);
-
-    if (shift === "day") {
-      return start < "18:00";
-    }
-
-    if (shift === "night") {
-      return start >= "18:00" || end < "06:00";
-    }
-
-    return true;
-  });
-});
-
     return appointments
       .filter((a) => {
         if (a.date !== date) return false;
 
-        const minutesA = toMinutes(a.start_time || a.time);
-        if (minutesA === null || minutesSlot === null) return false;
-
-        // 🔥 FIX REAL (agrupa por intervalo)
-        return (
-          Math.floor(minutesA / interval) ===
-          Math.floor(minutesSlot / interval)
-        );
+        const t = normalizeTime(a.start_time || a.time);
+        return t === time;
       })
       .reduce((sum, a) => sum + (a.people || 0), 0);
   }
@@ -133,17 +126,13 @@ export default function CapacityTimeline({
         const people = peopleAtHour(h);
         const percent = maxCapacity > 0 ? (people / maxCapacity) * 100 : 0;
 
-        let color = "bg-green-400";
-        if (percent > 50) color = "bg-yellow-400";
-        if (percent > 80) color = "bg-red-500";
-
         return (
           <div key={h} className="flex items-center gap-3">
             <div className="w-16 text-sm">{h}</div>
 
             <div className="flex-1 bg-gray-200 rounded h-4">
               <div
-                className={`h-4 rounded ${color}`}
+                className="bg-green-500 h-4 rounded"
                 style={{ width: `${percent}%` }}
               />
             </div>

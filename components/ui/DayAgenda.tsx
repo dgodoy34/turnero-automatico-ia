@@ -20,11 +20,9 @@ type Props = {
   appointments: Appointment[];
   date: string;
   schedules: Schedule[];
-  shift: "day" | "night"; // 👈 AGREGAR
+  shift: "day" | "night";
   interval?: number;
 };
-
-
 
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
@@ -32,89 +30,83 @@ function generateSlots(start: string, end: string, interval: number) {
   let [h, m] = start.split(":").map(Number);
   let [endH, endM] = end.split(":").map(Number);
 
-  let startMinutes = h * 60 + m;
-  let endMinutes = endH * 60 + endM;
-
-  if (endMinutes <= startMinutes) {
-    endMinutes += 24 * 60;
+  // 🔥 soporta cruce de medianoche
+  if (endH < h) {
+    endH += 24;
   }
 
-  for (let t = startMinutes; t <= endMinutes; t += interval) {
-    const hh = Math.floor((t % (24 * 60)) / 60);
-    const mm = t % 60;
+  while (h < endH || (h === endH && m <= endM)) {
+    const displayH = h % 24;
 
     slots.push(
-      `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`
+      `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")}`
     );
+
+    m += interval;
+    if (m >= 60) {
+      h++;
+      m -= 60;
+    }
   }
 
   return slots;
 }
 
-function toMinutes(t?: string) {
-  if (!t) return null;
-  const [h, m] = t.slice(0, 5).split(":").map(Number);
-  return h * 60 + m;
+function normalizeTime(t?: string) {
+  return t ? t.slice(0, 5) : null;
 }
 
-  export default function DayAgenda({
-    appointments,
-    date,
-    schedules,
-    shift, // 👈 AGREGAR
-    interval = 15,
-  }: Props) {
-  if (!schedules?.length) {
+export default function DayAgenda({
+  appointments,
+  date,
+  schedules,
+  shift,
+  interval = 15,
+}: Props) {
+
+  // ✅ FIX REAL DEL SWITCH
+  const filteredSchedules = schedules.filter((s) => {
+    if (!s.start_time || !s.end_time) return false;
+
+    const startHour = Number(s.start_time.slice(0, 2));
+    const endHour = Number(s.end_time.slice(0, 2));
+
+    const crossesMidnight = endHour < startHour;
+
+    if (shift === "day") {
+      return !crossesMidnight;
+    }
+
+    if (shift === "night") {
+      return crossesMidnight || startHour >= 18;
+    }
+
+    return true;
+  });
+
+  if (!filteredSchedules.length) {
     return <div>No hay horarios configurados</div>;
   }
 
   let hours: string[] = [];
 
-  schedules.forEach((s) => {
-    if (!s.start_time || !s.end_time) return;
-
+  filteredSchedules.forEach((s) => {
     const slots = generateSlots(
       s.start_time.slice(0, 5),
       s.end_time.slice(0, 5),
       interval
     );
-
     hours = [...hours, ...slots];
   });
 
   hours = [...new Set(hours)].sort();
 
   function reservationsAtHour(time: string) {
-    const minutesSlot = toMinutes(time);
-
-  hours = hours.filter((h) => {
-  return schedules.some((s) => {
-    const start = s.start_time.slice(0, 5);
-    const end = s.end_time.slice(0, 5);
-
-    if (shift === "day") {
-      return start < "18:00";
-    }
-
-    if (shift === "night") {
-      return start >= "18:00" || end < "06:00";
-    }
-
-    return true;
-  });
-});
-
     return appointments.filter((a) => {
       if (a.date !== date) return false;
 
-      const minutesA = toMinutes(a.start_time || a.time);
-      if (minutesA === null || minutesSlot === null) return false;
-
-      // 🔥 FIX REAL (agrupa por intervalo)
-      return (
-        Math.floor(minutesA / interval) ===
-        Math.floor(minutesSlot / interval)
-      );
+      const t = normalizeTime(a.start_time || a.time);
+      return t === time;
     });
   }
 
