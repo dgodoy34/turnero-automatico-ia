@@ -30,10 +30,7 @@ function generateSlots(start: string, end: string, interval: number) {
   let [h, m] = start.split(":").map(Number);
   let [endH, endM] = end.split(":").map(Number);
 
-  // 🔥 soporta cruce de medianoche
-  if (endH < h) {
-    endH += 24;
-  }
+  if (endH < h) endH += 24;
 
   while (h < endH || (h === endH && m <= endM)) {
     const displayH = h % 24;
@@ -56,6 +53,32 @@ function normalizeTime(t?: string) {
   return t ? t.slice(0, 5) : null;
 }
 
+// 🔥 REDONDEO CLAVE
+function roundToSlot(time: string, interval: number) {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m;
+
+  const rounded = Math.round(total / interval) * interval;
+
+  const rh = Math.floor(rounded / 60);
+  const rm = rounded % 60;
+
+  return `${String(rh).padStart(2, "0")}:${String(rm).padStart(2, "0")}`;
+}
+
+// 🔥 ORDEN CORRECTO (CLAVE)
+function sortHours(hours: string[]) {
+  return hours.sort((a, b) => {
+    const [ha, ma] = a.split(":").map(Number);
+    const [hb, mb] = b.split(":").map(Number);
+
+    const ta = ha < 6 ? ha + 24 : ha;
+    const tb = hb < 6 ? hb + 24 : hb;
+
+    return ta * 60 + ma - (tb * 60 + mb);
+  });
+}
+
 export default function DayAgenda({
   appointments,
   date,
@@ -64,49 +87,41 @@ export default function DayAgenda({
   interval = 15,
 }: Props) {
 
-  // ✅ FIX REAL DEL SWITCH
+  // 🔥 FIX SWITCH REAL
   const filteredSchedules = schedules.filter((s) => {
-    if (!s.start_time || !s.end_time) return false;
+    const startH = Number(s.start_time.slice(0, 2));
+    const endH = Number(s.end_time.slice(0, 2));
 
-    const startHour = Number(s.start_time.slice(0, 2));
-    const endHour = Number(s.end_time.slice(0, 2));
+    const crosses = endH < startH;
 
-    const crossesMidnight = endHour < startHour;
-
-    if (shift === "day") {
-      return !crossesMidnight;
-    }
-
-    if (shift === "night") {
-      return crossesMidnight || startHour >= 18;
-    }
+    if (shift === "day") return !crosses;
+    if (shift === "night") return crosses || startH >= 18;
 
     return true;
   });
 
-  if (!filteredSchedules.length) {
-    return <div>No hay horarios configurados</div>;
-  }
-
   let hours: string[] = [];
 
   filteredSchedules.forEach((s) => {
-    const slots = generateSlots(
-      s.start_time.slice(0, 5),
-      s.end_time.slice(0, 5),
-      interval
+    hours.push(
+      ...generateSlots(
+        s.start_time.slice(0, 5),
+        s.end_time.slice(0, 5),
+        interval
+      )
     );
-    hours = [...hours, ...slots];
   });
 
-  hours = [...new Set(hours)].sort();
+  hours = sortHours([...new Set(hours)]);
 
   function reservationsAtHour(time: string) {
     return appointments.filter((a) => {
       if (a.date !== date) return false;
 
       const t = normalizeTime(a.start_time || a.time);
-      return t === time;
+      if (!t) return false;
+
+      return roundToSlot(t, interval) === time;
     });
   }
 
@@ -120,15 +135,13 @@ export default function DayAgenda({
             <div>{h}</div>
 
             <div className="text-right">
-              {reservations.length > 0 ? (
-                reservations.map((r, i) => (
-                  <div key={r.id || i}>
-                    {r.clients?.name || "Reserva"} • {r.people}
-                  </div>
-                ))
-              ) : (
-                "Libre"
-              )}
+              {reservations.length > 0
+                ? reservations.map((r, i) => (
+                    <div key={r.id || i}>
+                      {r.clients?.name || "Reserva"} • {r.people}
+                    </div>
+                  ))
+                : "Libre"}
             </div>
           </div>
         );
