@@ -335,12 +335,13 @@ if (!validSlot) {
       .eq("status", "confirmed")
       .maybeSingle();
 
-    if (existing) {
-      return {
-        success: false,
-        message: "Ya tenés una reserva confirmada en ese horario.",
-      };
-    }
+    // 🚶 WALK-IN NO BLOQUEA DUPLICADOS
+if (existing && source !== "walkin") {
+  return {
+    success: false,
+    message: "Ya tenés una reserva confirmada en ese horario.",
+  };
+}
 
   
 
