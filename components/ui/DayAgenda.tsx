@@ -87,12 +87,21 @@ function toMinutes(t?: string) {
   function reservationsAtHour(time: string) {
     const minutesSlot = toMinutes(time);
 
-    hours = hours.filter((h) => {
-  const hour = Number(h.split(":")[0]);
+  hours = hours.filter((h) => {
+  return schedules.some((s) => {
+    const start = s.start_time.slice(0, 5);
+    const end = s.end_time.slice(0, 5);
 
-  return shift === "day"
-    ? hour >= 6 && hour < 18
-    : hour >= 18 || hour < 6;
+    if (shift === "day") {
+      return start < "18:00";
+    }
+
+    if (shift === "night") {
+      return start >= "18:00" || end < "06:00";
+    }
+
+    return true;
+  });
 });
 
     return appointments.filter((a) => {
