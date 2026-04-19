@@ -18,13 +18,11 @@ export function middleware(req: NextRequest) {
   }
 
   // =========================
-  // 🔐 ADMIN DOMAIN FIX
+  // 🔐 ADMIN → NO TOCAR
   // =========================
 
   if (hostname === "admin.turiago.app") {
-    return NextResponse.rewrite(
-      new URL("/admin", req.url)
-    );
+    return NextResponse.next();
   }
 
   // =========================
@@ -46,6 +44,7 @@ export function middleware(req: NextRequest) {
     const subdomain = parts[0];
     const path = req.nextUrl.pathname;
 
+    // limpiar /turnero
     if (path.startsWith("/turnero")) {
       return NextResponse.rewrite(
         new URL(`/r/${subdomain}`, req.url)
