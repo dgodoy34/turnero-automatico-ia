@@ -6,18 +6,16 @@ export function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const hostname = host.split(":")[0];
   const parts = hostname.split(".");
+  const pathname = req.nextUrl.pathname;
 
   const session = req.cookies.get("session")?.value;
 
-  const pathname = req.nextUrl.pathname;
-
   // =========================
-  // 🔐 ADMIN DOMAIN (PRIORIDAD TOTAL)
+  // 🔐 ADMIN (PRIORIDAD TOTAL)
   // =========================
-
   if (hostname === "admin.turiago.app") {
 
-    // proteger rutas
+    // proteger rutas admin
     if (
       pathname.startsWith("/admin") &&
       !session
@@ -25,13 +23,13 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    return NextResponse.next(); // 🚀 NO REWRITE
+    // 🚫 NO TOCAR NADA EN ADMIN
+    return NextResponse.next();
   }
 
   // =========================
-  // 🌐 DOMINIO PRINCIPAL
+  // 🌐 MAIN DOMAIN
   // =========================
-
   if (
     hostname === "turiago.app" ||
     hostname === "www.turiago.app"
@@ -40,17 +38,11 @@ export function middleware(req: NextRequest) {
   }
 
   // =========================
-  // 🌍 SUBDOMINIOS (EXCEPTO ADMIN)
+  // 🌍 SUBDOMINIOS → RESTAURANTE
   // =========================
-
   if (parts.length >= 3) {
 
     const subdomain = parts[0];
-
-    // 🚫 ignorar admin por seguridad extra
-    if (subdomain === "admin") {
-      return NextResponse.next();
-    }
 
     return NextResponse.rewrite(
       new URL(`/r/${subdomain}`, req.url)
