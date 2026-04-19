@@ -9,20 +9,23 @@ export function middleware(req: NextRequest) {
 
   const session = req.cookies.get("session")?.value;
 
-  const isProtected =
-    req.nextUrl.pathname.startsWith("/admin") ||
-    req.nextUrl.pathname.startsWith("/panel");
-
-  if (isProtected && !session) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  const pathname = req.nextUrl.pathname;
 
   // =========================
-  // 🔐 ADMIN → NO TOCAR
+  // 🔐 ADMIN DOMAIN (PRIORIDAD TOTAL)
   // =========================
 
   if (hostname === "admin.turiago.app") {
-    return NextResponse.next();
+
+    // proteger rutas
+    if (
+      pathname.startsWith("/admin") &&
+      !session
+    ) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    return NextResponse.next(); // 🚀 NO REWRITE
   }
 
   // =========================
@@ -37,22 +40,20 @@ export function middleware(req: NextRequest) {
   }
 
   // =========================
-  // 🌍 SUBDOMINIOS → SLUG
+  // 🌍 SUBDOMINIOS (EXCEPTO ADMIN)
   // =========================
 
   if (parts.length >= 3) {
-    const subdomain = parts[0];
-    const path = req.nextUrl.pathname;
 
-    // limpiar /turnero
-    if (path.startsWith("/turnero")) {
-      return NextResponse.rewrite(
-        new URL(`/r/${subdomain}`, req.url)
-      );
+    const subdomain = parts[0];
+
+    // 🚫 ignorar admin por seguridad extra
+    if (subdomain === "admin") {
+      return NextResponse.next();
     }
 
     return NextResponse.rewrite(
-      new URL(`/r/${subdomain}${path}`, req.url)
+      new URL(`/r/${subdomain}`, req.url)
     );
   }
 
