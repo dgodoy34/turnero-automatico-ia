@@ -24,29 +24,37 @@ type Props = {
   shift?: "day" | "night";
 };
 
-function generateSlots(start: string, end: string, interval: number) {
+function generateTimeSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
-  let [h, m] = start.split(":").map(Number);
-  let [endH, endM] = end.split(":").map(Number);
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
 
-  const crossesMidnight = endH < h;
+  const toTime = (mins: number) => {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
 
-  while (true) {
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  let startMin = toMinutes(start);
+  let endMin = toMinutes(end);
 
-    m += interval;
-    if (m >= 60) {
-      h++;
-      m -= 60;
+  // 🔥 CRUCE DE MEDIANOCHE
+  if (endMin <= startMin) {
+    // tramo noche (continuo)
+    for (let t = startMin; t < 24 * 60; t += interval) {
+      slots.push(toTime(t));
     }
 
-    if (h === 24) h = 0;
-
-    if (!crossesMidnight) {
-      if (h > endH || (h === endH && m > endM)) break;
-    } else {
-      if (h === endH && m > endM) break;
+    for (let t = 0; t <= endMin; t += interval) {
+      slots.push(toTime(t));
+    }
+  } else {
+    // turno normal
+    for (let t = startMin; t <= endMin; t += interval) {
+      slots.push(toTime(t));
     }
   }
 
@@ -90,11 +98,27 @@ export default function DayAgenda({
   let hours: string[] = [];
 
   filteredSchedules.forEach((s) => {
-    const slots = generateSlots(s.start_time, s.end_time, interval);
+    const slots = generateTimeSlots(s.start_time, s.end_time, interval);
     hours = [...hours, ...slots];
   });
 
-  hours = [...new Set(hours)].sort();
+  // 🔥 eliminar duplicados manteniendo orden
+  hours = Array.from(new Set(hours));
+
+  // 🔥 ORDEN CORRECTO PARA NOCHE
+  hours.sort((a, b) => {
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      let total = h * 60 + m;
+
+      // 👉 clave: madrugada se suma 24h para que quede después de 20:00
+      if (shift === "night" && h < 6) total += 24 * 60;
+
+      return total;
+    };
+
+    return toMin(a) - toMin(b);
+  });
 
   function reservationsAtHour(time: string) {
     return appointments.filter((a) => {
