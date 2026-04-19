@@ -82,39 +82,44 @@ if (!restaurantActive?.active) {
   };
 }
 
-   // =========================
-// 🔒 ASEGURAR CLIENTE (FIX REAL)
+ // =========================
+// 🔒 CLIENTE (SOLO SI NO ES WALK-IN)
 // =========================
 
-let { data: client } = await supabase
-  .from("clients")
-  .select("*")
-  .eq("dni", dni)
-  .maybeSingle();
+let client = null;
 
-// 👉 SI NO EXISTE → CREAR
-if (!client) {
+if (source !== "walkin") {
 
-  const { data: newClient, error: clientError } = await supabase
+  let { data: existingClient } = await supabase
     .from("clients")
-    .insert({
-      dni: dni,
-      name: client_name || "Cliente",
-      phone: client_phone || "0000000000",
-      business_id: business_id
-    })
-    .select()
-    .single();
+    .select("*")
+    .eq("dni", dni)
+    .maybeSingle();
 
-  if (clientError || !newClient) {
-    console.error("❌ ERROR creando cliente:", clientError);
-    return {
-      success: false,
-      message: "Error creando cliente",
-    };
+  if (!existingClient) {
+    const { data: newClient, error: clientError } = await supabase
+      .from("clients")
+      .insert({
+        dni: dni,
+        name: client_name || "Cliente",
+        phone: client_phone || "0000000000",
+        business_id: business_id
+      })
+      .select()
+      .single();
+
+    if (clientError || !newClient) {
+      console.error("❌ ERROR creando cliente:", clientError);
+      return {
+        success: false,
+        message: "Error creando cliente",
+      };
+    }
+
+    client = newClient;
+  } else {
+    client = existingClient;
   }
-
-  client = newClient;
 }
     // =========================
     // 1️⃣ Obtener restaurante
@@ -494,7 +499,8 @@ for (let i = 0; i < 3; i++) {
       business_id: businessId,
       assigned_table_capacity: assignedCapacity,
       tables_used: 1,
-      source: source || "manual"
+      source: source || "manual",
+      is_walkin: source === "walkin" // 👈 ACÁ
     })
     .select()
     .single();

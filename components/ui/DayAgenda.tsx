@@ -136,7 +136,7 @@ export default function DayAgenda({
               {reservations.length > 0
                 ? reservations.map((r, i) => (
                     <div key={r.id || i}>
-                      {r.clients?.name || "Reserva"} • {r.people}
+                      {r.clients?.name || "walkin"} • {r.people}
                     </div>
                   ))
                 : "Libre"}
