@@ -159,17 +159,14 @@ async function addAppointment() {
     // ✅ ÉXITO
     setSuccessMessage("Reserva creada correctamente");
 
+    
     // limpiar form
-    useEffect(() => {
-  if (isWalkin) {
-    setClientId("");
-    setClientName("");
-    setClientPhone("");
-    setClientEmail("");
-    setClientBirthday("");
-  }
-}, [isWalkin]);
-    await loadAll();
+setClientId("");
+setClientName("");
+setClientPhone("");
+setClientEmail("");
+setClientBirthday("");
+setNotes("");
 
   } catch (err) {
     console.error("ERROR FRONT:", err);
