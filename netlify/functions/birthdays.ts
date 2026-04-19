@@ -1,23 +1,29 @@
 export const handler = async () => {
   try {
     const res = await fetch(
-      "https://turiact.netlify.app/api/cron/birthdays"
+      "https://turiago.app/api/cron/birthdays"
     );
+
+    if (!res.ok) {
+      throw new Error(`HTTP error: ${res.status}`);
+    }
 
     const data = await res.json();
 
-    console.log("🎂 BIRTHDAY CRON OK:", data);
+    console.log("🎂 BIRTHDAYS OK:", data);
 
     return {
       statusCode: 200,
       body: JSON.stringify(data),
     };
   } catch (error) {
-    console.error("❌ BIRTHDAY CRON ERROR:", error);
+    console.error("❌ BIRTHDAYS ERROR:", error);
 
     return {
       statusCode: 500,
-      body: "error",
+      body: JSON.stringify({
+        error: "Birthday cron failed",
+      }),
     };
   }
 };

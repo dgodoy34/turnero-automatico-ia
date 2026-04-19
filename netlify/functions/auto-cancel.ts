@@ -1,23 +1,29 @@
 export const handler = async () => {
   try {
     const res = await fetch(
-      "https://turiact.netlify.app/api/cron/auto-cancel"
+      "https://turiago.app/api/cron/auto-cancel"
     );
+
+    if (!res.ok) {
+      throw new Error(`HTTP error: ${res.status}`);
+    }
 
     const data = await res.json();
 
-    console.log("AUTO CANCEL OK:", data);
+    console.log("🧹 AUTO CANCEL OK:", data);
 
     return {
       statusCode: 200,
       body: JSON.stringify(data),
     };
   } catch (error) {
-    console.error("AUTO CANCEL ERROR:", error);
+    console.error("❌ AUTO CANCEL ERROR:", error);
 
     return {
       statusCode: 500,
-      body: "error",
+      body: JSON.stringify({
+        error: "Auto cancel failed",
+      }),
     };
   }
 };

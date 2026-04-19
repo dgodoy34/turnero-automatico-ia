@@ -12,12 +12,12 @@ function getNowArgentina() {
   );
 }
 
-// 🇦🇷 Fecha + hora
+// 🇦🇷 Fecha + hora correcta
 function getArgentinaDateTime(date: string, time: string) {
   return new Date(`${date}T${time}:00-03:00`);
 }
 
-// YYYY-MM-DD
+// YYYY-MM-DD Argentina
 function getTodayArgentina() {
   return new Date().toLocaleDateString("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
@@ -63,11 +63,11 @@ export async function GET() {
       const phone = client?.phone;
       const name = client?.name;
 
-      if (!phone) continue;
+      if (!phone || !r.time) continue;
 
       console.log("➡️ RESERVA:", r.id, r.time);
 
-      // 🔥 PROTECCIÓN 1: si ya se mandó, NO repetir
+      // 🔒 YA ENVIADO
       if (r.reminder_sent) {
         console.log("⛔ YA TENÍA reminder_sent");
         continue;
@@ -80,16 +80,16 @@ export async function GET() {
 
       console.log("⏱ diffMinutes:", diffMinutes);
 
-      // 🔥 PROTECCIÓN 2: ventana chica (evita spam)
+      // 🔥 VENTANA REAL: entre 0 y 120 minutos
       const shouldSend =
-        diffMinutes <= 120 && diffMinutes > 100;
+        diffMinutes > 0 && diffMinutes <= 120;
 
       if (!shouldSend) {
         console.log("⛔ FUERA DE VENTANA");
         continue;
       }
 
-      // 🔥 PROTECCIÓN 3: no resetear estado si ya está en confirmación
+      // 🔒 SI YA ESTÁ EN CONFIRMACIÓN NO MOLESTAR
       const session = await getSession(phone);
 
       if (session?.state === "AWAITING_CONFIRMATION") {
@@ -109,7 +109,7 @@ O *CANCELAR* si no podés asistir ❌`;
 
         await sendWhatsAppMessage(phone, message);
 
-        // 🔥 solo ahora tocamos estado
+        // 🔥 SETEAR ESTADO CONVERSACIONAL
         await setState(phone, "AWAITING_CONFIRMATION");
 
         await setTemp(phone, {
@@ -117,6 +117,7 @@ O *CANCELAR* si no podés asistir ❌`;
           reservation_code: r.reservation_code,
         });
 
+        // 🔥 MARCAR COMO ENVIADO
         await supabase
           .from("appointments")
           .update({

@@ -3,12 +3,15 @@ import { supabase } from "@/lib/supabaseClient";
 
 export async function GET() {
   try {
-    // ⏱️ hace 1h30
     const limit = new Date(Date.now() - 90 * 60 * 1000);
 
     const { data: reservations, error } = await supabase
       .from("appointments")
-      .select("id, phone, name")
+      .select(`
+        id,
+        reminder_sent_at,
+        clients(phone, name)
+      `)
       .eq("status", "pending_confirmation")
       .lt("reminder_sent_at", limit.toISOString());
 
@@ -18,7 +21,6 @@ export async function GET() {
 
     for (const r of reservations || []) {
 
-      // ❌ cancelar
       await supabase
         .from("appointments")
         .update({ status: "cancelled" })
@@ -26,16 +28,20 @@ export async function GET() {
 
       cancelled++;
 
-      // 📲 opcional: avisar
+      // opcional WhatsApp
       /*
-      await sendWhatsAppMessage(
-        r.phone,
-        `❌ Tu reserva fue cancelada por falta de confirmación.\n\nPodés reservar nuevamente cuando quieras 😉`
-      );
+      if (r.clients?.phone) {
+        await sendWhatsAppMessage(
+          r.clients.phone,
+          `❌ Tu reserva fue cancelada por falta de confirmación.
+
+Podés reservar nuevamente cuando quieras 😉`
+        );
+      }
       */
     }
 
-    console.log("AUTO CANCEL:", cancelled);
+    console.log("🧹 AUTO CANCEL:", cancelled);
 
     return NextResponse.json({ ok: true, cancelled });
 
