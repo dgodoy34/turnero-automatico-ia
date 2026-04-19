@@ -21,6 +21,7 @@ type Props = {
   date: string;
   schedules: Schedule[];
   interval?: number;
+  shift?: "day" | "night"; // 👈 agregamos shift
 };
 
 function generateSlots(start: string, end: string, interval: number) {
@@ -51,12 +52,15 @@ export default function DayAgenda({
   date,
   schedules,
   interval = 30,
+  shift = "night",
 }: Props) {
 
-  // 🔥 FIX: limpiar schedules inválidos
-  const validSchedules = schedules.filter(
-    (s) => s?.start_time && s?.end_time
-  );
+  const validSchedules = schedules
+    .filter((s) => s?.start_time && s?.end_time)
+    .filter((s) => {
+      const hour = Number(s.start_time!.slice(0, 2));
+      return shift === "day" ? hour < 18 : hour >= 18;
+    });
 
   if (!validSchedules.length) {
     return <div>No hay horarios configurados</div>;
@@ -70,7 +74,6 @@ export default function DayAgenda({
       s.end_time!.slice(0, 5),
       interval
     );
-
     hours = [...hours, ...slots];
   });
 
@@ -81,7 +84,15 @@ export default function DayAgenda({
       if (a.date !== date) return false;
 
       const t = normalizeTime(a.start_time || a.time);
-      return t === time;
+      if (!t) return false;
+
+      const [h1, m1] = t.split(":").map(Number);
+      const [h2, m2] = time.split(":").map(Number);
+
+      const minutesA = h1 * 60 + m1;
+      const minutesSlot = h2 * 60 + m2;
+
+      return Math.abs(minutesA - minutesSlot) < 15;
     });
   }
 

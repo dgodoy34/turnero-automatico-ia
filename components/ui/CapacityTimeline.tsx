@@ -24,6 +24,7 @@ type Props = {
   schedules: Schedule[];
   tables: Table[];
   interval?: number;
+  shift?: "day" | "night"; // 👈 agregamos shift
 };
 
 function generateSlots(start: string, end: string, interval: number) {
@@ -55,18 +56,21 @@ export default function CapacityTimeline({
   schedules,
   tables,
   interval = 30,
+  shift = "night",
 }: Props) {
 
-  // 🔥 FIX: validar schedules reales
-  const validSchedules = schedules.filter(
-    (s) => s?.start_time && s?.end_time
-  );
+  // 🔥 filtrar horarios por turno
+  const validSchedules = schedules
+    .filter((s) => s?.start_time && s?.end_time)
+    .filter((s) => {
+      const hour = Number(s.start_time!.slice(0, 2));
+      return shift === "day" ? hour < 18 : hour >= 18;
+    });
 
   if (!validSchedules.length) {
     return <div>No hay horarios configurados</div>;
   }
 
-  // 🔥 generar slots
   let hours: string[] = [];
 
   validSchedules.forEach((s) => {
@@ -75,17 +79,18 @@ export default function CapacityTimeline({
       s.end_time!.slice(0, 5),
       interval
     );
-
     hours = [...hours, ...slots];
   });
 
   hours = [...new Set(hours)].sort();
 
-  // 🔥 capacidad total
-  const maxCapacity = tables.reduce(
-    (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
-    0
-  );
+  // 🔥 capacidad con fallback
+  const maxCapacity = tables.length
+    ? tables.reduce(
+        (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
+        0
+      )
+    : 50;
 
   function peopleAtHour(time: string) {
     return appointments
@@ -93,7 +98,15 @@ export default function CapacityTimeline({
         if (a.date !== date) return false;
 
         const t = normalizeTime(a.start_time || a.time);
-        return t === time;
+        if (!t) return false;
+
+        const [h1, m1] = t.split(":").map(Number);
+        const [h2, m2] = time.split(":").map(Number);
+
+        const minutesA = h1 * 60 + m1;
+        const minutesSlot = h2 * 60 + m2;
+
+        return Math.abs(minutesA - minutesSlot) < 15;
       })
       .reduce((sum, a) => sum + (a.people || 0), 0);
   }
@@ -102,7 +115,7 @@ export default function CapacityTimeline({
     <div className="space-y-2">
       {hours.map((h) => {
         const people = peopleAtHour(h);
-        const percent = maxCapacity > 0 ? (people / maxCapacity) * 100 : 0;
+        const percent = (people / maxCapacity) * 100;
 
         let color = "bg-green-400";
         if (percent > 50) color = "bg-yellow-400";
