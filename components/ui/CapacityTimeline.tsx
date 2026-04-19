@@ -23,63 +23,51 @@ type Props = {
   date: string;
   schedules: Schedule[];
   tables: Table[];
-  shift: "day" | "night";
   interval?: number;
+  shift?: "day" | "night";
 };
 
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
-  let [startH, startM] = start.split(":").map(Number);
+  let [h, m] = start.split(":").map(Number);
   let [endH, endM] = end.split(":").map(Number);
 
-  let startTotal = startH * 60 + startM;
-  let endTotal = endH * 60 + endM;
+  const crossesMidnight = endH < h;
 
-  // 🔥 si cruza medianoche
-  if (endTotal <= startTotal) {
-    endTotal += 24 * 60;
-  }
+  while (true) {
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 
-  for (let t = startTotal; t <= endTotal; t += interval) {
-    const display = t % (24 * 60);
+    m += interval;
+    if (m >= 60) {
+      h++;
+      m -= 60;
+    }
 
-    const h = Math.floor(display / 60);
-    const m = display % 60;
+    if (h === 24) h = 0;
 
-    slots.push(
-      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-    );
+    if (!crossesMidnight) {
+      if (h > endH || (h === endH && m > endM)) break;
+    } else {
+      if (h === endH && m > endM) break;
+    }
   }
 
   return slots;
 }
+
 function normalizeTime(t?: string) {
-  return t ? t.slice(0, 5) : null;
+  return t?.slice(0, 5);
 }
 
-function roundToSlot(time: string, interval: number) {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m;
+function matchTime(slot: string, time: string) {
+  const [sh, sm] = slot.split(":").map(Number);
+  const [th, tm] = time.split(":").map(Number);
 
-  const rounded = Math.round(total / interval) * interval;
+  const slotMin = sh * 60 + sm;
+  const timeMin = th * 60 + tm;
 
-  const rh = Math.floor(rounded / 60);
-  const rm = rounded % 60;
-
-  return `${String(rh).padStart(2, "0")}:${String(rm).padStart(2, "0")}`;
-}
-
-function sortHours(hours: string[]) {
-  return hours.sort((a, b) => {
-    const [ha, ma] = a.split(":").map(Number);
-    const [hb, mb] = b.split(":").map(Number);
-
-    const ta = ha < 6 ? ha + 24 : ha;
-    const tb = hb < 6 ? hb + 24 : hb;
-
-    return ta * 60 + ma - (tb * 60 + mb);
-  });
+  return Math.abs(slotMin - timeMin) < 15;
 }
 
 export default function CapacityTimeline({
@@ -87,18 +75,19 @@ export default function CapacityTimeline({
   date,
   schedules,
   tables,
-  shift,
   interval = 15,
+  shift,
 }: Props) {
+  if (!schedules?.length) {
+    return <div>No hay horarios configurados</div>;
+  }
 
+  // 🔥 filtro por turno
   const filteredSchedules = schedules.filter((s) => {
-    const startH = Number(s.start_time.slice(0, 2));
-    const endH = Number(s.end_time.slice(0, 2));
+    const hour = parseInt(s.start_time.split(":")[0]);
 
-    const crosses = endH < startH;
-
-    if (shift === "day") return !crosses;
-    if (shift === "night") return crosses || startH >= 18;
+    if (shift === "day") return hour < 17;
+    if (shift === "night") return hour >= 17;
 
     return true;
   });
@@ -106,19 +95,14 @@ export default function CapacityTimeline({
   let hours: string[] = [];
 
   filteredSchedules.forEach((s) => {
-    hours.push(
-      ...generateSlots(
-        s.start_time.slice(0, 5),
-        s.end_time.slice(0, 5),
-        interval
-      )
-    );
+    const slots = generateSlots(s.start_time, s.end_time, interval);
+    hours = [...hours, ...slots];
   });
 
-  hours = sortHours([...new Set(hours)]);
+  hours = [...new Set(hours)].sort();
 
   const maxCapacity = tables.reduce(
-    (acc, t) => acc + (t.capacity || 0) * (t.quantity || 0),
+    (acc, t) => acc + (t.capacity ?? 0) * (t.quantity ?? 0),
     0
   );
 
@@ -130,9 +114,9 @@ export default function CapacityTimeline({
         const t = normalizeTime(a.start_time || a.time);
         if (!t) return false;
 
-        return roundToSlot(t, interval) === time;
+        return matchTime(time, t);
       })
-      .reduce((sum, a) => sum + a.people, 0);
+      .reduce((sum, a) => sum + (a.people || 0), 0);
   }
 
   return (
@@ -141,18 +125,22 @@ export default function CapacityTimeline({
         const people = peopleAtHour(h);
         const percent = maxCapacity > 0 ? (people / maxCapacity) * 100 : 0;
 
+        let color = "bg-green-400";
+        if (percent > 50) color = "bg-yellow-400";
+        if (percent > 80) color = "bg-red-500";
+
         return (
           <div key={h} className="flex items-center gap-3">
             <div className="w-16 text-sm">{h}</div>
 
             <div className="flex-1 bg-gray-200 rounded h-4">
               <div
-                className="bg-green-500 h-4 rounded"
+                className={`h-4 rounded ${color}`}
                 style={{ width: `${percent}%` }}
               />
             </div>
 
-            <div className="text-xs w-16 text-right">
+            <div className="text-xs w-20 text-right">
               {people} / {maxCapacity}
             </div>
           </div>

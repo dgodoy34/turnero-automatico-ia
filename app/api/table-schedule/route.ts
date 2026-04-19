@@ -15,21 +15,21 @@ export async function GET(req: Request) {
     console.log("👉 DATE:", date);
     console.log("👉 BUSINESS:", businessId);
 
-    // 🔥 1. RESERVAS
+    // 🔥 RESERVAS
     const { data: appointments } = await supabase
       .from("appointments")
       .select("*")
-      .eq("date", date)
-      .eq("business_id", businessId);
+      .eq("business_id", businessId)
+      .eq("date", date);
 
-    // 🔥 2. INVENTORY
+    // 🔥 INVENTARIO
     const { data: inventory } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
       .eq("business_id", businessId)
       .eq("date", date);
 
-    // 🔥 3. HORARIOS DINÁMICOS (LA CLAVE)
+    // 🔥 HORARIOS (DINÁMICOS)
     const { data: schedules } = await supabase
       .from("restaurant_schedules")
       .select("start_time, end_time")
