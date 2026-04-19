@@ -42,9 +42,18 @@ export function middleware(req: NextRequest) {
 
   if (parts.length >= 3) {
     const subdomain = parts[0];
+    const path = req.nextUrl.pathname;
 
+    // 🔥 si entra con /turnero → limpiar
+    if (path.startsWith("/turnero")) {
+      return NextResponse.rewrite(
+        new URL(`/r/${subdomain}`, req.url)
+      );
+    }
+
+    // 🔥 cualquier otra ruta → mantenerla
     return NextResponse.rewrite(
-      new URL(`/r/${subdomain}`, req.url)
+      new URL(`/r/${subdomain}${path}`, req.url)
     );
   }
 
