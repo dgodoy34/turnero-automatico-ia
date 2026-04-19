@@ -12,17 +12,19 @@ type Appointment = {
 };
 
 type Schedule = {
-  start_time?: string;
-  end_time?: string;
+  start_time: string;
+  end_time: string;
 };
 
 type Props = {
   appointments: Appointment[];
   date: string;
   schedules: Schedule[];
+  shift: "day" | "night"; // 👈 AGREGAR
   interval?: number;
-  shift?: "day" | "night"; // 👈 agregamos shift
 };
+
+
 
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
@@ -33,7 +35,6 @@ function generateSlots(start: string, end: string, interval: number) {
   let startMinutes = h * 60 + m;
   let endMinutes = endH * 60 + endM;
 
-  // 🔥 SI TERMINA AL DÍA SIGUIENTE
   if (endMinutes <= startMinutes) {
     endMinutes += 24 * 60;
   }
@@ -50,58 +51,61 @@ function generateSlots(start: string, end: string, interval: number) {
   return slots;
 }
 
-function normalizeTime(t?: string) {
-  return t?.slice(0, 5);
+function toMinutes(t?: string) {
+  if (!t) return null;
+  const [h, m] = t.slice(0, 5).split(":").map(Number);
+  return h * 60 + m;
 }
 
-export default function DayAgenda({
-  appointments,
-  date,
-  schedules,
-  interval = 30,
-  shift = "night",
-}: Props) {
-
-  const validSchedules = schedules
-    .filter((s) => s?.start_time && s?.end_time)
-    .filter((s) => {
-      const hour = Number(s.start_time!.slice(0, 2));
-      return shift === "day"
-  ? hour >= 6 && hour < 18
-  : hour >= 18 || hour < 6;
-    });
-
-  if (!validSchedules.length) {
+  export default function DayAgenda({
+    appointments,
+    date,
+    schedules,
+    shift, // 👈 AGREGAR
+    interval = 15,
+  }: Props) {
+  if (!schedules?.length) {
     return <div>No hay horarios configurados</div>;
   }
 
   let hours: string[] = [];
 
-  validSchedules.forEach((s) => {
+  schedules.forEach((s) => {
+    if (!s.start_time || !s.end_time) return;
+
     const slots = generateSlots(
-      s.start_time!.slice(0, 5),
-      s.end_time!.slice(0, 5),
+      s.start_time.slice(0, 5),
+      s.end_time.slice(0, 5),
       interval
     );
+
     hours = [...hours, ...slots];
   });
 
   hours = [...new Set(hours)].sort();
 
   function reservationsAtHour(time: string) {
+    const minutesSlot = toMinutes(time);
+
+    hours = hours.filter((h) => {
+  const hour = Number(h.split(":")[0]);
+
+  return shift === "day"
+    ? hour >= 6 && hour < 18
+    : hour >= 18 || hour < 6;
+});
+
     return appointments.filter((a) => {
       if (a.date !== date) return false;
 
-      const t = normalizeTime(a.start_time || a.time);
-      if (!t) return false;
+      const minutesA = toMinutes(a.start_time || a.time);
+      if (minutesA === null || minutesSlot === null) return false;
 
-      const [h1, m1] = t.split(":").map(Number);
-      const [h2, m2] = time.split(":").map(Number);
-
-      const minutesA = h1 * 60 + m1;
-      const minutesSlot = h2 * 60 + m2;
-
-      return minutesA === minutesSlot;
+      // 🔥 FIX REAL (agrupa por intervalo)
+      return (
+        Math.floor(minutesA / interval) ===
+        Math.floor(minutesSlot / interval)
+      );
     });
   }
 
