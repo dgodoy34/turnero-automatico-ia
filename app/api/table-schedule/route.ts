@@ -15,34 +15,35 @@ export async function GET(req: Request) {
     console.log("👉 DATE:", date);
     console.log("👉 BUSINESS:", businessId);
 
-    // 🔥 1. TRAER RESERVAS
+    // 🔥 1. RESERVAS
     const { data: appointments } = await supabase
       .from("appointments")
       .select("*")
       .eq("date", date)
       .eq("business_id", businessId);
 
-    console.log("📅 APPOINTMENTS:", appointments?.length || 0);
-
-    // 🔥 2. TRAER INVENTORY (opcional)
+    // 🔥 2. INVENTORY
     const { data: inventory } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
       .eq("business_id", businessId)
       .eq("date", date);
 
-    console.log("📦 INVENTORY:", inventory?.length || 0);
+    // 🔥 3. HORARIOS DINÁMICOS (LA CLAVE)
+    const { data: schedules } = await supabase
+      .from("restaurant_schedules")
+      .select("start_time, end_time")
+      .eq("business_id", businessId)
+      .eq("date", date);
 
-    // 🔥 3. SIEMPRE HORARIOS (NO DEPENDEN DE DB)
-    const schedule = [
-      { start_time: "12:00", end_time: "16:00" },
-      { start_time: "20:00", end_time: "23:30" },
-    ];
+    console.log("📅 APPOINTMENTS:", appointments?.length || 0);
+    console.log("📦 INVENTORY:", inventory?.length || 0);
+    console.log("⏰ SCHEDULES:", schedules?.length || 0);
 
     return NextResponse.json({
       success: true,
-      source: "stable",
-      schedule,
+      source: "database",
+      schedule: schedules || [],
       tables: inventory || [],
       appointments: appointments || [],
     });
