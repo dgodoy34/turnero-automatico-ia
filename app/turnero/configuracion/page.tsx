@@ -98,17 +98,104 @@ export default function Configuracion() {
 
   // 🔹 guardar
   async function saveShifts() {
-    try {
+  try {
+    // 🔥 1. BORRAR INVENTARIO
+    await supabase
+      .from("restaurant_table_inventory")
+      .delete()
+      .eq("business_id", RESTAURANT_ID)
+      .eq("date", date);
+
+    // 🔥 2. INSERT INVENTARIO (como ya hacías)
+    const inventoryRows = shifts.flatMap((shift) =>
+      shift.tables.map((t) => ({
+        business_id: RESTAURANT_ID,
+        date: date,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        capacity: t.capacity,
+        quantity: t.quantity,
+      }))
+    );
+
+    const { error } = await supabase
+      .from("restaurant_table_inventory")
+      .insert(inventoryRows);
+
+    if (error) {
+      alert("Error al guardar: " + error.message);
+      return;
+    }
+
+    // 🔥🔥🔥 3. SINCRONIZAR SCHEDULE (LA CLAVE DE TODO)
+    await supabase
+      .from("restaurant_table_schedule")
+      .delete()
+      .eq("business_id", RESTAURANT_ID)
+      .eq("date", date);
+
+    const scheduleRows = shifts.map((shift) => {
+      // 👉 calcular capacidad total del turno
+      const totalCapacity = shift.tables.reduce(
+        (acc, t) => acc + t.capacity * t.quantity,
+        0
+      );
+
+      return {
+        business_id: RESTAURANT_ID,
+        date: date,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        capacity: totalCapacity,
+        quantity: 1, // no importa mucho, solo referencia
+      };
+    });
+
+    await supabase
+      .from("restaurant_table_schedule")
+      .insert(scheduleRows);
+
+    alert("✅ Configuración guardada correctamente");
+    await loadShifts();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error inesperado");
+  }
+}
+
+  // 🔥 copiar a la semana (CORREGIDO)
+async function copyToWeek() {
+  try {
+    const baseDate = new Date(date);
+
+    const days = [0,1,2,3,4,5,6].map((d) => {
+      const newDate = new Date(baseDate);
+      newDate.setDate(baseDate.getDate() + d);
+      return newDate.toISOString().split("T")[0];
+    });
+
+    for (const d of days) {
+
+      // 🔥 1. BORRAR INVENTARIO
       await supabase
         .from("restaurant_table_inventory")
         .delete()
         .eq("business_id", RESTAURANT_ID)
-        .eq("date", date);
+        .eq("date", d);
 
-      const rows = shifts.flatMap((shift) =>
+      // 🔥 2. BORRAR SCHEDULE
+      await supabase
+        .from("restaurant_table_schedule")
+        .delete()
+        .eq("business_id", RESTAURANT_ID)
+        .eq("date", d);
+
+      // 🔥 3. INSERT INVENTARIO
+      const inventoryRows = shifts.flatMap((shift) =>
         shift.tables.map((t) => ({
           business_id: RESTAURANT_ID,
-          date: date,
+          date: d,
           start_time: shift.start_time,
           end_time: shift.end_time,
           capacity: t.capacity,
@@ -116,63 +203,49 @@ export default function Configuracion() {
         }))
       );
 
-      const { error } = await supabase
+      const { error: invError } = await supabase
         .from("restaurant_table_inventory")
-        .insert(rows);
+        .insert(inventoryRows);
 
-      if (error) {
-        alert("Error al guardar: " + error.message);
-        return;
+      if (invError) {
+        console.error(invError);
+        throw new Error("Error guardando inventory");
       }
 
-      alert("✅ Configuración guardada correctamente");
-      await loadShifts();
-
-    } catch (err) {
-      alert("Error inesperado");
-    }
-  }
-
-  // 🔥 copiar a la semana
-  async function copyToWeek() {
-    try {
-      const baseDate = new Date(date);
-
-      const days = [0,1,2,3,4,5,6].map((d) => {
-        const newDate = new Date(baseDate);
-        newDate.setDate(baseDate.getDate() + d);
-        return newDate.toISOString().split("T")[0];
-      });
-
-      for (const d of days) {
-        await supabase
-          .from("restaurant_table_inventory")
-          .delete()
-          .eq("business_id", RESTAURANT_ID)
-          .eq("date", d);
-
-        const rows = shifts.flatMap((shift) =>
-          shift.tables.map((t) => ({
-            business_id: RESTAURANT_ID,
-            date: d,
-            start_time: shift.start_time,
-            end_time: shift.end_time,
-            capacity: t.capacity,
-            quantity: t.quantity,
-          }))
+      // 🔥 4. GENERAR SCHEDULE (desde shifts)
+      const scheduleRows = shifts.map((shift) => {
+        const totalCapacity = shift.tables.reduce(
+          (acc, t) => acc + t.capacity * t.quantity,
+          0
         );
 
-        await supabase
-          .from("restaurant_table_inventory")
-          .insert(rows);
+        return {
+          business_id: RESTAURANT_ID,
+          date: d,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          capacity: totalCapacity,
+          quantity: 1,
+        };
+      });
+
+      const { error: schError } = await supabase
+        .from("restaurant_table_schedule")
+        .insert(scheduleRows);
+
+      if (schError) {
+        console.error(schError);
+        throw new Error("Error guardando schedule");
       }
-
-      alert("✅ Copiado a toda la semana");
-
-    } catch (e) {
-      alert("Error al copiar");
     }
+
+    alert("✅ Copiado a toda la semana");
+
+  } catch (e) {
+    console.error(e);
+    alert("Error al copiar");
   }
+}
 
   // SOLO para botones (orden visual)
   const sortedShifts = [...shifts].sort((a, b) =>
