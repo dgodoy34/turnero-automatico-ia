@@ -31,21 +31,27 @@ function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
   let [h, m] = start.split(":").map(Number);
-  const [endH, endM] = end.split(":").map(Number);
+  let [endH, endM] = end.split(":").map(Number);
 
-  while (h < endH || (h === endH && m <= endM)) {
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  let startMinutes = h * 60 + m;
+  let endMinutes = endH * 60 + endM;
 
-    m += interval;
-    if (m >= 60) {
-      h++;
-      m -= 60;
-    }
+  // 🔥 SI TERMINA AL DÍA SIGUIENTE
+  if (endMinutes <= startMinutes) {
+    endMinutes += 24 * 60;
+  }
+
+  for (let t = startMinutes; t <= endMinutes; t += interval) {
+    const hh = Math.floor((t % (24 * 60)) / 60);
+    const mm = t % 60;
+
+    slots.push(
+      `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`
+    );
   }
 
   return slots;
 }
-
 function normalizeTime(t?: string) {
   return t?.slice(0, 5);
 }
@@ -64,7 +70,9 @@ export default function CapacityTimeline({
     .filter((s) => s?.start_time && s?.end_time)
     .filter((s) => {
       const hour = Number(s.start_time!.slice(0, 2));
-      return shift === "day" ? hour < 18 : hour >= 18;
+     return shift === "day"
+  ? hour >= 6 && hour < 18
+  : hour >= 18 || hour < 6;
     });
 
   if (!validSchedules.length) {
@@ -106,7 +114,7 @@ export default function CapacityTimeline({
         const minutesA = h1 * 60 + m1;
         const minutesSlot = h2 * 60 + m2;
 
-        return Math.abs(minutesA - minutesSlot) < 15;
+        return minutesA === minutesSlot;
       })
       .reduce((sum, a) => sum + (a.people || 0), 0);
   }
