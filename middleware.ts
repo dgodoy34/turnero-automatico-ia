@@ -37,7 +37,7 @@ export function middleware(req: NextRequest) {
   if (hostname === "demo.turiago.app") {
     // https://demo.turiago.app/  → lo que vos quieras (ej: /turnero o /demo-home)
     if (pathname === "/" || pathname === "") {
-      return NextResponse.rewrite(new URL("/demo", req.url)); // Cambia "/demo" por la ruta real que querés
+      return NextResponse.rewrite(new URL("/turnero", req.url)); // Cambia "/demo" por la ruta real que querés
     }
 
     // https://demo.turiago.app/turnero → va a /turnero directamente
