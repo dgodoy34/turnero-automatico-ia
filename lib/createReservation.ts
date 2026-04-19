@@ -30,6 +30,36 @@ function generateTimeSlots(
   return slots;
 }
 
+function parseDate(input: string) {
+  const today = new Date();
+
+  // 👉 HOY
+  if (input.toLowerCase().includes("hoy")) {
+    return today.toISOString().split("T")[0];
+  }
+
+  // 👉 MAÑANA
+  if (input.toLowerCase().includes("mañana")) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
+  }
+
+  // 👉 FORMATO 19/04
+  const match = input.match(/(\d{1,2})\/(\d{1,2})/);
+
+  if (match) {
+    const day = match[1].padStart(2, "0");
+    const month = match[2].padStart(2, "0");
+    const year = today.getFullYear();
+
+    return `${year}-${month}-${day}`;
+  }
+
+  // 👉 SI YA VIENE BIEN (YYYY-MM-DD)
+  return input;
+}
+
 type CreateReservationParams = {
   business_id: string;
   dni: string;
@@ -61,6 +91,17 @@ export async function createReservation({
   client_name,
   client_phone,
 }: CreateReservationParams): Promise<CreateReservationResult> {
+
+  // 🔥 NORMALIZAR FECHA (IA / TEXTO)
+const parsedDate = parseDate(date);
+
+  // 🔥 BLOQUEO GRUPOS GRANDES ONLINE
+if (people > 6 && source === "online") {
+  return {
+    success: false,
+    message: "Para grupos de más de 6 personas, contactanos por WhatsApp",
+  };
+}
 
   try {
 
@@ -202,7 +243,7 @@ const BUFFER = settings?.buffer_time || 0;
       .from("restaurant_daily_settings")
       .select("max_capacity_override")
       .eq("business_id", businessId)
-      .eq("date", date)
+      .eq("date", parsedDate)
       .maybeSingle();
 
     if (dailySettings?.max_capacity_override != null) {
@@ -220,7 +261,7 @@ const BUFFER = settings?.buffer_time || 0;
 const formattedStart = time.slice(0, 5);
 
 // 🔥 crear fecha correctamente
-const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
+const startDateTime = new Date(`${parsedDate}T${formattedStart}:00-03:00`);
    const endDateTime = new Date(
   startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
 );
@@ -242,7 +283,7 @@ let { data: tableInventory } = await supabase
   .from("restaurant_table_inventory")
   .select("*")
   .eq("business_id", businessId)
-  .eq("date", date);
+  .eq("date", parsedDate);
 
 // 🔥 fallback a inventario base (sin fecha)
 if (!tableInventory || tableInventory.length === 0) {
@@ -318,7 +359,7 @@ if (!validSlot) {
     original_time: start_time, // 🔥 CLAVE
     message:
       `Ese horario no está disponible 😕\n\n` +
-      `📅 Para el ${date} podés reservar en:\n` +
+      `📅 Para el ${parsedDate} podés reservar en:\n` +
       availableSlots.join(" - "),
   };
 }
@@ -330,7 +371,7 @@ if (!validSlot) {
       .select("id")
       .eq("business_id", businessId)
       .eq("client_dni", dni)
-      .eq("date", date)
+      .eq("date", parsedDate)
       .eq("time", formattedStart)
       .eq("status", "confirmed")
       .maybeSingle();
@@ -363,7 +404,7 @@ if (existing && source !== "walkin") {
       .from("appointments")
       .select("assigned_table_capacity")
       .eq("business_id", businessId)
-      .eq("date", date)
+      .eq("date", parsedDate)
       .eq("status", "confirmed")
       .lt("start_time", end_time)
       .gt("end_time", start_time);
@@ -436,7 +477,7 @@ return {
         .from("appointments")
         .select("people")
         .eq("business_id", businessId)
-        .eq("date", date)
+        .eq("date", parsedDate)
         .eq("status", "confirmed")
         .lt("start_time", end_time)
         .gt("end_time", start_time);
@@ -501,8 +542,8 @@ for (let i = 0; i < 3; i++) {
   // 🔥 GENERAR CÓDIGO
   // ======================================
 
-  const year = new Date(date).getFullYear().toString().slice(2);
-  const monthDay = date.slice(5, 7) + date.slice(8, 10);
+  const year = new Date(parsedDate).getFullYear().toString().slice(2);
+const monthDay = parsedDate.slice(5, 7) + parsedDate.slice(8, 10);
   const padded = nextNumber.toString().padStart(4, "0");
 
   const reservationCode = `RC-${branch}-${year}-${monthDay}-${padded}`;
@@ -517,7 +558,7 @@ for (let i = 0; i < 3; i++) {
       client_dni: source === "walkin" ? WALKIN_DNI : dni,
       phone: client_phone,
       name: client_name,
-      date,
+      date: parsedDate,
       time: formattedStart,
       start_time,
       end_time,

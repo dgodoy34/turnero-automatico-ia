@@ -129,44 +129,59 @@ async function addAppointment() {
 }
 
     const res = await fetch("/api/appointments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-  client_dni: isWalkin ? "00000000" : clientId,
-  date,
-  time,
-  people,
-  notes,
-  source: selectedSource,
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    client_dni: isWalkin ? "00000000" : clientId,
+    date,
+    time,
+    people,
+    notes,
+    source: selectedSource,
 
-  client_name: isWalkin ? "Walk-in" : clientName,
-  client_phone: isWalkin ? "0000000000" : clientPhone,
-  client_email: isWalkin ? null : clientEmail,
-  client_birthday: isWalkin ? null : clientBirthday,
-}),
-    });
+    client_name: isWalkin ? "Walk-in" : clientName,
+    client_phone: isWalkin ? "0000000000" : clientPhone,
+    client_email: isWalkin ? null : clientEmail,
+    client_birthday: isWalkin ? null : clientBirthday,
+  }),
+});
 
-    const data = await res.json();
+// 🔥 LEER COMO TEXTO PRIMERO
+const text = await res.text();
 
-    // ❌ ERROR REAL
-    if (!res.ok || !data.success) {
-      alert(data.error || data.message || "Error creando reserva");
-      return;
-    }
+let data;
 
-    // ✅ ÉXITO
-    setSuccessMessage("Reserva creada correctamente");
+try {
+  data = JSON.parse(text);
+} catch (e) {
+  console.error("❌ RESPUESTA NO JSON:", text);
+  alert("Error del servidor (no JSON)");
+  return;
+}
 
-    
-    // limpiar form
+// 🔥 LOG REAL
+console.log("RESPONSE:", data);
+
+// ❌ ERROR
+if (!res.ok || !data.success) {
+  alert(data?.message || "Error creando reserva");
+  return;
+}
+
+// ✅ ÉXITO REAL
+alert("✅ Reserva creada correctamente");
+
+// limpiar form
 setClientId("");
 setClientName("");
 setClientPhone("");
 setClientEmail("");
 setClientBirthday("");
 setNotes("");
+
+await loadAll();
 
   } catch (err) {
     console.error("ERROR FRONT:", err);
