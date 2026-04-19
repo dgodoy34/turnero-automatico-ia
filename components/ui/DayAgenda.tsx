@@ -41,18 +41,14 @@ function generateTimeSlots(start: string, end: string, interval: number) {
   let startMin = toMinutes(start);
   let endMin = toMinutes(end);
 
-  // 🔥 CRUCE DE MEDIANOCHE
   if (endMin <= startMin) {
-    // tramo noche (continuo)
     for (let t = startMin; t < 24 * 60; t += interval) {
       slots.push(toTime(t));
     }
-
     for (let t = 0; t <= endMin; t += interval) {
       slots.push(toTime(t));
     }
   } else {
-    // turno normal
     for (let t = startMin; t <= endMin; t += interval) {
       slots.push(toTime(t));
     }
@@ -65,14 +61,15 @@ function normalizeTime(t?: string) {
   return t?.slice(0, 5);
 }
 
-function matchTime(slot: string, time: string) {
+// 🔥 FIX REAL (NO DUPLICA)
+function matchTime(slot: string, time: string, interval: number) {
   const [sh, sm] = slot.split(":").map(Number);
   const [th, tm] = time.split(":").map(Number);
 
   const slotMin = sh * 60 + sm;
   const timeMin = th * 60 + tm;
 
-  return Math.abs(slotMin - timeMin) < 15;
+  return timeMin >= slotMin && timeMin < slotMin + interval;
 }
 
 export default function DayAgenda({
@@ -102,21 +99,16 @@ export default function DayAgenda({
     hours = [...hours, ...slots];
   });
 
-  // 🔥 eliminar duplicados manteniendo orden
   hours = Array.from(new Set(hours));
 
-  // 🔥 ORDEN CORRECTO PARA NOCHE
+  // 🔥 orden correcto noche
   hours.sort((a, b) => {
     const toMin = (t: string) => {
       const [h, m] = t.split(":").map(Number);
       let total = h * 60 + m;
-
-      // 👉 clave: madrugada se suma 24h para que quede después de 20:00
       if (shift === "night" && h < 6) total += 24 * 60;
-
       return total;
     };
-
     return toMin(a) - toMin(b);
   });
 
@@ -127,7 +119,7 @@ export default function DayAgenda({
       const t = normalizeTime(a.start_time || a.time);
       if (!t) return false;
 
-      return matchTime(time, t);
+      return matchTime(time, t, interval);
     });
   }
 
