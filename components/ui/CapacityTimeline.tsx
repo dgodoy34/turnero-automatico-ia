@@ -30,28 +30,30 @@ type Props = {
 function generateSlots(start: string, end: string, interval: number) {
   const slots: string[] = [];
 
-  let [h, m] = start.split(":").map(Number);
+  let [startH, startM] = start.split(":").map(Number);
   let [endH, endM] = end.split(":").map(Number);
 
-  if (endH < h) endH += 24;
+  let startTotal = startH * 60 + startM;
+  let endTotal = endH * 60 + endM;
 
-  while (h < endH || (h === endH && m <= endM)) {
-    const displayH = h % 24;
+  // 🔥 si cruza medianoche
+  if (endTotal <= startTotal) {
+    endTotal += 24 * 60;
+  }
+
+  for (let t = startTotal; t <= endTotal; t += interval) {
+    const display = t % (24 * 60);
+
+    const h = Math.floor(display / 60);
+    const m = display % 60;
 
     slots.push(
-      `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
     );
-
-    m += interval;
-    if (m >= 60) {
-      h++;
-      m -= 60;
-    }
   }
 
   return slots;
 }
-
 function normalizeTime(t?: string) {
   return t ? t.slice(0, 5) : null;
 }
