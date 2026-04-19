@@ -232,7 +232,7 @@ setNotes("");
 
       a.reservation_code?.toLowerCase() === value ||
       a.client_dni === value ||
-      a.clients?.name?.toLowerCase().includes(value)
+      (a.clients?.name || "").toLowerCase().includes(value)
 
     )
 
