@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const name = body.name;
-    const email = body.email || `admin@${name}.com`;
+    const email = body.email || `admin@${generateSlug(name)}.com`;
     const password = body.password || "123456";
 
     if (!name) {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     let slug = baseSlug;
     let counter = 1;
 
-    // 🔥 evitar duplicados PRO
+    // 🔥 evitar duplicados
     while (true) {
       const { data: existing } = await supabase
         .from("restaurants")
@@ -119,13 +119,14 @@ export async function POST(req: Request) {
     ]);
 
     // =========================
-    // RESPONSE
+    // ✅ RESPONSE FINAL PRO
     // =========================
     return NextResponse.json({
       success: true,
       business_id: businessId,
       slug,
-      url: `/turnero/${slug}`,
+      url: `https://${slug}.turiago.app`,
+      admin_url: `https://admin.turiago.app/restaurants/detail?id=${businessId}`,
     });
 
   } catch (err: any) {

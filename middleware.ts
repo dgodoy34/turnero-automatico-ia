@@ -7,10 +7,6 @@ export function middleware(req: NextRequest) {
   const hostname = host.split(":")[0];
   const parts = hostname.split(".");
 
-  // =========================
-  // 🔐 PROTEGER RUTAS
-  // =========================
-
   const session = req.cookies.get("session")?.value;
 
   const isProtected =
@@ -22,16 +18,21 @@ export function middleware(req: NextRequest) {
   }
 
   // =========================
+  // 🔐 ADMIN DOMAIN
+  // =========================
+
+  if (hostname === "admin.turiago.app") {
+    return NextResponse.next();
+  }
+
+  // =========================
   // 🌐 DOMINIO PRINCIPAL
   // =========================
 
-  const isMainDomain =
+  if (
     hostname === "turiago.app" ||
-    hostname === "www.turiago.app" ||
-    hostname === "admin.turiago.app" ||
-    hostname.includes("localhost");
-
-  if (isMainDomain) {
+    hostname === "www.turiago.app"
+  ) {
     return NextResponse.next();
   }
 
@@ -43,7 +44,7 @@ export function middleware(req: NextRequest) {
     const subdomain = parts[0];
 
     return NextResponse.rewrite(
-      new URL(`/turnero/${subdomain}`, req.url)
+      new URL(`/r/${subdomain}`, req.url)
     );
   }
 

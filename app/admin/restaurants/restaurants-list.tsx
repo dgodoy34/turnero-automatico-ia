@@ -3,112 +3,131 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
-export default function RestaurantsList(){
+export default function RestaurantsList() {
 
-const [restaurants,setRestaurants] = useState<any[]>([])
-const [loading,setLoading] = useState(true)
+  const [restaurants, setRestaurants] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-useEffect(()=>{
+  useEffect(() => {
 
-fetch("/api/admin/restaurants")
-.then(r=>r.json())
-.then(data=>{
-if(data.success){
-setRestaurants(data.restaurants || [])
-}
-setLoading(false)
-})
+    fetch("/api/admin/restaurants")
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setRestaurants(data.restaurants || [])
+        }
+        setLoading(false)
+      })
 
-},[])
+  }, [])
 
-async function deleteRestaurant(id:string){
+  async function deleteRestaurant(id: string) {
 
-if(!confirm("Eliminar restaurante?")) return
+    if (!confirm("Eliminar restaurante?")) return
 
-await fetch(`/api/admin/restaurants?id=${id}`,{
-method:"DELETE"
-})
+    await fetch(`/api/admin/restaurants?id=${id}`, {
+      method: "DELETE"
+    })
 
-setRestaurants(prev=>prev.filter(r=>r.id!==id))
+    setRestaurants(prev => prev.filter(r => r.id !== id))
+  }
 
-}
+  if (loading) {
+    return <div className="p-4">Cargando...</div>
+  }
 
-if(loading){
-return <div>Cargando...</div>
-}
+  return (
 
-return(
+    <div className="space-y-4">
 
-<div className="space-y-4">
+      <h2 className="text-xl font-semibold">
+        Restaurantes
+      </h2>
 
-<h2 className="text-xl font-semibold">
-Restaurantes
-</h2>
+      {restaurants.length === 0 && (
+        <div className="text-gray-500">
+          No hay restaurantes aún
+        </div>
+      )}
 
-{restaurants.map((r:any)=>(
+      {restaurants.map((r: any) => (
 
-<div
-key={r.id}
-className="border p-4 rounded-lg flex justify-between items-center"
->
+        <div
+          key={r.id}
+          className="border p-4 rounded-lg flex justify-between items-center"
+        >
 
-<div>
+          {/* INFO */}
+          <div>
 
-<div className="font-semibold">
-{r.name}
-</div>
+            <div className="font-semibold">
+              {r.name}
+            </div>
 
-<div className="text-sm text-gray-500">
-WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
-</div>
+            <div className="text-sm text-gray-500">
+              WhatsApp: {r.phone_number_id ? "🟢 conectado" : "🔴 no conectado"}
+            </div>
 
-</div>
+            <div className="text-xs text-gray-400">
+              {r.slug}.turiago.app
+            </div>
 
-<div className="flex gap-2">
+          </div>
 
-<Link
-href={`/admin/restaurants/detail?id=${r.id}`}
-className="bg-black text-white px-3 py-2 rounded text-sm"
->
-Administrar
-</Link>
+          {/* ACCIONES */}
+          <div className="flex gap-2 flex-wrap">
 
-<Link
-href={`/admin/restaurants/edit?id=${r.id}`}
-className="bg-blue-600 text-white px-3 py-2 rounded text-sm"
->
-Editar
-</Link>
+            {/* 🔥 VER SITIO (CLAVE) */}
+            <a
+              href={`https://${r.slug}.turiago.app`}
+              target="_blank"
+              className="bg-indigo-600 text-white px-3 py-2 rounded text-sm"
+            >
+              Ver sitio
+            </a>
 
-<Link
-href={`/admin/licenses?id=${r.id}`}
-className="bg-purple-600 text-white px-3 py-2 rounded text-sm"
->
-Licencia
-</Link>
+            <Link
+              href={`/admin/restaurants/detail?id=${r.id}`}
+              className="bg-black text-white px-3 py-2 rounded text-sm"
+            >
+              Administrar
+            </Link>
 
-<Link
-href={`/admin/whatsapp?id=${r.id}`}
-className="bg-green-600 text-white px-3 py-2 rounded text-sm"
->
-WhatsApp
-</Link>
+            <Link
+              href={`/admin/restaurants/edit?id=${r.id}`}
+              className="bg-blue-600 text-white px-3 py-2 rounded text-sm"
+            >
+              Editar
+            </Link>
 
-<button
-onClick={()=>deleteRestaurant(r.id)}
-className="bg-red-600 text-white px-3 py-2 rounded text-sm"
->
-Eliminar
-</button>
+            <Link
+              href={`/admin/licenses?id=${r.id}`}
+              className="bg-purple-600 text-white px-3 py-2 rounded text-sm"
+            >
+              Licencia
+            </Link>
 
-</div>
+            <Link
+              href={`/admin/whatsapp?id=${r.id}`}
+              className="bg-green-600 text-white px-3 py-2 rounded text-sm"
+            >
+              WhatsApp
+            </Link>
 
-</div>
+            <button
+              onClick={() => deleteRestaurant(r.id)}
+              className="bg-red-600 text-white px-3 py-2 rounded text-sm"
+            >
+              Eliminar
+            </button>
 
-))}
+          </div>
 
-</div>
+        </div>
 
-)
+      ))}
 
+    </div>
+
+  )
 }
