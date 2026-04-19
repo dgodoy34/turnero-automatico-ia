@@ -22,16 +22,16 @@ export async function GET(req: Request) {
       .eq("business_id", businessId)
       .eq("date", date);
 
-    // 🔥 INVENTARIO
+    // 🔥 INVENTARIO REAL (capacidad)
     const { data: inventory } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
       .eq("business_id", businessId)
       .eq("date", date);
 
-    // 🔥 HORARIOS (DINÁMICOS)
+    // 🔥 HORARIOS DINÁMICOS (LOS BUENOS)
     const { data: schedules } = await supabase
-      .from("restaurant_schedules")
+      .from("restaurant_table_schedule")
       .select("start_time, end_time")
       .eq("business_id", businessId)
       .eq("date", date);
@@ -42,9 +42,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      source: "database",
       schedule: schedules || [],
-      tables: inventory || [],
+      tables: inventory || [], // ✅ correcto
       appointments: appointments || [],
     });
 
