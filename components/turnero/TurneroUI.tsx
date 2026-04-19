@@ -38,10 +38,12 @@ export default function TurneroUI() {
   const [shift, setShift] = useState<"day" | "night">("night")
   const [people,setPeople] = useState(2);
   const [notes,setNotes] = useState("");
-
+  
   const [selectedDate,setSelectedDate] = useState("");
  
   const [selectedSource, setSelectedSource] = useState("manual");
+
+  const isWalkin = selectedSource === "walkin";
   const [showClientModal, setShowClientModal] = useState(false);
 
 const [clientName, setClientName] = useState("");
@@ -121,25 +123,29 @@ async function addAppointment() {
       return;
     }
 
+    if (!date || (!time && !isWalkin)) {
+  alert("Completá fecha y hora");
+  return;
+}
+
     const res = await fetch("/api/appointments", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        client_dni: clientId,
-        date,
-        time,
-        people,
-        notes,
-        source: selectedSource,
+  client_dni: isWalkin ? "00000000" : clientId,
+  date,
+  time,
+  people,
+  notes,
+  source: selectedSource,
 
-        // 🔥 datos extra del modal
-        client_name: clientName,
-        client_phone: clientPhone,
-        client_email: clientEmail,
-        client_birthday: clientBirthday,
-      }),
+  client_name: isWalkin ? "Walk-in" : clientName,
+  client_phone: isWalkin ? "0000000000" : clientPhone,
+  client_email: isWalkin ? null : clientEmail,
+  client_birthday: isWalkin ? null : clientBirthday,
+}),
     });
 
     const data = await res.json();
@@ -154,13 +160,15 @@ async function addAppointment() {
     setSuccessMessage("Reserva creada correctamente");
 
     // limpiar form
+    useEffect(() => {
+  if (isWalkin) {
     setClientId("");
     setClientName("");
     setClientPhone("");
     setClientEmail("");
     setClientBirthday("");
-    setNotes("");
-
+  }
+}, [isWalkin]);
     await loadAll();
 
   } catch (err) {
@@ -469,18 +477,21 @@ Nueva reserva
   <option value="online">🌐 Online</option>
 </select>
 
-<input
-placeholder="DNI"
-value={clientId}
-onChange={(e)=>setClientId(e.target.value)}
-className="border p-3 rounded"
-/>
+{!isWalkin && (
+  <input
+    placeholder="DNI"
+    value={clientId}
+    onChange={(e)=>setClientId(e.target.value)}
+    className="border p-3 rounded"
+  />
+)}
 
 <input
-type="number"
-value={people}
-onChange={(e)=>setPeople(Number(e.target.value))}
-className="border p-3 rounded"
+  type="number"
+  value={people}
+  min={1}
+  onChange={(e)=>setPeople(Number(e.target.value))}
+  className="border p-3 rounded"
 />
 
 <input
@@ -556,7 +567,7 @@ Reservas del día
 </td>
 
 <td>
-{r.clients?.name || "Cliente"}
+{r.clients?.name || "Walk-in"}
 </td>
 
 <td>

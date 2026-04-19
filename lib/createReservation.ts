@@ -86,9 +86,37 @@ if (!restaurantActive?.active) {
 // 🔒 CLIENTE (SOLO SI NO ES WALK-IN)
 // =========================
 
+const WALKIN_DNI = "00000000";
+
 let client = null;
 
-if (source !== "walkin") {
+if (source === "walkin") {
+
+  let { data: existingClient } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("dni", WALKIN_DNI)
+    .eq("business_id", business_id)
+    .maybeSingle();
+
+  if (!existingClient) {
+    const { data: newClient } = await supabase
+      .from("clients")
+      .insert({
+        dni: WALKIN_DNI,
+        name: "Walk-in",
+        phone: "0000000000",
+        business_id: business_id
+      })
+      .select()
+      .single();
+
+    client = newClient;
+  } else {
+    client = existingClient;
+  }
+
+} else {
 
   let { data: existingClient } = await supabase
     .from("clients")
@@ -109,7 +137,6 @@ if (source !== "walkin") {
       .single();
 
     if (clientError || !newClient) {
-      console.error("❌ ERROR creando cliente:", clientError);
       return {
         success: false,
         message: "Error creando cliente",
@@ -121,6 +148,7 @@ if (source !== "walkin") {
     client = existingClient;
   }
 }
+
     // =========================
     // 1️⃣ Obtener restaurante
     // =========================
@@ -485,7 +513,7 @@ for (let i = 0; i < 3; i++) {
   const res = await supabase
     .from("appointments")
     .insert({
-      client_dni: dni,
+      client_dni: source === "walkin" ? WALKIN_DNI : dni,
       phone: client_phone,
       name: client_name,
       date,
