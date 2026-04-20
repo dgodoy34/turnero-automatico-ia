@@ -401,23 +401,28 @@ if (existing && source !== "walkin") {
     // 7️⃣ Ver ocupación
     // =========================
     const { data: overlappingTables } = await supabase
-      .from("appointments")
-      .select("assigned_table_capacity")
-      .eq("business_id", businessId)
-      .eq("date", parsedDate)
-      .eq("status", "confirmed")
-      .lt("start_time", end_time)
-      .gt("end_time", start_time);
+  .from("appointments")
+  .select("assigned_table_capacity, tables_used")
+  .eq("business_id", businessId)
+  .eq("date", parsedDate)
+  .eq("status", "confirmed")
+  .lt("start_time", end_time)
+  .gt("end_time", start_time);
 
-    const usedCapacities =
-      overlappingTables?.map((r) => r.assigned_table_capacity) || [];
+const availableTables = [...tables];
 
-    const availableTables = [...tables];
+// 🔥 FIX REAL: descontar correctamente mesas usadas
+overlappingTables?.forEach((r) => {
+  const cap = r.assigned_table_capacity;
+  const used = r.tables_used || 1;
 
-    usedCapacities.forEach((cap) => {
-      const index = availableTables.indexOf(cap);
-      if (index !== -1) availableTables.splice(index, 1);
-    });
+  for (let i = 0; i < used; i++) {
+    const index = availableTables.indexOf(cap);
+    if (index !== -1) {
+      availableTables.splice(index, 1);
+    }
+  }
+});
 
     availableTables.sort((a, b) => a - b);
 
@@ -552,6 +557,12 @@ const monthDay = parsedDate.slice(5, 7) + parsedDate.slice(8, 10);
   // 🔥 INSERT
   // ======================================
 
+  let tablesNeeded = 1;
+
+if (people > 6) {
+  tablesNeeded = Math.ceil(people / 6);
+}
+
   const res = await supabase
     .from("appointments")
     .insert({
@@ -568,7 +579,7 @@ const monthDay = parsedDate.slice(5, 7) + parsedDate.slice(8, 10);
       reservation_code: reservationCode,
       business_id: businessId,
       assigned_table_capacity: assignedCapacity,
-      tables_used: 1,
+      tables_used: tablesNeeded,
       source: source || "manual",
       is_walkin: source === "walkin" // 👈 ACÁ
     })
