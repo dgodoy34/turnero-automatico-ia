@@ -30,36 +30,6 @@ function generateTimeSlots(
   return slots;
 }
 
-function parseDate(input: string) {
-  const today = new Date();
-
-  // 👉 HOY
-  if (input.toLowerCase().includes("hoy")) {
-    return today.toISOString().split("T")[0];
-  }
-
-  // 👉 MAÑANA
-  if (input.toLowerCase().includes("mañana")) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
-  }
-
-  // 👉 FORMATO 19/04
-  const match = input.match(/(\d{1,2})\/(\d{1,2})/);
-
-  if (match) {
-    const day = match[1].padStart(2, "0");
-    const month = match[2].padStart(2, "0");
-    const year = today.getFullYear();
-
-    return `${year}-${month}-${day}`;
-  }
-
-  // 👉 SI YA VIENE BIEN (YYYY-MM-DD)
-  return input;
-}
-
 type CreateReservationParams = {
   business_id: string;
   dni: string;
@@ -92,17 +62,6 @@ export async function createReservation({
   client_phone,
 }: CreateReservationParams): Promise<CreateReservationResult> {
 
-  // 🔥 NORMALIZAR FECHA (IA / TEXTO)
-const parsedDate = parseDate(date);
-
-  // 🔥 BLOQUEO GRUPOS GRANDES ONLINE
-if (people > 6 && source === "online") {
-  return {
-    success: false,
-    message: "Para grupos de más de 6 personas, contactanos por WhatsApp",
-  };
-}
-
   try {
 
     // =========================
@@ -123,8 +82,8 @@ if (!restaurantActive?.active) {
   };
 }
 
- // =========================
-// 🔒 CLIENTE (SOLO SI NO ES WALK-IN)
+// =========================
+// 🔒 CLIENTE (FIX WALK-IN)
 // =========================
 
 const WALKIN_DNI = "00000000";
@@ -163,21 +122,22 @@ if (source === "walkin") {
     .from("clients")
     .select("*")
     .eq("dni", dni)
+    .eq("business_id", business_id)
     .maybeSingle();
 
   if (!existingClient) {
-    const { data: newClient, error: clientError } = await supabase
+    const { data: newClient, error } = await supabase
       .from("clients")
       .insert({
         dni: dni,
         name: client_name || "Cliente",
         phone: client_phone || "0000000000",
-        business_id: business_id
+        business_id: business_id,
       })
       .select()
       .single();
 
-    if (clientError || !newClient) {
+    if (error || !newClient) {
       return {
         success: false,
         message: "Error creando cliente",
@@ -188,8 +148,14 @@ if (source === "walkin") {
   } else {
     client = existingClient;
   }
-}
 
+  if (!client?.phone) {
+    return {
+      success: false,
+      message: "El cliente no tiene teléfono registrado.",
+    };
+  }
+}
     // =========================
     // 1️⃣ Obtener restaurante
     // =========================
@@ -243,7 +209,7 @@ const BUFFER = settings?.buffer_time || 0;
       .from("restaurant_daily_settings")
       .select("max_capacity_override")
       .eq("business_id", businessId)
-      .eq("date", parsedDate)
+      .eq("date", date)
       .maybeSingle();
 
     if (dailySettings?.max_capacity_override != null) {
@@ -261,7 +227,7 @@ const BUFFER = settings?.buffer_time || 0;
 const formattedStart = time.slice(0, 5);
 
 // 🔥 crear fecha correctamente
-const startDateTime = new Date(`${parsedDate}T${formattedStart}:00-03:00`);
+const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
    const endDateTime = new Date(
   startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
 );
@@ -283,7 +249,7 @@ let { data: tableInventory } = await supabase
   .from("restaurant_table_inventory")
   .select("*")
   .eq("business_id", businessId)
-  .eq("date", parsedDate);
+  .eq("date", date);
 
 // 🔥 fallback a inventario base (sin fecha)
 if (!tableInventory || tableInventory.length === 0) {
@@ -359,7 +325,7 @@ if (!validSlot) {
     original_time: start_time, // 🔥 CLAVE
     message:
       `Ese horario no está disponible 😕\n\n` +
-      `📅 Para el ${parsedDate} podés reservar en:\n` +
+      `📅 Para el ${date} podés reservar en:\n` +
       availableSlots.join(" - "),
   };
 }
@@ -371,13 +337,12 @@ if (!validSlot) {
       .select("id")
       .eq("business_id", businessId)
       .eq("client_dni", dni)
-      .eq("date", parsedDate)
+      .eq("date", date)
       .eq("time", formattedStart)
       .eq("status", "confirmed")
       .maybeSingle();
 
-    // 🚶 WALK-IN NO BLOQUEA DUPLICADOS
-if (existing && source !== "walkin") {
+    if (existing && source !== "walkin") {
   return {
     success: false,
     message: "Ya tenés una reserva confirmada en ese horario.",
@@ -401,25 +366,23 @@ if (existing && source !== "walkin") {
     // 7️⃣ Ver ocupación
     // =========================
     const { data: overlappingTables } = await supabase
-  .from("appointments")
-  .select("assigned_table_capacity, tables_used")
-  .eq("business_id", businessId)
-  .eq("date", parsedDate)
-  .eq("status", "confirmed")
-  .lt("start_time", end_time)
-  .gt("end_time", start_time);
+      .from("appointments")
+      .select("assigned_table_capacity")
+      .eq("business_id", businessId)
+      .eq("date", date)
+      .eq("status", "confirmed")
+      .lt("start_time", end_time)
+      .gt("end_time", start_time);
 
-const availableTables = [...tables];
+    const usedCapacities =
+      overlappingTables?.map((r) => r.assigned_table_capacity) || [];
 
-overlappingTables?.forEach((r) => {
-  const cap = r.assigned_table_capacity;
+    const availableTables = [...tables];
 
-  const index = availableTables.findIndex(t => t === cap);
-
-  if (index !== -1) {
-    availableTables.splice(index, 1);
-  }
-});
+    usedCapacities.forEach((cap) => {
+      const index = availableTables.indexOf(cap);
+      if (index !== -1) availableTables.splice(index, 1);
+    });
 
     availableTables.sort((a, b) => a - b);
 
@@ -479,7 +442,7 @@ return {
         .from("appointments")
         .select("people")
         .eq("business_id", businessId)
-        .eq("date", parsedDate)
+        .eq("date", date)
         .eq("status", "confirmed")
         .lt("start_time", end_time)
         .gt("end_time", start_time);
@@ -544,8 +507,8 @@ for (let i = 0; i < 3; i++) {
   // 🔥 GENERAR CÓDIGO
   // ======================================
 
-  const year = new Date(parsedDate).getFullYear().toString().slice(2);
-const monthDay = parsedDate.slice(5, 7) + parsedDate.slice(8, 10);
+  const year = new Date(date).getFullYear().toString().slice(2);
+  const monthDay = date.slice(5, 7) + date.slice(8, 10);
   const padded = nextNumber.toString().padStart(4, "0");
 
   const reservationCode = `RC-${branch}-${year}-${monthDay}-${padded}`;
@@ -554,19 +517,13 @@ const monthDay = parsedDate.slice(5, 7) + parsedDate.slice(8, 10);
   // 🔥 INSERT
   // ======================================
 
-  let tablesNeeded = 1;
-
-if (people > 6) {
-  tablesNeeded = Math.ceil(people / 6);
-}
-
   const res = await supabase
     .from("appointments")
     .insert({
       client_dni: source === "walkin" ? WALKIN_DNI : dni,
       phone: client_phone,
       name: client_name,
-      date: parsedDate,
+      date,
       time: formattedStart,
       start_time,
       end_time,
@@ -576,9 +533,8 @@ if (people > 6) {
       reservation_code: reservationCode,
       business_id: businessId,
       assigned_table_capacity: assignedCapacity,
-      tables_used: tablesNeeded,
-      source: source || "manual",
-      is_walkin: source === "walkin" // 👈 ACÁ
+      tables_used: 1,
+      source: source || "manual"
     })
     .select()
     .single();
