@@ -411,16 +411,13 @@ if (existing && source !== "walkin") {
 
 const availableTables = [...tables];
 
-// 🔥 FIX REAL: descontar correctamente mesas usadas
 overlappingTables?.forEach((r) => {
   const cap = r.assigned_table_capacity;
-  const used = r.tables_used || 1;
 
-  for (let i = 0; i < used; i++) {
-    const index = availableTables.indexOf(cap);
-    if (index !== -1) {
-      availableTables.splice(index, 1);
-    }
+  const index = availableTables.findIndex(t => t === cap);
+
+  if (index !== -1) {
+    availableTables.splice(index, 1);
   }
 });
 
