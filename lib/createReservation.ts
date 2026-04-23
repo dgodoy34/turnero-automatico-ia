@@ -344,7 +344,7 @@ if (!validSlot) {
       .eq("client_dni", dni)
       .eq("date", date)
       .eq("time", formattedStart)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "pending"])
       .maybeSingle();
 
     if (existing && source !== "walkin") {
@@ -375,7 +375,7 @@ if (!validSlot) {
       .select("assigned_table_capacity")
       .eq("business_id", businessId)
       .eq("date", date)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "pending"])
      .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
@@ -450,7 +450,7 @@ return {
         .select("people")
         .eq("business_id", businessId)
         .eq("date", date)
-        .eq("status", "confirmed")
+        .in("status", ["confirmed", "pending"])
        .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
@@ -539,7 +539,7 @@ const { data: finalCheck } = await supabase
   .select("assigned_table_capacity")
   .eq("business_id", businessId)
   .eq("date", date)
-  .eq("status", "confirmed")
+  .in("status", ["confirmed", "pending"])
    .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
