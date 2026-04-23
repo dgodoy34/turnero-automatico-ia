@@ -18,9 +18,28 @@ function getMenu() {
   );
 }
 
+
+function getNowByTZ(timezone: string) {
+  return new Date(
+    new Date().toLocaleString("en-US", { timeZone: timezone })
+  );
+}
+
+function getTodayISO(timezone: string) {
+  const now = getNowByTZ(timezone);
+  return now.toISOString().split("T")[0];
+}
+
+function getTomorrowISO(timezone: string) {
+  const now = getNowByTZ(timezone);
+  const t = new Date(now);
+  t.setDate(now.getDate() + 1);
+  return t.toISOString().split("T")[0];
+}
 function formatDateToISO(input: string) {
-  const today = new Date();
-  const currentYear = today.getFullYear();
+  const timezone = "America/Argentina/Buenos_Aires";
+const today = getTodayISO(timezone);
+  const currentYear = today.split("-")[0];
 
   const clean = input.replace(/-/g, "/").trim();
   const parts = clean.split("/");

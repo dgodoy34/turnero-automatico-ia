@@ -1,11 +1,24 @@
 import OpenAI from "openai";
 
+function getNowArgentina() {
+  return new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "America/Argentina/Buenos_Aires",
+    })
+  );
+}
+
+function getTodayArgentinaISO() {
+  const now = getNowArgentina();
+  return now.toISOString().split("T")[0];
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
 export async function interpretMessage(message: string) {
-  const today = new Date().toISOString().split("T")[0];
+ const today = getTodayArgentinaISO();
 
   const response = await openai.responses.create({
     model: "gpt-4.1-mini",

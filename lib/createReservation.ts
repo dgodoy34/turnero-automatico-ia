@@ -234,7 +234,12 @@ const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
 
 
     const start_time = formattedStart;
-    const end_time = endDateTime.toTimeString().slice(0, 5);
+    let end_time = endDateTime.toTimeString().slice(0, 5);
+
+// 🔥 FIX CRÍTICO: si cruza medianoche
+if (end_time < start_time) {
+  end_time = "23:59";
+}
 
     
 // =========================
@@ -371,8 +376,10 @@ if (!validSlot) {
       .eq("business_id", businessId)
       .eq("date", date)
       .eq("status", "confirmed")
-      .lt("start_time", end_time)
-      .gt("end_time", start_time);
+     .or(`
+  and(start_time.lte.${end_time},end_time.gte.${start_time}),
+  and(end_time.lt.${start_time})
+`);
 
     const usedCapacities =
       overlappingTables?.map((r) => r.assigned_table_capacity) || [];
@@ -444,8 +451,10 @@ return {
         .eq("business_id", businessId)
         .eq("date", date)
         .eq("status", "confirmed")
-        .lt("start_time", end_time)
-        .gt("end_time", start_time);
+       .or(`
+  and(start_time.lte.${end_time},end_time.gte.${start_time}),
+  and(end_time.lt.${start_time})
+`);
 
       const currentPeople =
         overlapping?.reduce((sum, r) => sum + (r.people || 0), 0) || 0;
@@ -531,8 +540,10 @@ const { data: finalCheck } = await supabase
   .eq("business_id", businessId)
   .eq("date", date)
   .eq("status", "confirmed")
-  .lt("start_time", end_time)
-  .gt("end_time", start_time);
+   .or(`
+  and(start_time.lte.${end_time},end_time.gte.${start_time}),
+  and(end_time.lt.${start_time})
+`);
 
 const finalUsed =
   finalCheck?.filter(r => r.assigned_table_capacity === assignedCapacity).length || 0;
@@ -541,7 +552,7 @@ const totalTables = tableInventory
   .filter(t => t.capacity === assignedCapacity)
   .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
-  
+
 if (finalUsed >= totalTables) {
   return {
     success: false,
