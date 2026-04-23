@@ -517,6 +517,39 @@ for (let i = 0; i < 3; i++) {
   // 🔥 INSERT
   // ======================================
 
+  if (!assignedCapacity) {
+  return {
+    success: false,
+    message: "No hay mesas disponibles para esa cantidad de personas.",
+  };
+}
+
+// 🔥 REVALIDACIÓN FINAL (ANTI SOBREVENTA)
+const { data: finalCheck } = await supabase
+  .from("appointments")
+  .select("assigned_table_capacity")
+  .eq("business_id", businessId)
+  .eq("date", date)
+  .eq("status", "confirmed")
+  .lt("start_time", end_time)
+  .gt("end_time", start_time);
+
+const finalUsed =
+  finalCheck?.filter(r => r.assigned_table_capacity === assignedCapacity).length || 0;
+
+const totalTables = tableInventory
+  .filter(t => t.capacity === assignedCapacity)
+  .reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+  
+if (finalUsed >= totalTables) {
+  return {
+    success: false,
+    message: "Se acaba de ocupar ese horario. Probá otro.",
+  };
+}
+
+
   const res = await supabase
     .from("appointments")
     .insert({
