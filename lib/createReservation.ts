@@ -546,7 +546,7 @@ const { data: finalCheck } = await supabase
 `);
 
 const finalUsed =
-  finalCheck?.filter(r => r.assigned_table_capacity === assignedCapacity).length || 0;
+  finalCheck?.filter(r => Number(r.assigned_table_capacity) === Number(assignedCapacity)).length || 0;
 
 const totalTables = tableInventory
   .filter(t => t.capacity === assignedCapacity)
