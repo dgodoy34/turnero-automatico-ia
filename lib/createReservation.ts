@@ -173,7 +173,9 @@ export async function createReservation({
       return { success: false, message: "Inventario no configurado." };
     }
 
-    // 6. Calcular Disponibilidad de Mesas
+   // ======================================
+    // 6. Calcular Disponibilidad de Mesas (CORREGIDO)
+    // ======================================
     const tables: number[] = [];
     tableInventory.forEach((t) => {
       for (let i = 0; i < t.quantity; i++) {
@@ -181,26 +183,44 @@ export async function createReservation({
       }
     });
 
-    const { data: overlappingTables } = await supabase
+    // Lógica de solapamiento corregida: 
+    // Una mesa está ocupada SI: (InicioExistente < MiFin) Y (FinExistente > MiInicio)
+    const { data: overlappingTables, error: overlapError } = await supabase
       .from("appointments")
       .select("assigned_table_capacity")
       .eq("business_id", business_id)
       .eq("date", date)
-      .or(`and(start_time.lte.${end_time},end_time.gte.${start_time}),and(end_time.lt.${start_time})`);
+      .neq("status", "cancelled") // No contamos las canceladas
+      .filter('start_time', 'lt', end_time)  // Empieza antes de que yo termine
+      .filter('end_time', 'gt', start_time); // Termina después de que yo empiece
+
+    if (overlapError) {
+      console.error("Error consultando solapamientos:", overlapError);
+    }
 
     const usedCapacities = overlappingTables?.map((r) => r.assigned_table_capacity) || [];
     const availableTables = [...tables];
+
+    // Restamos las mesas ocupadas del inventario total
     usedCapacities.forEach((cap) => {
       const index = availableTables.indexOf(cap);
-      if (index !== -1) availableTables.splice(index, 1);
+      if (index !== -1) {
+        availableTables.splice(index, 1);
+      }
     });
 
     availableTables.sort((a, b) => a - b);
+    
     let assignedCapacity = null;
-    if (people <= 2) assignedCapacity = availableTables.find((t) => t >= 2) || null;
-    else if (people <= 4) assignedCapacity = availableTables.find((t) => t >= 4) || null;
-    else assignedCapacity = availableTables.find((t) => t >= 6) || null;
+    if (people <= 2) {
+      assignedCapacity = availableTables.find((t) => t >= 2) || null;
+    } else if (people <= 4) {
+      assignedCapacity = availableTables.find((t) => t >= 4) || null;
+    } else {
+      assignedCapacity = availableTables.find((t) => t >= 6) || null;
+    }
 
+    // SI NO HAY CAPACIDAD, RECHAZAMOS ANTES DE INTENTAR EL INSERT
     if (!assignedCapacity) {
       const availableSlots = generateTimeSlots(open_time, close_time, interval);
       const alternatives = availableSlots.filter((t) => t > start_time).slice(0, 5);
@@ -208,10 +228,9 @@ export async function createReservation({
         success: false,
         message: alternatives.length > 0 
           ? `No hay lugar a las ${start_time} 😕\n\n👉 Disponible:\n${alternatives.join(" - ")}`
-          : "No hay disponibilidad.",
+          : "No hay disponibilidad para esa cantidad de personas en este horario.",
       };
     }
-
     // 7. Generar Código de Reserva
     const year = new Date(date).getFullYear().toString().slice(2);
     const monthDay = date.slice(5, 7) + date.slice(8, 10);
