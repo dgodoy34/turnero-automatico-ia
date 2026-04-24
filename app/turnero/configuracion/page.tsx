@@ -17,22 +17,8 @@ type Shift = {
   tables: TableConfig[];
 };
 
-const [businessId, setBusinessId] = useState<string | null>(null);
 
-// Al iniciar, obtenés el ID (por ejemplo, desde una API o contexto de tu Auth)
-useEffect(() => {
-  // Aquí deberías tener la lógica que detecta qué restaurante es
-  // Por ahora lo seteamos dinámicamente si lo tenés en el usuario logueado
-  const fetchBusinessData = async () => {
-    // Ejemplo: obtenerlo del usuario actual de Supabase
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.user_metadata?.business_id) {
-      setBusinessId(user.user_metadata.business_id);
-    }
-  };
-  fetchBusinessData();
-}, []);
-export const revalidate = 0;
+
 export default function Configuracion() {
   const [isMounted, setIsMounted] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
