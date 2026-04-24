@@ -230,30 +230,52 @@ export async function createReservation({
     }
     const reservationCode = `RC-${restaurant.branch_code}-${year}-${monthDay}-${nextNum.toString().padStart(4, "0")}`;
 
-    // 8. INSERT ATÓMICO (Llamada al RPC de Postgres)
-    const { data: rpcData, error: rpcError } = await supabase.rpc("create_reservation_atomic", {
-      p_business_id: business_id,
-      p_client_dni: source === "walkin" ? WALKIN_DNI : dni,
-      p_name: client_name || "Cliente",
-      p_phone: client_phone || "0000000000",
-      p_date: date,
-      p_start_time: start_time,
-      p_end_time: end_time,
-      p_people: people,
-      p_assigned_capacity: assignedCapacity,
-      p_reservation_code: reservationCode,
-      p_source: source || "manual",
-    });
+    // 8. INSERT SEGURO (CON FILTRO DE BASE DE DATOS)
+    const { data: finalRes, error: insertError } = await supabase
+      .from("appointments")
+      .insert({
+        client_dni: source === "walkin" ? WALKIN_DNI : dni,
+        phone: client_phone,
+        name: client_name,
+        date,
+        time: formattedStart,
+        start_time,
+        end_time,
+        people,
+        service: "reserva_mesa",
+        status: "confirmed",
+        reservation_code: reservationCode,
+        business_id: business_id,
+        assigned_table_capacity: assignedCapacity,
+        tables_used: 1,
+        source: source || "manual",
+      })
+      .select()
+      .single();
 
-    if (rpcError) throw rpcError;
-    if (!rpcData.success) return { success: false, message: rpcData.message };
+    if (insertError) {
+      if (insertError.message.includes("NO_AVAILABILITY")) {
+        return {
+          success: false,
+          message: "¡Lo sentimos! Alguien acaba de reservar la última mesa. Por favor, seleccioná otro horario.",
+        };
+      }
+      if (insertError.code === "23505") {
+        console.warn("⚠️ Código duplicado.");
+      }
+      console.error("❌ Error de inserción:", insertError);
+      return { success: false, message: "Error al procesar la reserva." };
+    }
 
-    const { data: finalRes } = await supabase.from("appointments").select("*").eq("id", rpcData.id).single();
-
-    return { success: true, reservation: finalRes };
-
+    return {
+      success: true,
+      reservation: finalRes,
+    };
   } catch (error) {
-    console.error("❌ Error:", error);
-    return { success: false, message: "Error inesperado al procesar la reserva." };
+    console.error("❌ Error inesperado:", error);
+    return {
+      success: false,
+      message: "Error inesperado al procesar la reserva.",
+    };
   }
 }
