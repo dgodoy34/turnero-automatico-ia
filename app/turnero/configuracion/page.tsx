@@ -25,6 +25,13 @@ export default function Configuracion() {
   const [selectedShiftIndex, setSelectedShiftIndex] = useState(0);
   const [shifts, setShifts] = useState<Shift[]>([]);
 
+  // 🔹 NUEVO: Estado para configuración general (Bot WhatsApp)
+  const [generalSettings, setGeneralSettings] = useState({
+    reservation_duration: 0,
+    buffer_time: 0,
+    slot_interval: 30
+  });
+
   const currentShift = shifts[selectedShiftIndex];
 
   // 🔹 cargar desde DB
@@ -92,10 +99,12 @@ export default function Configuracion() {
     }
   }
 
-  useEffect(() => {
-    loadShifts();
-  }, [date]);
-
+ useEffect(() => {
+  loadShifts();
+  loadGeneralSettings(); // <--- Agregalo aquí adentro
+}, [date]);
+  
+ 
   // 🔹 guardar
   async function saveShifts() {
   try {
@@ -126,6 +135,8 @@ export default function Configuracion() {
       alert("Error al guardar: " + error.message);
       return;
     }
+
+
 
     // 🔥🔥🔥 3. SINCRONIZAR SCHEDULE (LA CLAVE DE TODO)
     await supabase
@@ -163,6 +174,36 @@ export default function Configuracion() {
     alert("Error inesperado");
   }
 }
+
+// 🔹 NUEVO: Cargar settings de la tabla 'settings'
+  async function loadGeneralSettings() {
+    const { data } = await supabase
+      .from("settings")
+      .select("*")
+      .eq("business_id", RESTAURANT_ID)
+      .maybeSingle();
+    
+    if (data) {
+      setGeneralSettings({
+        reservation_duration: data.reservation_duration || 0,
+        buffer_time: data.buffer_time || 0,
+        slot_interval: data.slot_interval || 30
+      });
+    }
+  }
+
+  // 🔹 NUEVO: Guardar Configuración General
+  async function saveGeneralSettings() {
+    const { error } = await supabase
+      .from("settings")
+      .upsert({
+        business_id: RESTAURANT_ID,
+        ...generalSettings
+      }, { onConflict: 'business_id' });
+
+    if (error) alert("Error al guardar settings: " + error.message);
+    else alert("Configuración de tiempos actualizada ✅");
+  }
 
   // 🔥 copiar a la semana (CORREGIDO)
 async function copyToWeek() {
@@ -253,8 +294,51 @@ async function copyToWeek() {
   );
 
   return (
+
+    
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
+
+      {/* --- NUEVA SECCIÓN: CONFIGURACIÓN GENERAL DEL BOT --- */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+        <h2 className="text-lg font-semibold mb-4 text-indigo-700 flex items-center gap-2">
+          🕒 Tiempos de Reserva y Duración
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Duración de Reserva (minutos)
+            </label>
+            <input
+              type="number"
+              value={generalSettings.reservation_duration}
+              onChange={(e) => setGeneralSettings({...generalSettings, reservation_duration: Number(e.target.value)})}
+              className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              placeholder="Ej: 90"
+            />
+            <p className="text-[11px] text-gray-400 mt-2">
+              Poner <b>0</b> para usar lógica inteligente (90/120min).
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Intervalo de turnos (min)
+            </label>
+            <input
+              type="number"
+              value={generalSettings.slot_interval}
+              onChange={(e) => setGeneralSettings({...generalSettings, slot_interval: Number(e.target.value)})}
+              className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <button
+            onClick={saveGeneralSettings}
+            className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm font-semibold text-sm"
+          >
+            Actualizar Configuración
+          </button>
+        </div>
+      </div>
 
       {/* CONFIGURACIÓN */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">

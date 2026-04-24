@@ -134,14 +134,17 @@ export async function createReservation({
       .eq("business_id", business_id)
       .single();
 
-const open_time = settings?.open_time || "12:00";
+    const open_time = settings?.open_time || "12:00";
     const close_time = settings?.close_time || "23:30";
     const interval = settings?.slot_interval || 30;
     const BUFFER = settings?.buffer_time || 0;
 
-    // 🔥 CORRECCIÓN DURACIÓN DINÁMICA: 
-    // Si son 2 o 4 personas -> 90 min. Si son más (mesas de 6) -> 120 min.
-    const SLOT_DURATION = people <= 4 ? 90 : 120;
+    // 🔥 CORRECCIÓN HÍBRIDA: 
+    // Si settings.reservation_duration tiene un valor (ej: 100), usamos ese.
+    // Si está vacío o es 0, aplica la inteligencia (<=4 personas 90min, sino 120min).
+    const SLOT_DURATION = (settings?.reservation_duration && settings.reservation_duration > 0)
+      ? settings.reservation_duration
+      : (people <= 4 ? 90 : 120);
 
     const license = await checkLicense(business_id);
     if (!license.valid) {
@@ -152,16 +155,11 @@ const open_time = settings?.open_time || "12:00";
     const formattedStart = time.slice(0, 5);
     const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
     
-    // Ahora usa la duración dinámica calculada arriba
+    // Calcula el fin basado en la duración dinámica + el buffer
     const endDateTime = new Date(startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000);
 
     const start_time = formattedStart;
     let end_time = endDateTime.toTimeString().slice(0, 5);
-
-    // Si termina al día siguiente o después de las 23:59
-    if (end_time < start_time && end_time !== "00:00") {
-      end_time = "23:59";
-    }
 
     // 5. Inventario de Mesas
     let { data: tableInventory } = await supabase
