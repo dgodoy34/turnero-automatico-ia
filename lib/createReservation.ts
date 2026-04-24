@@ -344,7 +344,7 @@ if (!validSlot) {
       .eq("client_dni", dni)
       .eq("date", date)
       .eq("time", formattedStart)
-      .in("status", ["confirmed", "pending"])
+      //.in("status", ["confirmed", "pending"])
       .maybeSingle();
 
     if (existing && source !== "walkin") {
@@ -375,22 +375,21 @@ if (!validSlot) {
       .select("assigned_table_capacity")
       .eq("business_id", businessId)
       .eq("date", date)
-      .in("status", ["confirmed", "pending"])
+      //.in("status", ["confirmed", "pending"])
      .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
 `);
 
-    const usedCapacities =
-      overlappingTables?.map((r) => r.assigned_table_capacity) || [];
+   const usedCapacities =
+  overlappingTables?.map((r) => r.assigned_table_capacity) || [];
 
-    const availableTables = [...tables];
+const availableTables = [...tables];
 
-    usedCapacities.forEach((cap) => {
-      const index = availableTables.indexOf(cap);
-      if (index !== -1) availableTables.splice(index, 1);
-    });
-
+usedCapacities.forEach((cap) => {
+  const index = availableTables.indexOf(cap);
+  if (index !== -1) availableTables.splice(index, 1);
+});
     availableTables.sort((a, b) => a - b);
 
     let assignedCapacity: number | null = null;
@@ -450,7 +449,7 @@ return {
         .select("people")
         .eq("business_id", businessId)
         .eq("date", date)
-        .in("status", ["confirmed", "pending"])
+        //.in("status", ["confirmed", "pending"])
        .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
@@ -539,7 +538,7 @@ const { data: finalCheck } = await supabase
   .select("assigned_table_capacity")
   .eq("business_id", businessId)
   .eq("date", date)
-  .in("status", ["confirmed", "pending"])
+  //.in("status", ["confirmed", "pending"])
    .or(`
   and(start_time.lte.${end_time},end_time.gte.${start_time}),
   and(end_time.lt.${start_time})
