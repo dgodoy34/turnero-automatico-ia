@@ -33,16 +33,18 @@ export default function Configuracion() {
   });
 
   // Efecto para montar el componente y obtener el Business ID
-  useEffect(() => {
-    setIsMounted(true);
-    const fetchBusinessData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.user_metadata?.business_id) {
-        setBusinessId(user.user_metadata.business_id);
-      }
-    };
-    fetchBusinessData();
-  }, []);
+ useEffect(() => {
+  async function loadBusiness() {
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+
+    if (data?.settings?.business_id) {
+      setBusinessId(data.settings.business_id);
+    }
+  }
+
+  loadBusiness();
+}, []);
 
   // Efecto para cargar datos cuando el Business ID esté listo o cambie la fecha
   useEffect(() => {
@@ -126,11 +128,17 @@ export default function Configuracion() {
   
  
   // 🔹 guardar
+  if (!businessId) {
+  alert("No hay business_id");
+  return;
+}
   async function saveShifts() {
   try {
     // 🔥 1. BORRAR INVENTARIO
+    if (!businessId) return;
     await supabase
       .from("restaurant_table_inventory")
+    
       .delete()
       .eq("business_id", businessId)
       .eq("date", date);
@@ -215,7 +223,8 @@ export default function Configuracion() {
 
   // 🔹 NUEVO: Guardar Configuración General
   async function saveGeneralSettings() {
-  const { error } = await supabase
+    if (!businessId) return;
+     const { error } = await supabase
     .from("settings")
     .upsert({
       business_id: businessId, // 👈 Usamos el nombre unificado
