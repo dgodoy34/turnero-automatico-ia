@@ -233,17 +233,16 @@ const open_time = settings?.open_time || "12:00";
 
     if (!assignedCapacity) {
       const availableSlots = generateTimeSlots(open_time, close_time, interval);
-      // Filtramos horarios que empiecen DESPUÉS de que se libere la mesa (end_time)
-      const alternatives = availableSlots.filter((t) => t >= end_time).slice(0, 3);
+      // Buscamos 3 horarios después de la hora que pidió
+      const alternatives = availableSlots.filter((t) => t > start_time).slice(0, 3);
 
       return {
         success: false,
-        type: "ALTERNATIVES", // 👈 Esto le indica al bot que use los botones
-        original_time: start_time,
+        type: "ALTERNATIVES", // 👈 CLAVE: Esto le avisa al Webhook que use el menú de @img2
         message: alternatives.length > 0 
-          ? `Lo sentimos, no hay lugar a las ${start_time} para ${people} personas. \n\n¿Querés probar en estos horarios o cambiar de día?`
-          : "Lo sentimos, no hay más disponibilidad para esa cantidad de personas en este turno.",
-        // @ts-ignore (si te da error de tipo, agregamos el campo al type CreateReservationResult arriba)
+          ? `No hay mesas disponibles a las ${start_time}.`
+          : "Lo sentimos, no hay disponibilidad para esa cantidad de personas.",
+        // @ts-ignore
         alternatives: alternatives 
       };
     }

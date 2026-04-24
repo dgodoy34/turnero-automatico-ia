@@ -335,18 +335,8 @@ if (message.type !== "text") {
         return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
-      // ==================== CREACIÓN NUEVA ====================
+// ==================== CREACIÓN NUEVA ====================
       console.log("→ Camino de CREACIÓN NUEVA");
-
-      await setTemp(from, {
-        date: temp.date,
-        time: temp.time,
-        people: temp.people,
-        dni: temp.dni,
-        reservation_id: null,
-        is_modifying: false,
-        reservation_code: null,
-      });
 
       const result = await createReservation({
         business_id: businessId,
@@ -357,9 +347,23 @@ if (message.type !== "text") {
       });
 
       if (!result.success) {
-        if (result.type === "NO_MORE_SLOTS") {
+        if (result.type === "ALTERNATIVES") {
+          // Guardamos las alternativas en el temp_data para que el bot las recuerde
+          await setTemp(from, { 
+            ...temp, 
+            alternatives: result.alternatives 
+          });
           await setState(from, "NO_MORE_SLOTS");
-          reply = `No hay lugar a las ${result.original_time} 😕\n\n👉 Podés:\n1️⃣ Elegir otro día 📅\n2️⃣ Modificar 🔄\n3️⃣ Finalizar`;
+          
+          const botones = result.alternatives && result.alternatives.length > 0
+            ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
+            : "No hay más turnos hoy.";
+
+          reply = `❌ *${result.message}*\n\n` +
+                  `Pero tengo estos horarios disponibles:\n` +
+                  `${botones}\n` +
+                  `4️⃣ Elegir otro día 📅\n` +
+                  `5️⃣ Finalizar`;
         } else {
           await setState(from, "INIT");
           reply = result.message || "Error al crear la reserva.";
@@ -373,13 +377,19 @@ if (message.type !== "text") {
           is_modifying: false,
         });
 
-        reply = `🎉 ¡Reserva confirmada!\n\n📅 ${reservation.date}\n⏰ ${reservation.time}\n👥 ${reservation.people}\n🔑 Código: ${reservation.reservation_code}\n\n` + getMenu();
+        reply = `🎉 ¡Reserva confirmada!\n\n` +
+                `📅 *Día:* ${reservation.date}\n` +
+                `⏰ *Hora:* ${reservation.time}\n` +
+                `👥 *Personas:* ${reservation.people}\n` +
+                `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
+                getMenu();
+
         await setState(from, "POST_RESERVATION_MENU");
       }
 
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+    } // <-- Aquí termina el IF de CONFIRM_RESERVATION
 
     // =====================================
     // 3. MENÚ POST RESERVA - PRESERVA ID
@@ -709,21 +719,35 @@ if (message.type !== "text") {
       }
     }
 
-    else if (session.state === "NO_MORE_SLOTS") {
-      const msg = lower;
-      if (msg === "1" || msg.includes("día")) {
+   else if (session.state === "NO_MORE_SLOTS") {
+      const msg = lower.trim();
+      const alternatives = session.temp_data?.alternatives || [];
+      
+      // Si el usuario elige 1, 2 o 3 (los horarios sugeridos)
+      if (["1", "2", "3"].includes(msg) && alternatives.length >= parseInt(msg)) {
+        const selectedTime = alternatives[parseInt(msg) - 1];
+        
+        // Actualizamos la hora en el temp y lo mandamos a confirmar de nuevo
+        await setTemp(from, { ...session.temp_data, time: selectedTime });
+        await setState(from, "CONFIRM_RESERVATION");
+        
+        reply = `Entendido, probemos a las *${selectedTime}*.\n\n¿Confirmamos la reserva? (si/no)`;
+      } 
+      else if (msg === "4" || msg.includes("día") || msg.includes("dia")) {
         reply = "📅 Decime para qué día querés la reserva";
         await setState(from, "ASK_DATE");
-      } else if (msg === "2" || msg.includes("modificar")) {
-        reply = "🔄 ¿Qué querés cambiar? (fecha, hora o personas)";
-        await setState(from, "MODIFY_RESERVATION");
-      } else if (msg === "3" || msg.includes("finalizar")) {
-        reply = "Perfecto 👍 Cuando quieras volvemos a intentar.";
+      } 
+      else if (msg === "5" || msg.includes("finalizar")) {
+        reply = "Perfecto 👍 Gracias por contactarnos. ¡Te esperamos pronto!";
         await setState(from, "INIT");
         await clearTemp(from);
-      } else {
-        reply = "Elegí una opción 👇\n\n1️⃣ Elegir otro día 📅\n2️⃣ Modificar la reserva 🔄\n3️⃣ Finalizar";
+      } 
+      else {
+        reply = "Por favor, elegí una de las opciones del menú (1 al 5).";
       }
+
+      await sendReply(from, reply);
+      return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     // =====================================
