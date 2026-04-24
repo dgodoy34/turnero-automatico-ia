@@ -2,15 +2,8 @@ import { supabase } from "./supabaseClient";
 import { generateReservationCode } from "./reservationCode";
 import { checkLicense } from "./licenses/checkLicense";
 
-
-
-function generateTimeSlots(
-  start = "12:00",
-  end = "23:30",
-  interval = 30
-) {
+function generateTimeSlots(start = "12:00", end = "23:30", interval = 30) {
   const slots: string[] = [];
-
   const [startH, startM] = start.split(":").map(Number);
   const [endH, endM] = end.split(":").map(Number);
 
@@ -24,9 +17,6 @@ function generateTimeSlots(
     slots.push(current.toTimeString().slice(0, 5));
     current.setMinutes(current.getMinutes() + interval);
   }
-
-  
-
   return slots;
 }
 
@@ -36,12 +26,11 @@ type CreateReservationParams = {
   date: string;
   time: string;
   people: number;
-  source?: string; // 👈 AGREGAR ESTO
+  source?: string;
   client_name?: string;
   client_phone?: string;
 };
 
-// 🔥 TIPADO PRO (NUNCA undefined)
 type CreateReservationResult =
   | { success: true; reservation: any }
   | {
@@ -57,571 +46,214 @@ export async function createReservation({
   date,
   time,
   people,
-  source, // 👈 AGREGAR ESTO
+  source,
   client_name,
   client_phone,
 }: CreateReservationParams): Promise<CreateReservationResult> {
-
   try {
-
-    // =========================
-    // 🔒🔥 BLOQUEO POR PAGO (CORRECTO)
-    // =========================
-
-     
-const { data: restaurantActive } = await supabase
-  .from("restaurants")
-  .select("active")
-  .eq("business_id", business_id)
-  .single();
-
-if (!restaurantActive?.active) {
-  return {
-    success: false,
-    message: "Servicio suspendido por falta de pago",
-  };
-}
-
-// =========================
-// 🔒 CLIENTE (FIX WALK-IN)
-// =========================
-
-const WALKIN_DNI = "00000000";
-
-let client = null;
-
-if (source === "walkin") {
-
-  let { data: existingClient } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("dni", WALKIN_DNI)
-    .eq("business_id", business_id)
-    .maybeSingle();
-
-  if (!existingClient) {
-    const { data: newClient } = await supabase
-      .from("clients")
-      .insert({
-        dni: WALKIN_DNI,
-        name: "Walk-in",
-        phone: "0000000000",
-        business_id: business_id
-      })
-      .select()
+    // 1. Validar Restaurante Activo
+    const { data: restaurantActive } = await supabase
+      .from("restaurants")
+      .select("active")
+      .eq("business_id", business_id)
       .single();
 
-    client = newClient;
-  } else {
-    client = existingClient;
-  }
-
-} else {
-
-  let { data: existingClient } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("dni", dni)
-    .eq("business_id", business_id)
-    .maybeSingle();
-
-  if (!existingClient) {
-    const { data: newClient, error } = await supabase
-      .from("clients")
-      .insert({
-        dni: dni,
-        name: client_name || "Cliente",
-        phone: client_phone || "0000000000",
-        business_id: business_id,
-      })
-      .select()
-      .single();
-
-    if (error || !newClient) {
-      return {
-        success: false,
-        message: "Error creando cliente",
-      };
+    if (!restaurantActive?.active) {
+      return { success: false, message: "Servicio suspendido por falta de pago" };
     }
 
-    client = newClient;
-  } else {
-    client = existingClient;
-  }
+    // 2. Manejo de Cliente (Walk-in o Regular)
+    const WALKIN_DNI = "00000000";
+    let client = null;
 
-  if (!client?.phone) {
-    return {
-      success: false,
-      message: "El cliente no tiene teléfono registrado.",
-    };
-  }
-}
-    // =========================
-    // 1️⃣ Obtener restaurante
-    // =========================
-   const { data: restaurant, error: restaurantError } = await supabase
-  .from("restaurants")
-  .select("*")
- .eq("business_id", business_id)
-  .single();
+    if (source === "walkin") {
+      let { data: existingClient } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("dni", WALKIN_DNI)
+        .eq("business_id", business_id)
+        .maybeSingle();
 
-const businessId = business_id;
+      if (!existingClient) {
+        const { data: newClient } = await supabase
+          .from("clients")
+          .insert({
+            dni: WALKIN_DNI,
+            name: "Walk-in",
+            phone: "0000000000",
+            business_id: business_id,
+          })
+          .select()
+          .single();
+        client = newClient;
+      } else {
+        client = existingClient;
+      }
+    } else {
+      let { data: existingClient } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("dni", dni)
+        .eq("business_id", business_id)
+        .maybeSingle();
+
+      if (!existingClient) {
+        const { data: newClient, error } = await supabase
+          .from("clients")
+          .insert({
+            dni: dni,
+            name: client_name || "Cliente",
+            phone: client_phone || "0000000000",
+            business_id: business_id,
+          })
+          .select()
+          .single();
+
+        if (error || !newClient) return { success: false, message: "Error creando cliente" };
+        client = newClient;
+      } else {
+        client = existingClient;
+      }
+    }
+
+    // 3. Obtener Datos del Restaurante y Configuración
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from("restaurants")
+      .select("*")
+      .eq("business_id", business_id)
+      .single();
+
     if (restaurantError || !restaurant) {
-  return { success: false, message: "Restaurante no encontrado." };
-}
+      return { success: false, message: "Restaurante no encontrado." };
+    }
 
-// =========================
-// 🔥 SETTINGS
-// =========================
-const { data: settings } = await supabase
-  .from("settings")
-  .select("*")
-  .eq("business_id", businessId)
-  .single();
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("*")
+      .eq("business_id", business_id)
+      .single();
 
-const open_time = settings?.open_time || "12:00";
-const close_time = settings?.close_time || "23:30";
-const interval = settings?.slot_interval || 30;
-const SLOT_DURATION = settings?.reservation_duration || 90;
-const BUFFER = settings?.buffer_time || 0;
+    const open_time = settings?.open_time || "12:00";
+    const close_time = settings?.close_time || "23:30";
+    const interval = settings?.slot_interval || 30;
+    const SLOT_DURATION = settings?.reservation_duration || 90;
+    const BUFFER = settings?.buffer_time || 0;
 
-    // =========================
-    // 🔐 Validar licencia
-    // =========================
-    const license = await checkLicense(businessId);
-
+    const license = await checkLicense(business_id);
     if (!license.valid) {
-      return {
-        success: false,
-        message: "La licencia del restaurante no está activa.",
-      };
+      return { success: false, message: "La licencia del restaurante no está activa." };
     }
 
-    // =========================
-    // 2️⃣ Capacidad base
-    // =========================
-    let MAX_CAPACITY =
-      restaurant.online_capacity ||
-      restaurant.max_capacity ||
-      60;
-
-    const { data: dailySettings } = await supabase
-      .from("restaurant_daily_settings")
-      .select("max_capacity_override")
-      .eq("business_id", businessId)
-      .eq("date", date)
-      .maybeSingle();
-
-    if (dailySettings?.max_capacity_override != null) {
-      MAX_CAPACITY = dailySettings.max_capacity_override;
-    }
-    const CAPACITY_MODE = restaurant.capacity_mode || "strict";
-
-
-
-    
-    // =========================
-    // 3️⃣ Normalizar hora
-    // =========================
-    // 🔥 normalizar SIEMPRE a HH:mm
-const formattedStart = time.slice(0, 5);
-
-// 🔥 crear fecha correctamente
-const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
-   const endDateTime = new Date(
-  startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000
-);
-
+    // 4. Normalizar Horarios
+    const formattedStart = time.slice(0, 5);
+    const startDateTime = new Date(`${date}T${formattedStart}:00-03:00`);
+    const endDateTime = new Date(startDateTime.getTime() + (SLOT_DURATION + BUFFER) * 60000);
 
     const start_time = formattedStart;
     let end_time = endDateTime.toTimeString().slice(0, 5);
+    if (end_time < start_time) end_time = "23:59";
 
-// 🔥 FIX CRÍTICO: si cruza medianoche
-if (end_time < start_time) {
-  end_time = "23:59";
-}
+    // 5. Inventario de Mesas
+    let { data: tableInventory } = await supabase
+      .from("restaurant_table_inventory")
+      .select("*")
+      .eq("business_id", business_id)
+      .eq("date", date);
 
-    
-// =========================
-// 5️⃣ INVENTARIO REAL (FINAL)
-// =========================
+    if (!tableInventory || tableInventory.length === 0) {
+      const { data: fallback } = await supabase
+        .from("restaurant_table_inventory")
+        .select("*")
+        .eq("business_id", business_id)
+        .is("date", null);
+      tableInventory = fallback || [];
+    }
 
-// 🔥 detectar turno
-const shift = start_time <= "16:00" ? "Día" : "Noche";
+    if (!tableInventory || tableInventory.length === 0) {
+      return { success: false, message: "Inventario no configurado." };
+    }
 
-// 🔥 traer inventario del día
-let { data: tableInventory } = await supabase
-  .from("restaurant_table_inventory")
-  .select("*")
-  .eq("business_id", businessId)
-  .eq("date", date);
-
-// 🔥 fallback a inventario base (sin fecha)
-if (!tableInventory || tableInventory.length === 0) {
-  console.log("⚠️ usando inventario DEFAULT");
-
-  const { data: fallback } = await supabase
-    .from("restaurant_table_inventory")
-    .select("*")
-    .eq("business_id", businessId)
-    .is("date", null);
-
-  tableInventory = fallback || [];
-}
-
-// 🔥 NORMALIZAR HORARIOS (CLAVE)
-tableInventory = tableInventory.map(t => ({
-  ...t,
-  start_time: t.start_time?.slice(0,5),
-  end_time: t.end_time?.slice(0,5),
-}));
-
-// 🔴 VALIDACIÓN FINAL
-if (!tableInventory || tableInventory.length === 0) {
-  return {
-    success: false,
-    message: "Inventario no configurado.",
-  };
-}
-
-// 🔥 filtrar por turno (opcional pero recomendable)
-if (shift === "Día") {
-  tableInventory = tableInventory.filter(
-    (t) => !t.start_time || t.start_time <= "16:00"
-  );
-}
-
-if (shift === "Noche") {
-  tableInventory = tableInventory.filter(
-    (t) => !t.start_time || t.start_time > "16:00"
-  );
-}
-
-// =========================
-// 🔒 VALIDAR HORARIO MANUAL
-// =========================
-
-const validSlot = tableInventory.some((t) => {
-
-  if (!t.start_time || !t.end_time) return true;
-
-  // 👉 turno normal (ej: 12:00 - 16:00)
-  if (t.start_time < t.end_time) {
-    return start_time >= t.start_time && start_time < t.end_time;
-  }
-
-  // 🔥 turno nocturno (ej: 19:30 - 00:30)
-  return (
-    start_time >= t.start_time || start_time < t.end_time
-  );
-});
-
-if (!validSlot) {
-
-  const availableSlots = tableInventory
-    .map(t => t.start_time?.slice(0,5))
-    .filter(Boolean)
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .sort();
-
-  return {
-    success: false,
-    type: "NO_MORE_SLOTS", // 🔥 CLAVE
-    original_time: start_time, // 🔥 CLAVE
-    message:
-      `Ese horario no está disponible 😕\n\n` +
-      `📅 Para el ${date} podés reservar en:\n` +
-      availableSlots.join(" - "),
-  };
-}
-    // =========================
-    // 4️⃣ Verificar duplicado
-    // =========================
-    const { data: existing } = await supabase
-      .from("appointments")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("client_dni", dni)
-      .eq("date", date)
-      .eq("time", formattedStart)
-      //.in("status", ["confirmed", "pending"])
-      .maybeSingle();
-
-    if (existing && source !== "walkin") {
-  return {
-    success: false,
-    message: "Ya tenés una reserva confirmada en ese horario.",
-  };
-}
-
-  
-
-    // =========================
-    // 6️⃣ Expandir mesas
-    // =========================
+    // 6. Calcular Disponibilidad de Mesas
     const tables: number[] = [];
-
     tableInventory.forEach((t) => {
       for (let i = 0; i < t.quantity; i++) {
         tables.push(t.capacity);
       }
     });
 
-    // =========================
-    // 7️⃣ Ver ocupación
-    // =========================
     const { data: overlappingTables } = await supabase
       .from("appointments")
       .select("assigned_table_capacity")
-      .eq("business_id", businessId)
+      .eq("business_id", business_id)
       .eq("date", date)
-      //.in("status", ["confirmed", "pending"])
-     .or(`
-  and(start_time.lte.${end_time},end_time.gte.${start_time}),
-  and(end_time.lt.${start_time})
-`);
+      .or(`and(start_time.lte.${end_time},end_time.gte.${start_time}),and(end_time.lt.${start_time})`);
 
-   const usedCapacities =
-  overlappingTables?.map((r) => r.assigned_table_capacity) || [];
+    const usedCapacities = overlappingTables?.map((r) => r.assigned_table_capacity) || [];
+    const availableTables = [...tables];
+    usedCapacities.forEach((cap) => {
+      const index = availableTables.indexOf(cap);
+      if (index !== -1) availableTables.splice(index, 1);
+    });
 
-const availableTables = [...tables];
-
-usedCapacities.forEach((cap) => {
-  const index = availableTables.indexOf(cap);
-  if (index !== -1) availableTables.splice(index, 1);
-});
     availableTables.sort((a, b) => a - b);
+    let assignedCapacity = null;
+    if (people <= 2) assignedCapacity = availableTables.find((t) => t >= 2) || null;
+    else if (people <= 4) assignedCapacity = availableTables.find((t) => t >= 4) || null;
+    else assignedCapacity = availableTables.find((t) => t >= 6) || null;
 
-    let assignedCapacity: number | null = null;
-
-    if (people <= 2) {
-      assignedCapacity = availableTables.find((t) => t >= 2) || null;
-    } else if (people <= 4) {
-      assignedCapacity = availableTables.find((t) => t >= 4) || null;
-    } else {
-      assignedCapacity = availableTables.find((t) => t >= 6) || null;
+    if (!assignedCapacity) {
+      const availableSlots = generateTimeSlots(open_time, close_time, interval);
+      const alternatives = availableSlots.filter((t) => t > start_time).slice(0, 5);
+      return {
+        success: false,
+        message: alternatives.length > 0 
+          ? `No hay lugar a las ${start_time} 😕\n\n👉 Disponible:\n${alternatives.join(" - ")}`
+          : "No hay disponibilidad.",
+      };
     }
 
-   if (!assignedCapacity) {
+    // 7. Generar Código de Reserva
+    const year = new Date(date).getFullYear().toString().slice(2);
+    const monthDay = date.slice(5, 7) + date.slice(8, 10);
+    const { data: lastRes } = await supabase
+      .from("appointments")
+      .select("reservation_code")
+      .eq("business_id", business_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  // 🔥 generar horarios dinámicos (mediodía + noche)
-
-// fallback
-// 🔥 generar horarios dinámicos
-
-const possibleTimes = generateTimeSlots(
-  open_time,
-  close_time,
-  interval
-);
-
-// 🔥 calcular siguiente horario
-let nextTime: string | null = null;
-
-// 🔥 normalizar hora (clave)
-// 🔥 generar múltiples opciones
-const availableSlots = generateTimeSlots(
-  open_time,
-  close_time,
-  interval
-);
-
-// 🔥 filtrar horarios futuros al solicitado
-const alternatives = availableSlots
-  .filter(t => t > start_time)
-  .slice(0, 5); // máximo 5 opciones
-
-return {
-  success: false,
-  message:
-    alternatives.length > 0
-      ? `No hay lugar a las ${start_time} 😕\n\n👉 Tengo disponible:\n${alternatives.join(" - ")}\n\n¿Te sirve alguno?`
-      : "No hay disponibilidad en ese horario.",
-};
-   }
-
-    // =========================
-    // 9️⃣ Control capacidad global
-    // =========================
-    if (CAPACITY_MODE !== "disabled") {
-      const { data: overlapping } = await supabase
-        .from("appointments")
-        .select("people")
-        .eq("business_id", businessId)
-        .eq("date", date)
-        //.in("status", ["confirmed", "pending"])
-       .or(`
-  and(start_time.lte.${end_time},end_time.gte.${start_time}),
-  and(end_time.lt.${start_time})
-`);
-
-      const currentPeople =
-        overlapping?.reduce((sum, r) => sum + (r.people || 0), 0) || 0;
-
-      if (currentPeople + people > MAX_CAPACITY) {
-        return {
-          success: false,
-          message: "No hay disponibilidad en ese horario.",
-        };
-      }
+    let nextNum = 1;
+    if (lastRes?.reservation_code) {
+      const match = lastRes.reservation_code.match(/-(\d+)$/);
+      if (match) nextNum = parseInt(match[1]) + 1;
     }
-// =========================
-// 🔟 Código + Insert (PRO)
-// =========================
+    const reservationCode = `RC-${restaurant.branch_code}-${year}-${monthDay}-${nextNum.toString().padStart(4, "0")}`;
 
-let data: any = null;
-let error: any = null;
+    // 8. INSERT ATÓMICO (Llamada al RPC de Postgres)
+    const { data: rpcData, error: rpcError } = await supabase.rpc("create_reservation_atomic", {
+      p_business_id: business_id,
+      p_client_dni: source === "walkin" ? WALKIN_DNI : dni,
+      p_name: client_name || "Cliente",
+      p_phone: client_phone || "0000000000",
+      p_date: date,
+      p_start_time: start_time,
+      p_end_time: end_time,
+      p_people: people,
+      p_assigned_capacity: assignedCapacity,
+      p_reservation_code: reservationCode,
+      p_source: source || "manual",
+    });
 
-for (let i = 0; i < 3; i++) {
+    if (rpcError) throw rpcError;
+    if (!rpcData.success) return { success: false, message: rpcData.message };
 
-  // ======================================
-  // 🔥 OBTENER BRANCH_CODE REAL
-  // ======================================
+    const { data: finalRes } = await supabase.from("appointments").select("*").eq("id", rpcData.id).single();
 
-  const { data: restaurantBranch, error: branchError } = await supabase
-    .from("restaurants")
-    .select("branch_code")
-    .eq("business_id", businessId)
-    .single();
+    return { success: true, reservation: finalRes };
 
-  if (branchError || !restaurantBranch?.branch_code) {
-    throw new Error("❌ branch_code no configurado");
+  } catch (error) {
+    console.error("❌ Error:", error);
+    return { success: false, message: "Error inesperado al procesar la reserva." };
   }
-
-  const branch = restaurantBranch.branch_code;
-
-  // ======================================
-  // 🔥 OBTENER ÚLTIMO CÓDIGO
-  // ======================================
-
-  const { data: lastReservation } = await supabase
-    .from("appointments")
-    .select("reservation_code")
-    .eq("business_id", businessId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let nextNumber = 1;
-
-  if (lastReservation?.reservation_code) {
-    const match = lastReservation.reservation_code.match(/-(\d+)$/);
-    if (match) {
-      nextNumber = parseInt(match[1]) + 1;
-    }
-  }
-
-  // ======================================
-  // 🔥 GENERAR CÓDIGO
-  // ======================================
-
-  const year = new Date(date).getFullYear().toString().slice(2);
-  const monthDay = date.slice(5, 7) + date.slice(8, 10);
-  const padded = nextNumber.toString().padStart(4, "0");
-
-  const reservationCode = `RC-${branch}-${year}-${monthDay}-${padded}`;
-
-  // ======================================
-  // 🔥 INSERT
-  // ======================================
-
-  if (!assignedCapacity) {
-  return {
-    success: false,
-    message: "No hay mesas disponibles para esa cantidad de personas.",
-  };
-}
-
-// 🔥 REVALIDACIÓN FINAL (ANTI SOBREVENTA)
-const { data: finalCheck } = await supabase
-  .from("appointments")
-  .select("assigned_table_capacity")
-  .eq("business_id", businessId)
-  .eq("date", date)
-  //.in("status", ["confirmed", "pending"])
-   .or(`
-  and(start_time.lte.${end_time},end_time.gte.${start_time}),
-  and(end_time.lt.${start_time})
-`);
-
-const finalUsed =
-  finalCheck?.filter(r => Number(r.assigned_table_capacity) === Number(assignedCapacity)).length || 0;
-
-const totalTables = tableInventory
-  .filter(t => t.capacity === assignedCapacity)
-  .reduce((sum, t) => sum + (t.quantity || 0), 0);
-
-
-if (finalUsed >= totalTables) {
-  return {
-    success: false,
-    message: "Se acaba de ocupar ese horario. Probá otro.",
-  };
-}
-
-
-  const res = await supabase
-    .from("appointments")
-    .insert({
-      client_dni: source === "walkin" ? WALKIN_DNI : dni,
-      phone: client_phone,
-      name: client_name,
-      date,
-      time: formattedStart,
-      start_time,
-      end_time,
-      people,
-      service: "reserva_mesa",
-      status: "confirmed",
-      reservation_code: reservationCode,
-      business_id: businessId,
-      assigned_table_capacity: assignedCapacity,
-      tables_used: 1,
-      source: source || "manual"
-    })
-    .select()
-    .single();
-
-  data = res.data;
-  error = res.error;
-
-  // ✅ OK → salimos
-  if (!error) break;
-
-  // 🔥 SOLO reintentar si es duplicado
-  const isDuplicate =
-    error?.message?.toLowerCase().includes("duplicate") ||
-    error?.code === "23505";
-
-  if (!isDuplicate) {
-    console.error("❌ Error real (no retry):", error);
-    break;
-  }
-
-  console.warn("⚠️ Código duplicado, reintentando...");
-}
-
-// ❌ falló después de reintentos
-if (error) {
-  console.error("❌ Supabase insert error final:", error);
-  console.error("❌ CREATE RESERVATION ERROR:", error);
-  return {
-    success: false,
-    message: "Error al guardar la reserva.",
-  };
-}
-
-// ✅ éxito
-return {
-  success: true,
-  reservation: data,
-};
-
-} catch (error) {
-  console.error("❌ Unexpected error:", error);
-  return {
-    success: false,
-    message: "Error inesperado al procesar la reserva.",
-  };
-}
 }
