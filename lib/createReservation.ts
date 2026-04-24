@@ -174,61 +174,61 @@ export async function createReservation({
     }
 
    // ======================================
-    // 6. Calcular Disponibilidad de Mesas (CORREGIDO)
+    // 6. Calcular Disponibilidad de Mesas (Sincronizado con Inventario)
     // ======================================
+    
+    // Determinamos el turno basado en la hora de la reserva (siguiendo tu lógica de route.ts)
+    // Si la reserva es <= 16:00 es Día, sino Noche.
+    const isNight = start_time > "16:00";
+
+    // 6a. Filtrar inventario por turno
+    const filteredInventory = tableInventory.filter((item) => {
+      if (!item.start_time) return true; // Si no tiene hora, es válida siempre
+      const itemIsNight = item.start_time > "16:00";
+      return isNight === itemIsNight;
+    });
+
     const tables: number[] = [];
-    tableInventory.forEach((t) => {
+    filteredInventory.forEach((t) => {
       for (let i = 0; i < t.quantity; i++) {
         tables.push(t.capacity);
       }
     });
 
-    // Lógica de solapamiento corregida: 
-    // Una mesa está ocupada SI: (InicioExistente < MiFin) Y (FinExistente > MiInicio)
-    const { data: overlappingTables, error: overlapError } = await supabase
+    // 6b. Consultar solapamientos reales (Lógica de intersección de intervalos)
+    const { data: overlappingTables } = await supabase
       .from("appointments")
       .select("assigned_table_capacity")
       .eq("business_id", business_id)
       .eq("date", date)
-      .neq("status", "cancelled") // No contamos las canceladas
+      .neq("status", "cancelled")
       .filter('start_time', 'lt', end_time)  // Empieza antes de que yo termine
       .filter('end_time', 'gt', start_time); // Termina después de que yo empiece
-
-    if (overlapError) {
-      console.error("Error consultando solapamientos:", overlapError);
-    }
 
     const usedCapacities = overlappingTables?.map((r) => r.assigned_table_capacity) || [];
     const availableTables = [...tables];
 
-    // Restamos las mesas ocupadas del inventario total
+    // Restamos las mesas que están siendo ocupadas EN ESE MOMENTO
     usedCapacities.forEach((cap) => {
       const index = availableTables.indexOf(cap);
-      if (index !== -1) {
-        availableTables.splice(index, 1);
-      }
+      if (index !== -1) availableTables.splice(index, 1);
     });
 
     availableTables.sort((a, b) => a - b);
     
     let assignedCapacity = null;
-    if (people <= 2) {
-      assignedCapacity = availableTables.find((t) => t >= 2) || null;
-    } else if (people <= 4) {
-      assignedCapacity = availableTables.find((t) => t >= 4) || null;
-    } else {
-      assignedCapacity = availableTables.find((t) => t >= 6) || null;
-    }
+    if (people <= 2) assignedCapacity = availableTables.find((t) => t >= 2) || null;
+    else if (people <= 4) assignedCapacity = availableTables.find((t) => t >= 4) || null;
+    else assignedCapacity = availableTables.find((t) => t >= 6) || null;
 
-    // SI NO HAY CAPACIDAD, RECHAZAMOS ANTES DE INTENTAR EL INSERT
     if (!assignedCapacity) {
       const availableSlots = generateTimeSlots(open_time, close_time, interval);
       const alternatives = availableSlots.filter((t) => t > start_time).slice(0, 5);
       return {
         success: false,
         message: alternatives.length > 0 
-          ? `No hay lugar a las ${start_time} 😕\n\n👉 Disponible:\n${alternatives.join(" - ")}`
-          : "No hay disponibilidad para esa cantidad de personas en este horario.",
+          ? `No hay mesas disponibles a las ${start_time}. \n\nPróximos turnos:\n${alternatives.join(" - ")}`
+          : "Lo sentimos, no hay disponibilidad para esa cantidad de personas.",
       };
     }
     // 7. Generar Código de Reserva
