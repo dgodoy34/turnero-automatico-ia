@@ -15,7 +15,21 @@ type Shift = {
   tables: TableConfig[];
 };
 
-const RESTAURANT_ID = "f9661b52-312d-46f6-9615-89aecfbb8a09";
+const [businessId, setBusinessId] = useState<string | null>(null);
+
+// Al iniciar, obtenés el ID (por ejemplo, desde una API o contexto de tu Auth)
+useEffect(() => {
+  // Aquí deberías tener la lógica que detecta qué restaurante es
+  // Por ahora lo seteamos dinámicamente si lo tenés en el usuario logueado
+  const fetchBusinessData = async () => {
+    // Ejemplo: obtenerlo del usuario actual de Supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.user_metadata?.business_id) {
+      setBusinessId(user.user_metadata.business_id);
+    }
+  };
+  fetchBusinessData();
+}, []);
 
 export default function Configuracion() {
   const [date, setDate] = useState(
@@ -26,11 +40,14 @@ export default function Configuracion() {
   const [shifts, setShifts] = useState<Shift[]>([]);
 
   // 🔹 NUEVO: Estado para configuración general (Bot WhatsApp)
-  const [generalSettings, setGeneralSettings] = useState({
-    reservation_duration: 0,
-    buffer_time: 0,
-    slot_interval: 30
-  });
+ const [generalSettings, setGeneralSettings] = useState({
+  duration_small: 90,   // Mesas de 2
+  duration_medium: 120,  // Mesas de 4
+  duration_large: 150,  // Mesas de 6+
+  slot_interval: 30
+});
+
+
 
   const currentShift = shifts[selectedShiftIndex];
 
@@ -40,14 +57,14 @@ export default function Configuracion() {
       let { data } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
-        .eq("business_id", RESTAURANT_ID)
+        .eq("business_id", businessId)
         .eq("date", date);
 
       if (!data || data.length === 0) {
         const { data: fallback } = await supabase
           .from("restaurant_table_inventory")
           .select("*")
-          .eq("business_id", RESTAURANT_ID)
+          .eq("business_id", businessId)    
           .is("date", null);
 
         data = fallback || [];
@@ -112,13 +129,13 @@ export default function Configuracion() {
     await supabase
       .from("restaurant_table_inventory")
       .delete()
-      .eq("business_id", RESTAURANT_ID)
+      .eq("business_id", businessId)
       .eq("date", date);
 
     // 🔥 2. INSERT INVENTARIO (como ya hacías)
     const inventoryRows = shifts.flatMap((shift) =>
       shift.tables.map((t) => ({
-        business_id: RESTAURANT_ID,
+        business_id: businessId,
         date: date,
         start_time: shift.start_time,
         end_time: shift.end_time,
@@ -142,7 +159,7 @@ export default function Configuracion() {
     await supabase
       .from("restaurant_table_schedule")
       .delete()
-      .eq("business_id", RESTAURANT_ID)
+      .eq("business_id", businessId)  
       .eq("date", date);
 
     const scheduleRows = shifts.map((shift) => {
@@ -153,7 +170,7 @@ export default function Configuracion() {
       );
 
       return {
-        business_id: RESTAURANT_ID,
+        business_id: businessId,
         date: date,
         start_time: shift.start_time,
         end_time: shift.end_time,
@@ -180,13 +197,14 @@ export default function Configuracion() {
     const { data } = await supabase
       .from("settings")
       .select("*")
-      .eq("business_id", RESTAURANT_ID)
+      .eq("business_id", businessId)
       .maybeSingle();
     
     if (data) {
       setGeneralSettings({
-        reservation_duration: data.reservation_duration || 0,
-        buffer_time: data.buffer_time || 0,
+        duration_small: data.duration_small || 0,
+        duration_medium: data.duration_medium || 0,
+        duration_large: data.duration_large || 0,
         slot_interval: data.slot_interval || 30
       });
     }
@@ -194,17 +212,25 @@ export default function Configuracion() {
 
   // 🔹 NUEVO: Guardar Configuración General
   async function saveGeneralSettings() {
-    const { error } = await supabase
-      .from("settings")
-      .upsert({
-        business_id: RESTAURANT_ID,
-        ...generalSettings
-      }, { onConflict: 'business_id' });
+  const { error } = await supabase
+    .from("settings")
+    .upsert({
+      business_id: businessId, // 👈 Usamos el nombre unificado
+      duration_small: generalSettings.duration_small,
+      duration_medium: generalSettings.duration_medium,
+      duration_large: generalSettings.duration_large,
+      slot_interval: generalSettings.slot_interval
+    }, { 
+      onConflict: 'business_id' // 👈 Esto evita que se dupliquen filas por restaurante
+    });
 
-    if (error) alert("Error al guardar settings: " + error.message);
-    else alert("Configuración de tiempos actualizada ✅");
+  if (error) {
+    console.error("Error completo:", error);
+    alert("Error: " + error.message);
+  } else {
+    alert("Configuración actualizada ✅");
   }
-
+}
   // 🔥 copiar a la semana (CORREGIDO)
 async function copyToWeek() {
   try {
@@ -222,20 +248,20 @@ async function copyToWeek() {
       await supabase
         .from("restaurant_table_inventory")
         .delete()
-        .eq("business_id", RESTAURANT_ID)
+        .eq("business_id", businessId)
         .eq("date", d);
 
       // 🔥 2. BORRAR SCHEDULE
       await supabase
         .from("restaurant_table_schedule")
         .delete()
-        .eq("business_id", RESTAURANT_ID)
+        .eq("business_id", businessId)
         .eq("date", d);
 
       // 🔥 3. INSERT INVENTARIO
       const inventoryRows = shifts.flatMap((shift) =>
         shift.tables.map((t) => ({
-          business_id: RESTAURANT_ID,
+          business_id: businessId,   
           date: d,
           start_time: shift.start_time,
           end_time: shift.end_time,
@@ -261,7 +287,7 @@ async function copyToWeek() {
         );
 
         return {
-          business_id: RESTAURANT_ID,
+          business_id: businessId,
           date: d,
           start_time: shift.start_time,
           end_time: shift.end_time,
@@ -299,46 +325,47 @@ async function copyToWeek() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Configuración del restaurante</h1>
 
-      {/* --- NUEVA SECCIÓN: CONFIGURACIÓN GENERAL DEL BOT --- */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
-        <h2 className="text-lg font-semibold mb-4 text-indigo-700 flex items-center gap-2">
-          🕒 Tiempos de Reserva y Duración
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Duración de Reserva (minutos)
-            </label>
-            <input
-              type="number"
-              value={generalSettings.reservation_duration}
-              onChange={(e) => setGeneralSettings({...generalSettings, reservation_duration: Number(e.target.value)})}
-              className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              placeholder="Ej: 90"
-            />
-            <p className="text-[11px] text-gray-400 mt-2">
-              Poner <b>0</b> para usar lógica inteligente (90/120min).
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Intervalo de turnos (min)
-            </label>
-            <input
-              type="number"
-              value={generalSettings.slot_interval}
-              onChange={(e) => setGeneralSettings({...generalSettings, slot_interval: Number(e.target.value)})}
-              className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <button
-            onClick={saveGeneralSettings}
-            className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm font-semibold text-sm"
-          >
-            Actualizar Configuración
-          </button>
-        </div>
-      </div>
+      {/* --- CONFIGURACIÓN DE DURACIÓN POR CAPACIDAD --- */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+  <h2 className="text-lg font-semibold mb-4 text-indigo-700 flex items-center gap-2">
+    🕒 Duración de Reservas por Tamaño de Mesa
+  </h2>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 2 (min)</label>
+      <input
+        type="number"
+        value={generalSettings.duration_small || 90}
+        onChange={(e) => setGeneralSettings({...generalSettings, duration_small: Number(e.target.value)})}
+        className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 4 (min)</label>
+      <input
+        type="number"
+        value={generalSettings.duration_medium || 120}
+        onChange={(e) => setGeneralSettings({...generalSettings, duration_medium: Number(e.target.value)})}
+        className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 6+ (min)</label>
+      <input
+        type="number"
+        value={generalSettings.duration_large || 150}
+        onChange={(e) => setGeneralSettings({...generalSettings, duration_large: Number(e.target.value)})}
+        className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+    </div>
+    <button
+      onClick={saveGeneralSettings}
+      className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition font-semibold text-sm"
+    >
+      Guardar Tiempos
+    </button>
+  </div>
+</div>
 
       {/* CONFIGURACIÓN */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">

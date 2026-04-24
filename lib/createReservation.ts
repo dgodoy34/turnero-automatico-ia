@@ -142,9 +142,16 @@ export async function createReservation({
     // 🔥 CORRECCIÓN HÍBRIDA: 
     // Si settings.reservation_duration tiene un valor (ej: 100), usamos ese.
     // Si está vacío o es 0, aplica la inteligencia (<=4 personas 90min, sino 120min).
-    const SLOT_DURATION = (settings?.reservation_duration && settings.reservation_duration > 0)
-      ? settings.reservation_duration
-      : (people <= 4 ? 90 : 120);
+   // 🔥 DURACIÓN DINÁMICA SEGÚN CONFIGURACIÓN
+let SLOT_DURATION = 90; // Default de seguridad
+
+if (people <= 2) {
+  SLOT_DURATION = settings?.duration_small || 90;
+} else if (people <= 4) {
+  SLOT_DURATION = settings?.duration_medium || 120;
+} else {
+  SLOT_DURATION = settings?.duration_large || 150;
+}
 
     const license = await checkLicense(business_id);
     if (!license.valid) {

@@ -3,39 +3,36 @@ import { supabase } from "@/lib/supabaseClient";
 import { getRestaurantId } from "@/lib/getRestaurantId";
 
 export async function GET(req: Request) {
-
   try {
-
-    const restaurant_id = await getRestaurantId(
+    // 🔥 en realidad es business_id
+    const business_id = await getRestaurantId(
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
     const { data, error } = await supabase
       .from("clients")
       .select("*")
-      .eq("business_id", restaurant_id)
+      .eq("business_id", business_id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, clients: data ?? [] });
-
+    return NextResponse.json({
+      success: true,
+      clients: data ?? [],
+    });
   } catch (err: any) {
-
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
-
   }
-
 }
 
 export async function POST(req: Request) {
-
   try {
-
-    const restaurant_id = await getRestaurantId(
+    // 🔥 idem
+    const business_id = await getRestaurantId(
       process.env.WHATSAPP_PHONE_NUMBER_ID!
     );
 
@@ -44,7 +41,10 @@ export async function POST(req: Request) {
 
     if (!dni || !name || !phone) {
       return NextResponse.json(
-        { success: false, error: "Faltan datos obligatorios (dni/name/phone)" },
+        {
+          success: false,
+          error: "Faltan datos obligatorios (dni/name/phone)",
+        },
         { status: 400 }
       );
     }
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       .from("clients")
       .insert([
         {
-          restaurant_id,
+          business_id, // 🔥 FIX CLAVE
           dni: String(dni),
           name: String(name),
           phone: String(phone),
@@ -65,15 +65,14 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, client: data });
-
+    return NextResponse.json({
+      success: true,
+      client: data,
+    });
   } catch (err: any) {
-
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }
     );
-
   }
-
 }
