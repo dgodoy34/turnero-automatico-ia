@@ -1,90 +1,73 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 
-async function resolveBusinessId(req: Request) {
-  const { searchParams } = new URL(req.url);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-  // 1. query param
-  let business_id = searchParams.get("business_id");
-  if (business_id) return business_id;
+async function resolveBusinessId(req: NextRequest): Promise<string | null> {
+  // 1. Intentar obtener de query param
+  const urlBusinessId = req.nextUrl.searchParams.get("business_id");
+  if (urlBusinessId) return urlBusinessId;
 
-  // 2. header
-  const headerId = req.headers.get("x-business-id");
-  if (headerId) return headerId;
+  // 2. Intentar obtener de header
+  const headerBusinessId = req.headers.get("x-business-id");
+  if (headerBusinessId) return headerBusinessId;
 
-  // 3. subdominio
-  const host = req.headers.get("host");
-  if (!host) return null;
-
+  // 3. Resolver por subdomain
+  const host = req.headers.get("host") || "";
   const subdomain = host.split(".")[0];
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("restaurants")
     .select("business_id")
     .eq("slug", subdomain)
     .single();
 
-  if (error || !data) {
-    console.error("Error resolviendo business:", error);
-    return null;
-  }
-
-  return data.business_id;
+  return data?.business_id || null;
 }
 
-export async function GET(req: Request) {
-  try {
-    const business_id = await resolveBusinessId(req);
+// Handler GET para obtener el business_id
+export async function GET(req: NextRequest) {
+  const businessId = await resolveBusinessId(req);
 
-    if (!business_id) {
-      return NextResponse.json(
-        { error: "No se encontro el business_id" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ businessId: business_id });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Error desconocido";
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (!businessId) {
+    return NextResponse.json(
+      { error: "No se encontro el business_id" },
+      { status: 404 }
+    );
   }
+
+  return NextResponse.json({ businessId });
 }
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
+// Handler POST existente
+export async function POST(req: NextRequest) {
+  const businessId = await resolveBusinessId(req);
 
-    const business_id = body.business_id;
-
-    if (!business_id) {
-      return NextResponse.json({ error: "Missing business_id" }, { status: 400 });
-    }
-
-    const payload = {
-      business_id,
-      duration_small: body.duration_small,
-      duration_medium: body.duration_medium,
-      duration_large: body.duration_large,
-      slot_interval: body.slot_interval,
-    };
-
-    const { data, error } = await supabase
-      .from("settings")
-      .upsert(payload, {
-        onConflict: "business_id",
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error saving settings:", error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, settings: data });
-
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Error desconocido";
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (!businessId) {
+    return NextResponse.json(
+      { error: "No se encontro el business_id" },
+      { status: 404 }
+    );
   }
+
+  const body = await req.json();
+
+  const { error } = await supabase
+    .from("general_settings")
+    .upsert(
+      {
+        business_id: businessId,
+        ...body,
+      },
+      { onConflict: "business_id" }
+    );
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }
