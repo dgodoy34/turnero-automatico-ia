@@ -1,54 +1,93 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 
+// =========================
+// 🔥 RESOLVER BUSINESS ID
+// =========================
+async function resolveBusinessId(req: Request) {
+  const { searchParams } = new URL(req.url);
+
+  // 1️⃣ query param
+  let business_id = searchParams.get("business_id");
+  if (business_id) return business_id;
+
+  // 2️⃣ header moderno
+  const headerId = req.headers.get("x-business-id");
+  if (headerId) return headerId;
+
+  // 3️⃣ subdominio (SaaS real)
+  const host = req.headers.get("host");
+  if (!host) return null;
+
+  const subdomain = host.split(".")[0];
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("slug", subdomain)
+    .single();
+
+  if (error || !data) {
+    console.error("❌ Error resolviendo business:", error);
+    return null;
+  }
+
+  return data.id;
+}
+
+// =========================
+// GET
+// =========================
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-
     const date = searchParams.get("date");
-    const businessId = req.headers.get("x-restaurant-id");
 
-    if (!date || !businessId) {
-      return NextResponse.json({ success: false, error: "Missing params" });
+    const business_id = await resolveBusinessId(req);
+
+    if (!date || !business_id) {
+      return NextResponse.json(
+        { success: false, error: "Missing params" },
+        { status: 400 }
+      );
     }
 
     console.log("👉 DATE:", date);
-    console.log("👉 BUSINESS:", businessId);
+    console.log("👉 BUSINESS:", business_id);
 
     // 🔥 RESERVAS
     const { data: appointments } = await supabase
       .from("appointments")
       .select("*")
-      .eq("business_id", businessId)
+      .eq("business_id", business_id)
       .eq("date", date);
 
-    // 🔥 INVENTARIO REAL (capacidad)
+    // 🔥 INVENTARIO
     const { data: inventory } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
-      .eq("business_id", businessId)
+      .eq("business_id", business_id)
       .eq("date", date);
 
-    // 🔥 HORARIOS DINÁMICOS (LOS BUENOS)
+    // 🔥 SCHEDULE
     const { data: schedules } = await supabase
       .from("restaurant_table_schedule")
       .select("start_time, end_time")
-      .eq("business_id", businessId)
+      .eq("business_id", business_id)
       .eq("date", date);
-
-    console.log("📅 APPOINTMENTS:", appointments?.length || 0);
-    console.log("📦 INVENTORY:", inventory?.length || 0);
-    console.log("⏰ SCHEDULES:", schedules?.length || 0);
 
     return NextResponse.json({
       success: true,
       schedule: schedules || [],
-      tables: inventory || [], // ✅ correcto
+      tables: inventory || [],
       appointments: appointments || [],
     });
 
   } catch (err) {
     console.error("API ERROR:", err);
-    return NextResponse.json({ success: false });
+    return NextResponse.json(
+      { success: false, error: "Server error" },
+      { status: 500 }
+    );
   }
 }

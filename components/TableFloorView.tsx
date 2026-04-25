@@ -12,7 +12,7 @@ type Appointment = {
   tables_used?: number;
   status: string;
   date: string;
-  time: string;
+  time?: string;
   people?: number;
 };
 
@@ -23,36 +23,65 @@ type Props = {
 };
 
 export default function TableFloorView({ date, shift, businessId }: Props) {
-
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
+  // =========================
+  // 🔥 LOAD DATA
+  // =========================
   async function loadData() {
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`)
-    const tablesData = await tablesRes.json();
+    if (!businessId) return;
 
-    const apptRes = await fetch(`/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`);
-    const apptData = await apptRes.json();
+    try {
+      const tablesRes = await fetch(
+        `/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`
+      );
 
-    setTables(tablesData.tables || []);
-    setAppointments(apptData.appointments || []);
+      if (!tablesRes.ok) {
+        console.error("❌ Error tables:", await tablesRes.text());
+        return;
+      }
+
+      const tablesData = await tablesRes.json();
+
+      const apptRes = await fetch(
+        `/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`
+      );
+
+      if (!apptRes.ok) {
+        console.error("❌ Error appointments:", await apptRes.text());
+        return;
+      }
+
+      const apptData = await apptRes.json();
+
+      setTables(tablesData?.tables || []);
+      setAppointments(apptData?.appointments || []);
+    } catch (err) {
+      console.error("💥 Error cargando floor:", err);
+    }
   }
 
   useEffect(() => {
-    if (!date) return;
+    if (!date || !businessId) return;
     loadData();
   }, [date, shift, businessId]);
 
+  // =========================
+  // 🔥 CALCULAR OCUPACIÓN
+  // =========================
   function getUsed(capacity: number) {
     let used = 0;
     const isDay = shift === "Día";
 
-    appointments.forEach(a => {
-      if (a.date !== date) return;
+    appointments.forEach((a) => {
+      if (a.date?.slice(0, 10) !== date) return;
       if (a.status !== "confirmed") return;
-      if (!a.time) return;
 
-      const hour = parseInt(a.time.slice(0, 2));
+      const rawTime = a.time;
+      if (!rawTime) return;
+
+      const hour = parseInt(rawTime.slice(0, 2));
 
       if (isDay && (hour < 12 || hour >= 17)) return;
       if (!isDay && (hour < 17 || hour > 23)) return;
@@ -69,25 +98,23 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
     return used;
   }
 
+  // =========================
+  // UI
+  // =========================
   return (
     <div className="space-y-6">
-
       {[...tables]
         .sort((a, b) => a.capacity - b.capacity)
-        .map(t => {
-
+        .map((t) => {
           const used = getUsed(t.capacity);
-          const free = Math.max(0, t.quantity - used);
 
           return (
             <div key={t.capacity}>
-              
               <h3 className="font-semibold mb-2">
                 {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`} ({t.quantity})
               </h3>
 
               <div className="grid grid-cols-4 gap-3">
-
                 {Array.from({ length: t.quantity }).map((_, i) => {
                   const isOccupied = i < used;
 
@@ -107,12 +134,10 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
                     </div>
                   );
                 })}
-
               </div>
             </div>
           );
         })}
-
     </div>
   );
 }
