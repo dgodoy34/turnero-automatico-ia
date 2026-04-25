@@ -27,33 +27,45 @@ type Props = {
 export default function TableInventoryView({ date, shift, businessId }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // =========================
-  // 🔥 LOAD DATA
+  // 🔥 LOAD DATA (CORREGIDO)
   // =========================
   async function loadData() {
-    if (!businessId) return;
+    if (!businessId || !date) return;
+    setLoading(true);
 
     try {
-      const tablesRes = await fetch(
-        `/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`
+      // ✅ PASAMOS LOS PARÁMETROS EN LA URL PARA LA API
+      const res = await fetch(
+        `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
       );
-      const tablesData = await tablesRes.json();
 
+      if (!res.ok) {
+        console.error("❌ Error API Inventory:", await res.text());
+        return;
+      }
+
+      const tablesData = await res.json();
+
+      // ✅ PASAMOS LOS PARÁMETROS PARA APPOINTMENTS
       const apptRes = await fetch(
-        `/api/appointments?business_id=${businessId}`
+        `/api/appointments?business_id=${businessId}&date=${date}`
       );
+      
       const apptData = await apptRes.json();
 
       setTables(tablesData.tables || []);
       setAppointments(apptData.appointments || []);
     } catch (err) {
-      console.error("Error cargando datos:", err);
+      console.error("Error cargando datos de inventario:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!date || !businessId) return;
     loadData();
   }, [date, shift, businessId]);
 
@@ -92,44 +104,53 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   // =========================
   // UI
   // =========================
+  if (loading) return <div className="p-6 text-gray-400 italic">Actualizando inventario...</div>;
+
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="font-semibold mb-4">
+      <h2 className="font-semibold mb-4 text-gray-800">
         Inventario de mesas ({shift})
       </h2>
 
       <div className="space-y-3">
-        {[...tables]
-          .sort((a, b) => a.capacity - b.capacity)
-          .map((t) => {
-            const used = usedTables(t.capacity);
-            const free = Math.max(0, t.quantity - used);
+        {tables.length === 0 ? (
+          <p className="text-sm text-gray-500 italic text-center py-4">
+            No hay configuración de mesas para este turno.
+          </p>
+        ) : (
+          [...tables]
+            .sort((a, b) => a.capacity - b.capacity)
+            .map((t) => {
+              const used = usedTables(t.capacity);
+              const free = Math.max(0, t.quantity - used);
 
-            return (
-              <div
-                key={t.capacity}
-                className="flex justify-between items-center border p-3 rounded"
-              >
-                <div>
-                  Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+              return (
+                <div
+                  key={t.capacity}
+                  className="flex justify-between items-center border p-4 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium">
+                    Mesa {t.capacity === 6 ? "6+" : t.capacity} personas
+                  </div>
+
+                  <div className="flex gap-4 text-sm font-semibold">
+                    <div className="flex flex-col items-end">
+                      <span className="text-gray-400 text-[10px] uppercase">Total</span>
+                      <span>{t.quantity}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-red-400 text-[10px] uppercase">Ocupadas</span>
+                      <span className="text-red-600">{used}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-green-400 text-[10px] uppercase">Libres</span>
+                      <span className="text-green-600">{free}</span>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="flex gap-3 text-sm">
-                  <span className="text-gray-500">
-                    Total: {t.quantity}
-                  </span>
-
-                  <span className="text-red-600">
-                    Ocupadas: {used}
-                  </span>
-
-                  <span className="text-green-600">
-                    Libres: {free}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+        )}
       </div>
     </div>
   );
