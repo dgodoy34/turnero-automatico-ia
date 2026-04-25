@@ -32,20 +32,35 @@ export default function Configuracion() {
     slot_interval: 30
   });
 
-  // Efecto para montar el componente y obtener el Business ID
- useEffect(() => {
-  async function loadBusiness() {
-    const res = await fetch("/api/settings");
-    const data = await res.json();
+  // 🔥 OBTENER BUSINESS ID
+  useEffect(() => {
+    async function loadBusiness() {
+      try {
+        const res = await fetch("/api/settings");
 
-    if (data?.settings?.business_id) {
-      setBusinessId(data.settings.business_id);
+        if (!res.ok) {
+          console.error("Error settings:", await res.text());
+          return;
+        }
+
+        const data = await res.json();
+
+        // ✅ FIX CLAVE
+        if (data?.business_id) {
+          setBusinessId(data.business_id);
+        } else {
+          console.error("❌ business_id no vino en la respuesta");
+        }
+
+      } catch (err) {
+        console.error("❌ Error cargando business:", err);
+      }
     }
-  }
 
-  loadBusiness();
-}, []);
+    loadBusiness();
+    setIsMounted(true);
 
+  }, []);
   // Efecto para cargar datos cuando el Business ID esté listo o cambie la fecha
   useEffect(() => {
     if (businessId) {
