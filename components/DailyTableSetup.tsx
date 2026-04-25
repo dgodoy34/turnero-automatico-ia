@@ -17,7 +17,7 @@ export default function DailyTableSetup({ date }: { date: string }) {
       if (!businessId) return;
 
       const res = await fetch(
-        `/api/table-inventory?date=${date}&business_id=${businessId}`
+        `/api/table-inventory`
       );
 
       const data = await res.json();

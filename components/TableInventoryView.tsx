@@ -36,13 +36,13 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
 
     try {
       const res = await fetch(
-        `/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`
+        `/api/table-inventory`
       );
 
       const tablesData = await res.json();
 
       const apptRes = await fetch(
-        `/api/appointments?business_id=${businessId}`
+        `/api/appointments`
       );
 
       const apptData = await apptRes.json();

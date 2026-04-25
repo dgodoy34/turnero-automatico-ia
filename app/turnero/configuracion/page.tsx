@@ -36,7 +36,7 @@ export default function Configuracion() {
  useEffect(() => {
   async function loadBusiness() {
     try {
-      const res = await fetch(`/api/settings?business_id=${businessId}`);
+      const res = await fetch(`/api/settings`);
 
       console.log("🔥 businessId:", businessId);
 
@@ -65,12 +65,10 @@ export default function Configuracion() {
 }, []);
   // Efecto para cargar datos cuando el Business ID esté listo o cambie la fecha
   useEffect(() => {
-    if (businessId) return; {
-      loadShifts();
-      loadGeneralSettings();
-       setIsMounted(true);
-    }
-  }, [date, businessId]);
+  loadShifts();
+  loadGeneralSettings();
+  setIsMounted(true);
+}, [date]);
 
   const currentShift = shifts[selectedShiftIndex];
 

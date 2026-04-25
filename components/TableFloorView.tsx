@@ -34,7 +34,7 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
 
     try {
       const tablesRes = await fetch(
-        `/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`
+        `/api/table-inventory`
       );
 
       if (!tablesRes.ok) {
@@ -45,7 +45,7 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
       const tablesData = await tablesRes.json();
 
       const apptRes = await fetch(
-        `/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`
+        `/api/appointments`
       );
 
       if (!apptRes.ok) {
