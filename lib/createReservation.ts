@@ -269,47 +269,53 @@ if (people <= 2) {
     }
     const reservationCode = `RC-${restaurant.branch_code}-${year}-${monthDay}-${nextNum.toString().padStart(4, "0")}`;
 
-    // 8. INSERT SEGURO (CON FILTRO DE BASE DE DATOS)
-    const { data: finalRes, error: insertError } = await supabase
-      .from("appointments")
-      .insert({
-        client_dni: source === "walkin" ? WALKIN_DNI : dni,
-        phone: client_phone,
-        name: client_name,
-        date,
-        time: formattedStart,
-        start_time,
-        end_time,
-        people,
-        service: "reserva_mesa",
-        status: "confirmed",
-        reservation_code: reservationCode,
-        business_id: business_id,
-        assigned_table_capacity: assignedCapacity,
-        tables_used: 1,
-        source: source || "manual",
-      })
-      .select()
-      .single();
+    // 8. LLAMADA A LA FUNCIÓN RPC (Seguridad contra sobreventa)
+    // En lugar de un insert directo, ejecutamos el "guardia" de la DB
+    const { data: rpcData, error: rpcError } = await supabase.rpc('crear_reserva_segura', {
+      p_business_id: business_id,
+      p_dni: source === "walkin" ? "WALKIN" : dni,
+      p_name: client_name,
+      p_phone: client_phone,
+      p_date: date,
+      p_time: formattedStart,
+      p_start_time: start_time,
+      p_end_time: end_time,
+      p_people: people,
+      p_assigned_capacity: assignedCapacity,
+      p_reservation_code: reservationCode,
+      p_source: source || "manual"
+    });
 
-    if (insertError) {
-      if (insertError.message.includes("NO_AVAILABILITY")) {
+    // 9. MANEJO DE ERRORES DE LA RPC
+    if (rpcError) {
+      console.error("❌ Error técnico en RPC:", rpcError);
+      return { success: false, message: "Error técnico en el servidor de reservas." };
+    }
+
+    // La RPC devuelve un JSON { success: boolean, message: string }
+    if (!rpcData.success) {
+      if (rpcData.message === 'NO_AVAILABILITY') {
         return {
           success: false,
-          message: "¡Lo sentimos! Alguien acaba de reservar la última mesa. Por favor, seleccioná otro horario.",
+          message: "¡Lo sentimos! Ya no quedan mesas disponibles para este horario. Por favor, selecciona otro.",
         };
       }
-      if (insertError.code === "23505") {
-        console.warn("⚠️ Código duplicado.");
-      }
-      console.error("❌ Error de inserción:", insertError);
-      return { success: false, message: "Error al procesar la reserva." };
+      return { success: false, message: "Error: " + rpcData.message };
     }
+
+    // 10. TODO OK - Obtener la reserva recién creada para devolverla al front
+    // Como la RPC ya insertó, podemos buscarla por el código único
+    const { data: finalRes } = await supabase
+      .from("appointments")
+      .select("*")
+      .eq("reservation_code", reservationCode)
+      .single();
 
     return {
       success: true,
       reservation: finalRes,
     };
+
   } catch (error) {
     console.error("❌ Error inesperado:", error);
     return {

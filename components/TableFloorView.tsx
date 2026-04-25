@@ -9,11 +9,7 @@ type TableType = {
 
 type Appointment = {
   assigned_table_capacity?: number;
-  tables_used?: number;
   status: string;
-  date: string;
-  time: string;
-  people?: number;
 };
 
 type Props = {
@@ -23,15 +19,18 @@ type Props = {
 };
 
 export default function TableFloorView({ date, shift, businessId }: Props) {
-
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   async function loadData() {
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`)
-    const tablesData = await tablesRes.json();
+    if (!businessId || !date) return;
+    
+    const [tablesRes, apptRes] = await Promise.all([
+      fetch(`/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`),
+      fetch(`/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`)
+    ]);
 
-    const apptRes = await fetch(`/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`);
+    const tablesData = await tablesRes.json();
     const apptData = await apptRes.json();
 
     setTables(tablesData.tables || []);
@@ -39,80 +38,54 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
   }
 
   useEffect(() => {
-    if (!date) return;
     loadData();
   }, [date, shift, businessId]);
 
-  function getUsed(capacity: number) {
-    let used = 0;
-    const isDay = shift === "Día";
-
-    appointments.forEach(a => {
-      if (a.date !== date) return;
-      if (a.status !== "confirmed") return;
-      if (!a.time) return;
-
-      const hour = parseInt(a.time.slice(0, 2));
-
-      if (isDay && (hour < 12 || hour >= 17)) return;
-      if (!isDay && (hour < 17 || hour > 23)) return;
-
-      const cap = a.assigned_table_capacity || a.people || 2;
-
-      if (cap >= 6 && capacity === 6) {
-        used += a.tables_used || 1;
-      } else if (cap === capacity) {
-        used += a.tables_used || 1;
-      }
-    });
-
-    return used;
+  function getUsedCount(capacity: number) {
+    return appointments.filter(a => 
+      a.assigned_table_capacity === capacity && a.status === 'confirmed'
+    ).length;
   }
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-8 bg-white p-6 rounded-xl shadow">
+      <h2 className="text-xl font-bold">🗺️ Plano de Mesas (Vista Real)</h2>
+      
       {[...tables]
         .sort((a, b) => a.capacity - b.capacity)
         .map(t => {
-
-          const used = getUsed(t.capacity);
-          const free = Math.max(0, t.quantity - used);
+          const used = getUsedCount(t.capacity);
+          const totalMesas = t.quantity + used; // Total de cuadros físicos
 
           return (
-            <div key={t.capacity}>
-              
-              <h3 className="font-semibold mb-2">
-                {t.capacity === 6 ? "6+ personas" : `${t.capacity} personas`} ({t.quantity})
+            <div key={t.capacity} className="border-b pb-6 last:border-0">
+              <h3 className="font-semibold mb-3 text-gray-600">
+                Sector: Mesas para {t.capacity === 6 ? "6+" : t.capacity} personas
               </h3>
 
-              <div className="grid grid-cols-4 gap-3">
-
-                {Array.from({ length: t.quantity }).map((_, i) => {
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {Array.from({ length: totalMesas }).map((_, i) => {
                   const isOccupied = i < used;
-
                   return (
                     <div
                       key={i}
-                      className={`border rounded p-3 text-center ${
-                        isOccupied
-                          ? "bg-red-100 border-red-400"
-                          : "bg-green-100 border-green-400"
+                      className={`border rounded-lg p-4 text-center transition-all ${
+                        isOccupied 
+                          ? "bg-red-50 border-red-200 text-red-600" 
+                          : "bg-green-50 border-green-200 text-green-600"
                       }`}
                     >
-                      Mesa {t.capacity}
-                      <div className="text-xs">
-                        {isOccupied ? "Ocupada" : "Libre"}
-                      </div>
+                      <span className="block text-sm font-bold">Mesa {t.capacity}</span>
+                      <span className="text-[10px] uppercase font-extrabold">
+                        {isOccupied ? "● Ocupada" : "○ Libre"}
+                      </span>
                     </div>
                   );
                 })}
-
               </div>
             </div>
           );
         })}
-
     </div>
   );
 }
