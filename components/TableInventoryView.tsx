@@ -32,33 +32,38 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   // 🔥 LOAD DATA
   // =========================
   async function loadData() {
-    if (!businessId) return;
+  if (!businessId || !date) return;
 
-    try {
-      const res = await fetch(
-        `/api/table-inventory`
-      );
+  try {
+    // 🔥 AHORA LE PASAMOS LA FECHA Y EL TURNO A LA API
+    const tablesRes = await fetch(
+      `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
+    );
 
-      const tablesData = await res.json();
-
-      const apptRes = await fetch(
-        `/api/appointments`
-      );
-
-      const apptData = await apptRes.json();
-
-      setTables(tablesData.tables || []);
-      setAppointments(apptData.appointments || []);
-    } catch (err) {
-      console.error("Error cargando datos:", err);
+    if (!tablesRes.ok) {
+      console.error("❌ Error tables:", await tablesRes.text());
+      return;
     }
+
+    const tablesData = await tablesRes.json();
+
+    // También para appointments si lo necesitas filtrado
+    const apptRes = await fetch(
+      `/api/appointments?business_id=${businessId}&date=${date}`
+    );
+
+    const apptData = await apptRes.json();
+
+    // Usamos el success: true que devuelve tu API
+    if (tablesData.success) {
+      setTables(tablesData.tables || []);
+    }
+    setAppointments(apptData?.appointments || []);
+
+  } catch (err) {
+    console.error("💥 Error cargando datos:", err);
   }
-
-  useEffect(() => {
-    if (!date || !businessId) return;
-    loadData();
-  }, [date, shift, businessId]);
-
+}
   // =========================
   // 🔥 CALCULAR MESAS USADAS
   // =========================

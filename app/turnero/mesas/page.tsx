@@ -5,7 +5,6 @@ import TableFloorView from "@/components/TableFloorView";
 import TableInventoryView from "@/components/TableInventoryView";
 import type { Appointment } from "@/types/Appointment";
 
-// 🔥 FECHA LOCAL (ARGENTINA)
 function todayLocalISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
@@ -16,64 +15,46 @@ function todayLocalISO() {
 export default function Mesas() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [date, setDate] = useState(todayLocalISO());
-  const [loading, setLoading] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true); // 🔥 Nuevo estado
 
-  // 🔥 TURNO
   const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
 
-  // 🔥 BUSINESS ID (CLAVE)
-  const [businessId, setBusinessId] = useState<string | null>(null);
-
-  // =========================
-  // 🔥 CARGAR BUSINESS (DESDE /api/settings)
-  // =========================
   useEffect(() => {
     const loadBusiness = async () => {
       try {
         const res = await fetch("/api/settings");
-
-        if (!res.ok) {
-          console.error("Error settings:", await res.text());
-          return;
-        }
-
+        if (!res.ok) throw new Error("Error settings");
+        
         const data = await res.json();
-
         if (data?.business_id) {
           setBusinessId(data.business_id);
-        } else {
-          console.error("❌ No vino business_id");
         }
       } catch (err) {
         console.error("💥 Error cargando business:", err);
+      } finally {
+        setIsInitializing(false); // ✅ Terminó de intentar cargar el ID
       }
     };
-
     loadBusiness();
   }, []);
 
-  // =========================
-  // 🔥 SOLO RESERVAS
-  // =========================
-  async function loadAppointments() {
-    try {
-      const res = await fetch("/api/appointments");
-      const data = await res.json();
-      setAppointments(data.appointments || []);
-    } catch (e) {
-      console.error(e);
-    }
+  if (isInitializing) {
+    return <div className="p-8 text-center">Cargando configuración del restaurante...</div>;
   }
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
+  if (!businessId) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        Error: No se pudo identificar el restaurante. Revisa la consola.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Gestión de mesas</h1>
 
-      {/* 🔹 FECHA */}
       <div className="bg-white rounded-xl shadow p-4 flex gap-4 items-center">
         <label className="font-semibold">Servicio del día</label>
         <input
@@ -84,53 +65,34 @@ export default function Mesas() {
         />
       </div>
 
-      {/* 🔹 SELECTOR TURNO */}
       <div className="flex gap-2">
-        <button
-          onClick={() => setSelectedShift("Día")}
-          className={`px-4 py-2 rounded ${
-            selectedShift === "Día"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          Día
-        </button>
-
-        <button
-          onClick={() => setSelectedShift("Noche")}
-          className={`px-4 py-2 rounded ${
-            selectedShift === "Noche"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          Noche
-        </button>
+        {["Día", "Noche"].map((s) => (
+          <button
+            key={s}
+            onClick={() => setSelectedShift(s as "Día" | "Noche")}
+            className={`px-4 py-2 rounded ${
+              selectedShift === s ? "bg-blue-600 text-white" : "bg-gray-200"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
       </div>
 
-      {/* 🔹 INVENTARIO */}
-      {businessId && (
-        <TableInventoryView 
-          date={date} 
+      {/* 🔹 INVENTARIO - Ahora garantizamos que businessId existe */}
+      <TableInventoryView 
+        date={date} 
+        shift={selectedShift}
+        businessId={businessId}
+      />
+
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
+        <TableFloorView
+          date={date}
           shift={selectedShift}
           businessId={businessId}
         />
-      )}
-
-      {/* 🔹 PLANO */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
-
-        {loading && <p>Cargando mesas...</p>}
-
-        {businessId && (
-          <TableFloorView
-            date={date}
-            shift={selectedShift}
-            businessId={businessId}
-          />
-        )}
       </div>
     </div>
   );
