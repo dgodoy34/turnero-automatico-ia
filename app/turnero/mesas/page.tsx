@@ -1,5 +1,3 @@
-// force rebuild
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -23,7 +21,40 @@ export default function Mesas() {
   // 🔥 TURNO
   const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
 
-  // 🔥 SOLO RESERVAS (NO INVENTARIO)
+  // 🔥 BUSINESS ID (CLAVE)
+  const [businessId, setBusinessId] = useState<string | null>(null);
+
+  // =========================
+  // 🔥 CARGAR BUSINESS (DESDE /api/settings)
+  // =========================
+  useEffect(() => {
+    const loadBusiness = async () => {
+      try {
+        const res = await fetch("/api/settings");
+
+        if (!res.ok) {
+          console.error("Error settings:", await res.text());
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data?.business_id) {
+          setBusinessId(data.business_id);
+        } else {
+          console.error("❌ No vino business_id");
+        }
+      } catch (err) {
+        console.error("💥 Error cargando business:", err);
+      }
+    };
+
+    loadBusiness();
+  }, []);
+
+  // =========================
+  // 🔥 SOLO RESERVAS
+  // =========================
   async function loadAppointments() {
     try {
       const res = await fetch("/api/appointments");
@@ -78,23 +109,28 @@ export default function Mesas() {
         </button>
       </div>
 
-      {/* 🔹 INVENTARIO (CORRECTO) */}
-      <TableInventoryView 
-        date={date} 
-        shift={selectedShift} 
-      />
+      {/* 🔹 INVENTARIO */}
+      {businessId && (
+        <TableInventoryView 
+          date={date} 
+          shift={selectedShift}
+          businessId={businessId}
+        />
+      )}
 
-      {/* 🔹 PLANO (CORRECTO) */}
+      {/* 🔹 PLANO */}
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
 
         {loading && <p>Cargando mesas...</p>}
 
-        <TableFloorView
-          
-          date={date}
-          shift={selectedShift} // 🔥 CLAVE
-        />
+        {businessId && (
+          <TableFloorView
+            date={date}
+            shift={selectedShift}
+            businessId={businessId}
+          />
+        )}
       </div>
     </div>
   );
