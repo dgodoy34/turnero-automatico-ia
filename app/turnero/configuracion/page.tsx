@@ -41,9 +41,9 @@ export default function Configuracion() {
 
         const data = await res.json();
 
-        if (data?.business_id) {
-          setBusinessId(data.business_id);
-        } else {
+        if (data?.businessId) {
+  setBusinessId(data.businessId);
+} else {
           console.error("No llego business_id desde la API");
         }
       } catch (err) {
