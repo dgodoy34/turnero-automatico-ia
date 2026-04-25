@@ -128,17 +128,18 @@ export default function Configuracion() {
   
  
   // 🔹 guardar
-  if (!businessId) {
-  alert("No hay business_id");
-  return;
-}
+  
   async function saveShifts() {
   try {
-    // 🔥 1. BORRAR INVENTARIO
-    if (!businessId) return;
+
+    // 🔥 VALIDACIÓN ACÁ (CORRECTO)
+    if (!businessId) {
+      alert("No hay business_id");
+      return;
+    }
+
     await supabase
       .from("restaurant_table_inventory")
-    
       .delete()
       .eq("business_id", businessId)
       .eq("date", date);
@@ -246,6 +247,12 @@ export default function Configuracion() {
   // 🔥 copiar a la semana (CORREGIDO)
 async function copyToWeek() {
   try {
+    // 🔥 VALIDACIÓN CLAVE
+    if (!businessId) {
+      alert("No hay business_id");
+      return;
+    }
+
     const baseDate = new Date(date);
 
     const days = [0,1,2,3,4,5,6].map((d) => {
@@ -273,7 +280,7 @@ async function copyToWeek() {
       // 🔥 3. INSERT INVENTARIO
       const inventoryRows = shifts.flatMap((shift) =>
         shift.tables.map((t) => ({
-          business_id: businessId,   
+          business_id: businessId,
           date: d,
           start_time: shift.start_time,
           end_time: shift.end_time,
@@ -288,10 +295,11 @@ async function copyToWeek() {
 
       if (invError) {
         console.error(invError);
-        throw new Error("Error guardando inventory");
+        alert("Error guardando inventario");
+        return;
       }
 
-      // 🔥 4. GENERAR SCHEDULE (desde shifts)
+      // 🔥 4. GENERAR SCHEDULE
       const scheduleRows = shifts.map((shift) => {
         const totalCapacity = shift.tables.reduce(
           (acc, t) => acc + t.capacity * t.quantity,
@@ -314,7 +322,8 @@ async function copyToWeek() {
 
       if (schError) {
         console.error(schError);
-        throw new Error("Error guardando schedule");
+        alert("Error guardando schedule");
+        return;
       }
     }
 
@@ -325,7 +334,6 @@ async function copyToWeek() {
     alert("Error al copiar");
   }
 }
-
   // SOLO para botones (orden visual)
   if (!isMounted) return null;
 
