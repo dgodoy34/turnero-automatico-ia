@@ -5,33 +5,32 @@ import { supabase } from "@/lib/supabaseClient";
 async function resolveBusinessId(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // 1️⃣ query param (prioridad alta)
+  // 1️⃣ query param
   let business_id = searchParams.get("business_id");
-
   if (business_id) return business_id;
 
-  // 2️⃣ header (opcional si usás frontend controlado)
+  // 2️⃣ header
   const headerId = req.headers.get("x-business-id");
   if (headerId) return headerId;
 
-  // 3️⃣ subdominio (modo SaaS real)
-  const host = req.headers.get("host"); // ej: demo.turiago.app
+  // 3️⃣ subdominio
+  const host = req.headers.get("host");
   if (!host) return null;
 
   const subdomain = host.split(".")[0];
 
   const { data, error } = await supabase
-  .from("restaurants")
-  .select("business_id")
-  .eq("slug", subdomain)      
-  .single();
+    .from("restaurants") // 🔥 FIX
+    .select("business_id") // 🔥 FIX
+    .eq("slug", subdomain)
+    .single();
 
   if (error || !data) {
     console.error("❌ Error resolviendo business:", error);
     return null;
   }
 
-  return data.business_id;
+  return data.business_id; // 🔥 FIX
 }
 
 export async function GET(req: Request) {
