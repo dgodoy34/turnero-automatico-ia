@@ -34,33 +34,30 @@ export default function Configuracion() {
 
   // 🔥 OBTENER BUSINESS ID
   useEffect(() => {
-    async function loadBusiness() {
-      try {
-        const res = await fetch("/api/settings");
+  async function loadBusiness() {
+    try {
+      const res = await fetch("/api/settings");
 
-        if (!res.ok) {
-          console.error("Error settings:", await res.text());
-          return;
-        }
-
-        const data = await res.json();
-
-        // ✅ FIX CLAVE
-        if (data?.business_id) {
-          setBusinessId(data.business_id);
-        } else {
-          console.error("❌ business_id no vino en la respuesta");
-        }
-
-      } catch (err) {
-        console.error("❌ Error cargando business:", err);
+      if (!res.ok) {
+        console.error("Error settings:", await res.text());
+        return;
       }
+
+      const data = await res.json();
+
+      if (data?.business_id) {
+        setBusinessId(data.business_id);
+      } else {
+        console.error("❌ No vino business_id");
+      }
+
+    } catch (err) {
+      console.error("Error cargando business:", err);
     }
+  }
 
-    loadBusiness();
-    setIsMounted(true);
-
-  }, []);
+  loadBusiness();
+}, []);
   // Efecto para cargar datos cuando el Business ID esté listo o cambie la fecha
   useEffect(() => {
     if (businessId) {
