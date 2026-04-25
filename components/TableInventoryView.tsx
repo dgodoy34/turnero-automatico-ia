@@ -33,43 +33,29 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   // 🔥 FUNCIÓN DE CARGA
   // =========================
   async function loadData() {
-    // Si no hay businessId, no hacemos la petición para evitar errores 400/404
-    if (!businessId) return;
+    if (!businessId || !date) return;
 
-    setLoading(true);
     try {
-      // 1. Cargamos el inventario de mesas para ese turno y fecha
-      const tablesRes = await fetch(
-  `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
-);
+      // ✅ Ahora enviamos los parámetros que la API pide en route.ts
+      const res = await fetch(
+        `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
+      );
 
-      if (!tablesRes.ok) {
-        console.error("❌ Error en la API de inventario:", await tablesRes.text());
-        return;
-      }
-
-      const tablesData = await tablesRes.json();
-
-      // 2. Cargamos las citas/reservas para calcular la ocupación real
+      const tablesData = await res.json();
+      
+      // ✅ Enviamos también a la API de appointments
       const apptRes = await fetch(
-  `/api/appointments?business_id=${businessId}&date=${date}`
-);
+        `/api/appointments?business_id=${businessId}&date=${date}`
+      );
 
       const apptData = await apptRes.json();
 
-      // ✅ Actualizamos estados
-      if (tablesData.success) {
-        setTables(tablesData.tables || []);
-      }
-      setAppointments(apptData?.appointments || []);
-      
+      setTables(tablesData.tables || []);
+      setAppointments(apptData.appointments || []);
     } catch (err) {
-      console.error("💥 Error cargando datos de inventario:", err);
-    } finally {
-      setLoading(false);
+      console.error("Error cargando datos:", err);
     }
   }
-
   // ==========================================================
   // ✅ EL DISPARADOR (Lo que hacía que no trajera nada)
   // ==========================================================
