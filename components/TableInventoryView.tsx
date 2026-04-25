@@ -20,7 +20,8 @@ type Appointment = {
 
 type Props = {
   date: string;
-  shift: "Día" | "Noche";
+  shift: string;
+  businessId: string;
 };
 
 export default function TableInventoryView({ date, shift }: Props) {
