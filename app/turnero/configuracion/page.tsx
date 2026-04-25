@@ -33,7 +33,7 @@ export default function Configuracion() {
   });
 
   // 🔥 OBTENER BUSINESS ID
-  useEffect(() => {
+ useEffect(() => {
   async function loadBusiness() {
     try {
       const res = await fetch("/api/settings");
@@ -45,14 +45,17 @@ export default function Configuracion() {
 
       const data = await res.json();
 
+      console.log("🔥 settings response:", data);
+
+      // ✅ SIEMPRE usar business_id directo
       if (data?.business_id) {
         setBusinessId(data.business_id);
       } else {
-        console.error("❌ No vino business_id");
+        console.error("❌ NO llegó business_id");
       }
 
     } catch (err) {
-      console.error("Error cargando business:", err);
+      console.error("💥 fetch error:", err);
     }
   }
 
