@@ -40,8 +40,8 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
     try {
       // 1. Cargamos el inventario de mesas para ese turno y fecha
       const tablesRes = await fetch(
-        `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
-      );
+  `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
+);
 
       if (!tablesRes.ok) {
         console.error("❌ Error en la API de inventario:", await tablesRes.text());
@@ -52,8 +52,8 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
 
       // 2. Cargamos las citas/reservas para calcular la ocupación real
       const apptRes = await fetch(
-        `/api/appointments?business_id=${businessId}&date=${date}`
-      );
+  `/api/appointments?business_id=${businessId}&date=${date}`
+);
 
       const apptData = await apptRes.json();
 
