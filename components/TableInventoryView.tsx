@@ -29,45 +29,60 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // =========================
-  // 🔥 LOAD DATA (CORREGIDO)
-  // =========================
   async function loadData() {
-    if (!businessId || !date) return;
-    setLoading(true);
-
-    try {
-      // ✅ PASAMOS LOS PARÁMETROS EN LA URL PARA LA API
-      const res = await fetch(
-        `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
-      );
-
-      if (!res.ok) {
-        console.error("❌ Error API Inventory:", await res.text());
-        return;
-      }
-
-      const tablesData = await res.json();
-
-      // ✅ PASAMOS LOS PARÁMETROS PARA APPOINTMENTS
-      const apptRes = await fetch(
-        `/api/appointments?business_id=${businessId}&date=${date}`
-      );
-      
-      const apptData = await apptRes.json();
-
-      setTables(tablesData.tables || []);
-      setAppointments(apptData.appointments || []);
-    } catch (err) {
-      console.error("Error cargando datos de inventario:", err);
-    } finally {
-      setLoading(false);
-    }
+  if (!businessId || !date) {
+    console.warn("⏭️ loadData abortado: falta businessId o date", { businessId, date });
+    return;
   }
+  setLoading(true);
 
-  useEffect(() => {
-    loadData();
-  }, [date, shift, businessId]);
+  try {
+    const url = `/api/table-inventory?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}&shift=${encodeURIComponent(shift)}`;
+    console.log("📡 GET", url);
+
+    const res = await fetch(url);
+    const tablesData = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Error API Inventory:", tablesData);
+      setTables([]);
+      setAppointments([]);
+      return;
+    }
+
+    console.log("✅ Inventory respuesta:", tablesData);
+
+    const apptUrl = `/api/appointments?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}`;
+    console.log("📡 GET", apptUrl);
+
+    const apptRes = await fetch(apptUrl);
+    const apptData = await apptRes.json();
+
+    if (!apptRes.ok) {
+      console.error("❌ Error API Appointments:", apptData);
+    }
+
+    // Tolerar varias formas de respuesta
+    const tablesList = Array.isArray(tablesData)
+      ? tablesData
+      : tablesData?.tables ?? tablesData?.items ?? [];
+
+    const apptList = Array.isArray(apptData)
+      ? apptData
+      : apptData?.appointments ?? apptData?.items ?? [];
+
+    console.log("✅ Mesas:", tablesList.length, "| Reservas:", apptList.length);
+
+    setTables(tablesList);
+    setAppointments(apptList);
+  } catch (err) {
+    console.error("💥 Error cargando datos de inventario:", err);
+    setTables([]);
+    setAppointments([]);
+  } finally {
+    setLoading(false);
+  }
+}
 
   // =========================
   // 🔥 CALCULAR MESAS USADAS

@@ -17,25 +17,27 @@ export default function Mesas() {
   const [selectedShift, setSelectedShift] = useState<"Día" | "Noche">("Día");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadBusiness() {
-      try {
-        // Forzamos la carga del ID
-        const res = await fetch("/api/settings");
-        const data = await res.json();
-        if (data?.business_id) {
-          setBusinessId(data.business_id);
-        } else {
-          console.error("❌ La API de settings no devolvió business_id:", data);
-        }
-      } catch (err) {
-        console.error("💥 Error de conexión con /api/settings:", err);
-      } finally {
-        setLoading(false);
+ useEffect(() => {
+  async function loadBusiness() {
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      // Aceptar ambos nombres por compatibilidad
+      const id = data?.businessId ?? data?.business_id;
+      if (id) {
+        setBusinessId(id);
+      } else {
+        console.error("❌ La API de settings no devolvió business_id:", data);
       }
+    } catch (err) {
+      console.error("💥 Error de conexión con /api/settings:", err);
+    } finally {
+      setLoading(false);
     }
-    loadBusiness();
-  }, []);
+  }
+  loadBusiness();
+}, []);
+
 
   return (
     <div className="space-y-6 p-4">
@@ -68,7 +70,7 @@ export default function Mesas() {
           ⚠️ Advertencia: No se detectó Business ID. Los componentes intentarán cargar con el ID por defecto.
         </div>
       ) : null}
-      
+
 
       {/* PASO CLAVE: Si businessId es null, le pasamos un string vacío 
          para que el componente no explote pero sea "leído" por React.
