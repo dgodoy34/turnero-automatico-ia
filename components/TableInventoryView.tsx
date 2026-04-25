@@ -32,36 +32,37 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   // 🔥 LOAD DATA
   // =========================
   async function loadData() {
-  if (!businessId || !date) return;
+  // 🛑 Validamos que tengamos todo antes de pedir
+  if (!businessId || !date || !shift) return;
 
   try {
-    // 🔥 AHORA LE PASAMOS LA FECHA Y EL TURNO A LA API
+    // 🔥 PASAMOS LOS PARÁMETROS EN LA URL
     const tablesRes = await fetch(
       `/api/table-inventory?business_id=${businessId}&date=${date}&shift=${shift}`
     );
 
     if (!tablesRes.ok) {
-      console.error("❌ Error tables:", await tablesRes.text());
+      console.error("❌ Error en la API de inventario:", await tablesRes.text());
       return;
     }
 
     const tablesData = await tablesRes.json();
 
-    // También para appointments si lo necesitas filtrado
+    // Hacemos lo mismo para las reservas (appointments)
     const apptRes = await fetch(
       `/api/appointments?business_id=${businessId}&date=${date}`
     );
 
     const apptData = await apptRes.json();
 
-    // Usamos el success: true que devuelve tu API
+    // ✅ Tu API devuelve { success: true, tables: [...] }
     if (tablesData.success) {
       setTables(tablesData.tables || []);
     }
+    
     setAppointments(apptData?.appointments || []);
-
   } catch (err) {
-    console.error("💥 Error cargando datos:", err);
+    console.error("💥 Error cargando datos de la vista:", err);
   }
 }
   // =========================
