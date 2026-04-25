@@ -28,7 +28,7 @@ export default function Configuracion() {
     slot_interval: 30
   });
 
-  // Obtener business ID
+  // 1. OBTENER BUSINESS ID (solo al montar)
   useEffect(() => {
     async function loadBusiness() {
       try {
@@ -44,7 +44,7 @@ export default function Configuracion() {
         if (data?.business_id) {
           setBusinessId(data.business_id);
         } else {
-          console.error("No llego business_id");
+          console.error("No llego business_id desde la API");
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -55,19 +55,20 @@ export default function Configuracion() {
     setIsMounted(true);
   }, []);
 
-  // Cargar datos cuando businessId este listo o cambie la fecha
+  // 2. CARGAR DATOS cuando businessId este listo o cambie la fecha
   useEffect(() => {
-    if (!businessId) return;
+    if (!businessId) return; // Esperar a tener businessId
+    
     loadShifts();
     loadGeneralSettings();
-  }, [date, businessId]);
+  }, [businessId, date]);
 
   const currentShift = shifts[selectedShiftIndex];
 
   // Cargar shifts desde DB
   async function loadShifts() {
     if (!businessId) return;
-
+    
     try {
       let { data } = await supabase
         .from("restaurant_table_inventory")
@@ -79,7 +80,7 @@ export default function Configuracion() {
         const { data: fallback } = await supabase
           .from("restaurant_table_inventory")
           .select("*")
-          .eq("business_id", businessId)
+          .eq("business_id", businessId)    
           .is("date", null);
 
         data = fallback || [];
@@ -87,14 +88,14 @@ export default function Configuracion() {
 
       const grouped: Record<string, Shift> = {};
 
-      data.forEach((row: { start_time: string; end_time: string; capacity: number; quantity: number }) => {
+      data.forEach((row: any) => {
         const key = `${row.start_time}-${row.end_time}`;
 
         if (!grouped[key]) {
           grouped[key] = {
-            name: `${row.start_time.slice(0, 5)} - ${row.end_time.slice(0, 5)}`,
-            start_time: row.start_time.slice(0, 5),
-            end_time: row.end_time.slice(0, 5),
+            name: `${row.start_time.slice(0,5)} - ${row.end_time.slice(0,5)}`,
+            start_time: row.start_time.slice(0,5),
+            end_time: row.end_time.slice(0,5),
             tables: []
           };
         }
@@ -125,8 +126,29 @@ export default function Configuracion() {
 
       setShifts(finalShifts);
       setSelectedShiftIndex(0);
+
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  // Cargar settings generales
+  async function loadGeneralSettings() {
+    if (!businessId) return;
+    
+    const { data } = await supabase
+      .from("settings")
+      .select("*")
+      .eq("business_id", businessId)
+      .maybeSingle();
+    
+    if (data) {
+      setGeneralSettings({
+        duration_small: data.duration_small || 0,
+        duration_medium: data.duration_medium || 0,
+        duration_large: data.duration_large || 0,
+        slot_interval: data.slot_interval || 30
+      });
     }
   }
 
@@ -151,7 +173,7 @@ export default function Configuracion() {
           start_time: shift.start_time,
           end_time: shift.end_time,
           capacity: t.capacity,
-          quantity: t.quantity
+          quantity: t.quantity,
         }))
       );
 
@@ -168,7 +190,7 @@ export default function Configuracion() {
       await supabase
         .from("restaurant_table_schedule")
         .delete()
-        .eq("business_id", businessId)
+        .eq("business_id", businessId)  
         .eq("date", date);
 
       const scheduleRows = shifts.map((shift) => {
@@ -183,56 +205,38 @@ export default function Configuracion() {
           start_time: shift.start_time,
           end_time: shift.end_time,
           capacity: totalCapacity,
-          quantity: 1
+          quantity: 1,
         };
       });
 
-      await supabase.from("restaurant_table_schedule").insert(scheduleRows);
+      await supabase
+        .from("restaurant_table_schedule")
+        .insert(scheduleRows);
 
       alert("Configuracion guardada correctamente");
       await loadShifts();
+
     } catch (err) {
       console.error(err);
       alert("Error inesperado");
     }
   }
 
-  // Cargar settings generales
-  async function loadGeneralSettings() {
-    if (!businessId) return;
-
-    const { data } = await supabase
-      .from("settings")
-      .select("*")
-      .eq("business_id", businessId)
-      .maybeSingle();
-
-    if (data) {
-      setGeneralSettings({
-        duration_small: data.duration_small || 0,
-        duration_medium: data.duration_medium || 0,
-        duration_large: data.duration_large || 0,
-        slot_interval: data.slot_interval || 30
-      });
-    }
-  }
-
   // Guardar configuracion general
   async function saveGeneralSettings() {
     if (!businessId) return;
-
-    const { error } = await supabase.from("settings").upsert(
-      {
+    
+    const { error } = await supabase
+      .from("settings")
+      .upsert({
         business_id: businessId,
         duration_small: generalSettings.duration_small,
         duration_medium: generalSettings.duration_medium,
         duration_large: generalSettings.duration_large,
         slot_interval: generalSettings.slot_interval
-      },
-      {
-        onConflict: "business_id"
-      }
-    );
+      }, { 
+        onConflict: 'business_id'
+      });
 
     if (error) {
       console.error("Error completo:", error);
@@ -252,28 +256,25 @@ export default function Configuracion() {
 
       const baseDate = new Date(date);
 
-      const days = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+      const days = [0,1,2,3,4,5,6].map((d) => {
         const newDate = new Date(baseDate);
         newDate.setDate(baseDate.getDate() + d);
         return newDate.toISOString().split("T")[0];
       });
 
       for (const d of days) {
-        // Borrar inventario
         await supabase
           .from("restaurant_table_inventory")
           .delete()
           .eq("business_id", businessId)
           .eq("date", d);
 
-        // Borrar schedule
         await supabase
           .from("restaurant_table_schedule")
           .delete()
           .eq("business_id", businessId)
           .eq("date", d);
 
-        // Insert inventario
         const inventoryRows = shifts.flatMap((shift) =>
           shift.tables.map((t) => ({
             business_id: businessId,
@@ -281,7 +282,7 @@ export default function Configuracion() {
             start_time: shift.start_time,
             end_time: shift.end_time,
             capacity: t.capacity,
-            quantity: t.quantity
+            quantity: t.quantity,
           }))
         );
 
@@ -295,7 +296,6 @@ export default function Configuracion() {
           return;
         }
 
-        // Generar schedule
         const scheduleRows = shifts.map((shift) => {
           const totalCapacity = shift.tables.reduce(
             (acc, t) => acc + t.capacity * t.quantity,
@@ -308,7 +308,7 @@ export default function Configuracion() {
             start_time: shift.start_time,
             end_time: shift.end_time,
             capacity: totalCapacity,
-            quantity: 1
+            quantity: 1,
           };
         });
 
@@ -324,6 +324,7 @@ export default function Configuracion() {
       }
 
       alert("Copiado a toda la semana");
+
     } catch (e) {
       console.error(e);
       alert("Error al copiar");
@@ -332,9 +333,7 @@ export default function Configuracion() {
 
   if (!isMounted) return null;
 
-  const sortedShifts = [...shifts].sort((a, b) =>
-    a.start_time.localeCompare(b.start_time)
-  );
+  const sortedShifts = [...shifts].sort((a, b) => a.start_time.localeCompare(b.start_time));
 
   return (
     <div className="space-y-6">
@@ -347,50 +346,29 @@ export default function Configuracion() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Mesa para 2 (min)
-            </label>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 2 (min)</label>
             <input
               type="number"
               value={generalSettings.duration_small || 90}
-              onChange={(e) =>
-                setGeneralSettings({
-                  ...generalSettings,
-                  duration_small: Number(e.target.value)
-                })
-              }
+              onChange={(e) => setGeneralSettings({...generalSettings, duration_small: Number(e.target.value)})}
               className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Mesa para 4 (min)
-            </label>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 4 (min)</label>
             <input
               type="number"
               value={generalSettings.duration_medium || 120}
-              onChange={(e) =>
-                setGeneralSettings({
-                  ...generalSettings,
-                  duration_medium: Number(e.target.value)
-                })
-              }
+              onChange={(e) => setGeneralSettings({...generalSettings, duration_medium: Number(e.target.value)})}
               className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Mesa para 6+ (min)
-            </label>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Mesa para 6+ (min)</label>
             <input
               type="number"
               value={generalSettings.duration_large || 150}
-              onChange={(e) =>
-                setGeneralSettings({
-                  ...generalSettings,
-                  duration_large: Number(e.target.value)
-                })
-              }
+              onChange={(e) => setGeneralSettings({...generalSettings, duration_large: Number(e.target.value)})}
               className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
@@ -403,9 +381,8 @@ export default function Configuracion() {
         </div>
       </div>
 
-      {/* Configuracion principal */}
+      {/* Configuracion de turnos */}
       <div className="bg-white rounded-xl shadow p-6 space-y-6">
-        {/* Fecha */}
         <input
           type="date"
           value={date}
@@ -413,7 +390,6 @@ export default function Configuracion() {
           className="border p-2 rounded"
         />
 
-        {/* Turnos */}
         <div className="flex gap-2 flex-wrap">
           {sortedShifts.map((shift, index) => (
             <button
@@ -451,20 +427,22 @@ export default function Configuracion() {
           </button>
         </div>
 
-        {/* Editor */}
         {currentShift && (
           <div className="bg-gray-50 border rounded-xl p-4 space-y-4">
-            <h3 className="font-semibold text-lg">Turno {currentShift.name}</h3>
+            <h3 className="font-semibold text-lg">
+              Turno {currentShift.name}
+            </h3>
 
             <div className="flex gap-2">
               <input
                 type="time"
                 step="60"
-                value={currentShift.start_time?.slice(0, 5)}
+                value={currentShift.start_time?.slice(0,5)}
                 onChange={(e) => {
                   const updated = [...shifts];
                   updated[selectedShiftIndex].start_time = e.target.value;
-                  updated[selectedShiftIndex].name = `${e.target.value} - ${updated[selectedShiftIndex].end_time}`;
+                  updated[selectedShiftIndex].name =
+                    `${e.target.value} - ${updated[selectedShiftIndex].end_time}`;
                   setShifts(updated);
                 }}
                 className="border p-2 rounded-lg"
@@ -473,11 +451,12 @@ export default function Configuracion() {
               <input
                 type="time"
                 step="60"
-                value={currentShift.end_time?.slice(0, 5)}
+                value={currentShift.end_time?.slice(0,5)}
                 onChange={(e) => {
                   const updated = [...shifts];
                   updated[selectedShiftIndex].end_time = e.target.value;
-                  updated[selectedShiftIndex].name = `${updated[selectedShiftIndex].start_time} - ${e.target.value}`;
+                  updated[selectedShiftIndex].name =
+                    `${updated[selectedShiftIndex].start_time} - ${e.target.value}`;
                   setShifts(updated);
                 }}
                 className="border p-2 rounded-lg"
@@ -509,9 +488,7 @@ export default function Configuracion() {
                   value={table.quantity}
                   onChange={(e) => {
                     const updated = [...shifts];
-                    updated[selectedShiftIndex].tables[i].quantity = Number(
-                      e.target.value
-                    );
+                    updated[selectedShiftIndex].tables[i].quantity = Number(e.target.value);
                     setShifts(updated);
                   }}
                   className="border p-2 w-24 rounded text-center"
@@ -521,7 +498,6 @@ export default function Configuracion() {
           </div>
         )}
 
-        {/* Botones */}
         <div className="flex gap-3">
           <button
             onClick={saveShifts}
@@ -541,11 +517,15 @@ export default function Configuracion() {
 
       {/* Vista actual */}
       <div className="bg-white rounded-xl shadow p-6">
-        <h2 className="font-semibold mb-4">Configuracion del {date}</h2>
+        <h2 className="font-semibold mb-4">
+          Configuracion del {date}
+        </h2>
 
         {shifts.map((shift, i) => (
           <div key={i} className="mb-4 p-4 border rounded-xl bg-gray-50">
-            <div className="font-semibold mb-2">{shift.name}</div>
+            <div className="font-semibold mb-2">
+              {shift.name}
+            </div>
 
             {shift.tables.map((t, j) => (
               <div key={j} className="flex justify-between text-sm">
