@@ -68,6 +68,7 @@ export default function Mesas() {
           ⚠️ Advertencia: No se detectó Business ID. Los componentes intentarán cargar con el ID por defecto.
         </div>
       ) : null}
+      
 
       {/* PASO CLAVE: Si businessId es null, le pasamos un string vacío 
          para que el componente no explote pero sea "leído" por React.
