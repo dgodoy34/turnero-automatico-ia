@@ -22,7 +22,7 @@ async function resolveBusinessId(req: Request) {
   const subdomain = host.split(".")[0];
 
   const { data, error } = await supabase
-    .from("businesses")
+    .from("restaurants")
     .select("id")
     .eq("slug", subdomain)
     .single();
