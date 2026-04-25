@@ -18,19 +18,20 @@ type Appointment = {
 
 type Props = {
   date: string;
-  shift: "Día" | "Noche";
+  shift: string;
+  businessId: string;
 };
 
-export default function TableFloorView({ date, shift }: Props) {
+export default function TableFloorView({ date, shift, businessId }: Props) {
 
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   async function loadData() {
-    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}`);
+    const tablesRes = await fetch(`/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`)
     const tablesData = await tablesRes.json();
 
-    const apptRes = await fetch("/api/appointments");
+    const apptRes = await fetch(`/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`);
     const apptData = await apptRes.json();
 
     setTables(tablesData.tables || []);
@@ -40,7 +41,7 @@ export default function TableFloorView({ date, shift }: Props) {
   useEffect(() => {
     if (!date) return;
     loadData();
-  }, [date, shift]);
+  }, [date, shift, businessId]);
 
   function getUsed(capacity: number) {
     let used = 0;

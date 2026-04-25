@@ -32,22 +32,32 @@ export default function TableInventoryView({ date, shift }: Props) {
   // 🔥 RESOLVER BUSINESS (MULTI-TENANT)
   // =========================
   useEffect(() => {
-    const resolveBusiness = async () => {
-      const hostname = window.location.hostname;
-      const subdomain = hostname.split(".")[0];
+  const loadBusiness = async () => {
+    try {
+      const res = await fetch("/api/settings");
 
-      const res = await fetch(`/api/get-business?slug=${subdomain}`);
+      if (!res.ok) {
+        console.error("❌ Error settings:", await res.text());
+        return;
+      }
+
       const data = await res.json();
 
-      if (data?.id) {
-        setBusinessId(data.id);
-      } else {
-        console.error("❌ No se pudo resolver business");
-      }
-    };
+      console.log("🔥 settings:", data);
 
-    resolveBusiness();
-  }, []);
+      if (data?.business_id) {
+        setBusinessId(data.business_id);
+      } else {
+        console.error("❌ No vino business_id");
+      }
+
+    } catch (err) {
+      console.error("💥 error:", err);
+    }
+  };
+
+  loadBusiness();
+}, []);
 
   // =========================
   // 🔥 LOAD DATA
