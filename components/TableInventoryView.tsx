@@ -29,12 +29,25 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
 
+
   async function loadData() {
-  if (!businessId || !date) {
-    console.warn("⏭️ loadData abortado: falta businessId o date", { businessId, date });
+  // Guard estricto: bloquea string vacío, undefined, null
+  if (!businessId || businessId.trim() === "" || !date) {
+    console.warn("⏭️ loadData abortado:", { businessId, date, shift });
     return;
   }
   setLoading(true);
+ // async function loadData() {
+  //if (!businessId || !date) {
+    //console.warn("⏭️ loadData abortado: falta businessId o date", { businessId, date });
+   // return;
+ // }
+  //setLoading(true);
+
+  useEffect(() => {
+  loadData();
+}, [businessId, date, shift]);
+
 
   try {
     const url = `/api/table-inventory?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}&shift=${encodeURIComponent(shift)}`;
