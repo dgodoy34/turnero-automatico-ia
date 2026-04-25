@@ -21,17 +21,17 @@ async function resolveBusinessId(req: Request) {
   const subdomain = host.split(".")[0];
 
   const { data, error } = await supabase
-    .from("businesses")
-    .select("id")
-    .eq("slug", subdomain)
-    .single();
+  .from("restaurants")
+  .select("business_id")
+  .eq("slug", subdomain)      
+  .single();
 
   if (error || !data) {
     console.error("❌ Error resolviendo business:", error);
     return null;
   }
 
-  return data.id;
+  return data.business_id;
 }
 
 export async function GET(req: Request) {
