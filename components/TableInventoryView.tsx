@@ -24,41 +24,9 @@ type Props = {
   businessId: string;
 };
 
-export default function TableInventoryView({ date, shift }: Props) {
+export default function TableInventoryView({ date, shift, businessId }: Props) {
   const [tables, setTables] = useState<TableType[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [businessId, setBusinessId] = useState<string | null>(null);
-
-  // =========================
-  // 🔥 RESOLVER BUSINESS (MULTI-TENANT)
-  // =========================
-  useEffect(() => {
-  const loadBusiness = async () => {
-    try {
-      const res = await fetch("/api/settings");
-
-      if (!res.ok) {
-        console.error("❌ Error settings:", await res.text());
-        return;
-      }
-
-      const data = await res.json();
-
-      console.log("🔥 settings:", data);
-
-      if (data?.business_id) {
-        setBusinessId(data.business_id);
-      } else {
-        console.error("❌ No vino business_id");
-      }
-
-    } catch (err) {
-      console.error("💥 error:", err);
-    }
-  };
-
-  loadBusiness();
-}, []);
 
   // =========================
   // 🔥 LOAD DATA
@@ -67,14 +35,16 @@ export default function TableInventoryView({ date, shift }: Props) {
     if (!businessId) return;
 
     try {
-      const tablesRes = await fetch(
+      const res = await fetch(
         `/api/table-inventory?date=${date}&shift=${shift}&business_id=${businessId}`
       );
-      const tablesData = await tablesRes.json();
+
+      const tablesData = await res.json();
 
       const apptRes = await fetch(
         `/api/appointments?business_id=${businessId}`
       );
+
       const apptData = await apptRes.json();
 
       setTables(tablesData.tables || []);
