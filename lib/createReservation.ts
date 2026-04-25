@@ -271,20 +271,21 @@ if (people <= 2) {
 
     // 8. LLAMADA A LA FUNCIÓN RPC (Seguridad contra sobreventa)
     // En lugar de un insert directo, ejecutamos el "guardia" de la DB
-    const { data: rpcData, error: rpcError } = await supabase.rpc('crear_reserva_segura', {
-      p_business_id: business_id,
-      p_dni: source === "walkin" ? "WALKIN" : dni,
-      p_name: client_name,
-      p_phone: client_phone,
-      p_date: date,
-      p_time: formattedStart,
-      p_start_time: start_time,
-      p_end_time: end_time,
-      p_people: people,
-      p_assigned_capacity: assignedCapacity,
-      p_reservation_code: reservationCode,
-      p_source: source || "manual"
-    });
+    // En tu createReservation.ts, el paso 8 debe ser así:
+const { data: rpcData, error: rpcError } = await supabase.rpc('crear_reserva_segura', {
+  p_business_id: business_id,
+  p_dni: source === "walkin" ? "WALKIN" : dni,
+  p_name: client_name,
+  p_phone: client_phone,
+  p_date: date,
+  p_time: formattedStart,
+  p_start_time: start_time, // Este valor define si es Día o Noche
+  p_end_time: end_time,
+  p_people: people,
+  p_assigned_capacity: assignedCapacity,
+  p_reservation_code: reservationCode,
+  p_source: source || "manual"
+});
 
     // 9. MANEJO DE ERRORES DE LA RPC
     if (rpcError) {

@@ -175,6 +175,19 @@ if (message.type !== "text") {
     const from = message.from;
     const text = message.text.body.trim();
     const lower = text.toLowerCase();
+    const msg = text.toLowerCase().trim();
+
+// =====================================
+// 🚩 BOTÓN DE PÁNICO: CANCELAR O REINICIAR
+// =====================================
+if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
+  await clearTemp(from);
+  await setState(from, "INIT");
+  if (msg === "cancelar") {
+    await sendReply(from, "Reserva cancelada. Volvemos al inicio. ¿En qué puedo ayudarte?");
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
+}
 
     const session = await getSession(from);
 
