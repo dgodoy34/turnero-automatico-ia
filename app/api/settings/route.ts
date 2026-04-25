@@ -32,41 +32,41 @@ async function resolveBusinessId(req: Request) {
   return data.business_id;
 }
 
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const business_id = await resolveBusinessId(req);
+    const body = await req.json();
+
+    const business_id = body.business_id;
 
     if (!business_id) {
-      return NextResponse.json(
-        { settings: null, business_id: null },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing business_id" }, { status: 400 });
     }
 
+    const payload = {
+      business_id,
+      duration_small: body.duration_small,
+      duration_medium: body.duration_medium,
+      duration_large: body.duration_large,
+      slot_interval: body.slot_interval,
+    };
+
+    // 🔥 UPSERT (LA CLAVE DE TODO)
     const { data, error } = await supabase
       .from("settings")
-      .select("*")
-      .eq("business_id", business_id)
-      .maybeSingle(); // 🔥 mejor que single()
+      .upsert(payload, {
+        onConflict: "business_id", // 🔥 evita duplicados
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error("❌ Settings error:", error);
-      return NextResponse.json({
-        settings: null,
-        business_id
-      });
+      console.error("❌ Error saving settings:", error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({
-      settings: data,
-      business_id
-    });
+    return NextResponse.json({ success: true, settings: data });
 
   } catch (err: any) {
-    console.error("💥 Settings API error:", err);
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
