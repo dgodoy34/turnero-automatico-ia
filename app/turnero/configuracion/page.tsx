@@ -66,6 +66,7 @@ export default function Configuracion() {
     if (businessId) {
       loadShifts();
       loadGeneralSettings();
+       setIsMounted(true);
     }
   }, [date, businessId]);
 
