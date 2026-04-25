@@ -30,11 +30,25 @@ async function resolveBusinessId(req: NextRequest): Promise<string | null> {
 
 // Handler GET para obtener el business_id
 export async function GET(req: NextRequest) {
-  const businessId = await resolveBusinessId(req);
+  const host = req.headers.get("host") || "";
+  const subdomain = host.split(".")[0];
+  
+  console.log("[DEBUG] host:", host);
+  console.log("[DEBUG] subdomain:", subdomain);
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("business_id")
+    .eq("slug", subdomain)
+    .single();
+
+  console.log("[DEBUG] query result:", { data, error });
+
+  const businessId = data?.business_id || null;
 
   if (!businessId) {
     return NextResponse.json(
-      { error: "No se encontro el business_id" },
+      { error: "No se encontro el business_id", debug: { host, subdomain, data, error } },
       { status: 404 }
     );
   }
