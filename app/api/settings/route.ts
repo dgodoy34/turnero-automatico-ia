@@ -4,32 +4,50 @@ import { supabase } from "@/lib/supabaseClient";
 async function resolveBusinessId(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // 1️⃣ query param
+  // 1. query param
   let business_id = searchParams.get("business_id");
   if (business_id) return business_id;
 
-  // 2️⃣ header
+  // 2. header
   const headerId = req.headers.get("x-business-id");
   if (headerId) return headerId;
 
-  // 3️⃣ subdominio
+  // 3. subdominio
   const host = req.headers.get("host");
   if (!host) return null;
 
   const subdomain = host.split(".")[0];
 
   const { data, error } = await supabase
-    .from("restaurants") // ✅ TU TABLA
+    .from("restaurants")
     .select("business_id")
     .eq("slug", subdomain)
     .single();
 
   if (error || !data) {
-    console.error("❌ Error resolviendo business:", error);
+    console.error("Error resolviendo business:", error);
     return null;
   }
 
   return data.business_id;
+}
+
+export async function GET(req: Request) {
+  try {
+    const business_id = await resolveBusinessId(req);
+
+    if (!business_id) {
+      return NextResponse.json(
+        { error: "No se encontro el business_id" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ businessId: business_id });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
@@ -50,23 +68,23 @@ export async function POST(req: Request) {
       slot_interval: body.slot_interval,
     };
 
-    // 🔥 UPSERT (LA CLAVE DE TODO)
     const { data, error } = await supabase
       .from("settings")
       .upsert(payload, {
-        onConflict: "business_id", // 🔥 evita duplicados
+        onConflict: "business_id",
       })
       .select()
       .single();
 
     if (error) {
-      console.error("❌ Error saving settings:", error);
+      console.error("Error saving settings:", error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, settings: data });
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
