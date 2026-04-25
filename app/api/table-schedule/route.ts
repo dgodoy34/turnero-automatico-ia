@@ -7,34 +7,34 @@ import { supabase } from "@/lib/supabaseClient";
 async function resolveBusinessId(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // 1️⃣ query param
+  // 1. query param
   let business_id = searchParams.get("business_id");
   if (business_id) return business_id;
 
-  // 2️⃣ header moderno
+  // 2. header
   const headerId = req.headers.get("x-business-id");
   if (headerId) return headerId;
 
-  // 3️⃣ subdominio (SaaS real)
+  // 3. subdominio
   const host = req.headers.get("host");
   if (!host) return null;
 
   const subdomain = host.split(".")[0];
 
+  // CORREGIDO: usar tabla "restaurants" y campo "business_id"
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id")
+    .select("business_id")
     .eq("slug", subdomain)
     .single();
 
   if (error || !data) {
-    console.error("❌ Error resolviendo business:", error);
+    console.error("Error resolviendo business:", error);
     return null;
   }
 
-  return data.id;
+  return data.business_id;
 }
-
 // =========================
 // GET
 // =========================
