@@ -17,60 +17,53 @@ async function resolveBusinessId(req: Request) {
 }
 
 // ============================
-// GET - Listar reservas
+// GET - Listar reservas (MODIFICADO)
 // ============================
-
 export async function GET(req: Request) {
-
   try {
-
     const businessId = await resolveBusinessId(req);
+    const { searchParams } = new URL(req.url);
+    
+    // 1. Capturar los nuevos parámetros
+    const date = searchParams.get("date");
+    const shift = searchParams.get("shift");
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("appointments")
       .select(`
-        id,
-        reservation_code,
-        client_dni,
-        date,
-        time,
-        start_time,
-        end_time,
-        people,
-        assigned_table_capacity,
-        tables_used,
-        notes,
-        status,
-        created_at,
-        clients!appointments_client_dni_fkey (
-          dni,
-          name,
-          phone,
-          email
-        )
+        id, reservation_code, client_dni, date, time,
+        start_time, end_time, people, assigned_table_capacity,
+        tables_used, notes, status, created_at,
+        clients!appointments_client_dni_fkey ( dni, name, phone, email )
       `)
       .eq("business_id", businessId)
-      .order("date", { ascending: false })
-      .order("time", { ascending: false });
+      .eq("status", "confirmed"); // Solo las que ocupan lugar
+
+    // 2. Aplicar filtro de fecha
+    if (date) {
+      query = query.eq("date", date);
+    }
+
+    // 3. Aplicar filtro de turno (Día/Noche)
+    if (shift) {
+      const normalizedShift = shift.toLowerCase();
+      if (normalizedShift === "dia") {
+        query = query.gte("time", "12:00:00").lt("time", "17:00:00");
+      } else if (normalizedShift === "noche") {
+        query = query.gte("time", "17:00:00").lte("time", "23:59:59");
+      }
+    }
+
+    const { data, error } = await query
+      .order("time", { ascending: true });
 
     if (error) throw error;
-
-    return NextResponse.json({
-      success: true,
-      appointments: data ?? [],
-    });
+    return NextResponse.json({ success: true, appointments: data ?? [] });
 
   } catch (err: any) {
-
-    return NextResponse.json(
-      { success: false, error: err.message },
-      { status: 500 }
-    );
-
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-
 }
-
 // ============================
 // POST - Crear reserva
 // ============================
