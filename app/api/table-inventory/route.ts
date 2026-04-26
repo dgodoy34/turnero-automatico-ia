@@ -12,52 +12,72 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Intentar traer la configuración ESPECÍFICA para esa fecha
-    let { data, error } = await supabase
+    // 1. Obtener el inventario base (Prioridad: Fecha específica > Plantilla)
+    let { data: inventoryData, error: invError } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
       .eq("business_id", business_id)
       .eq("date", date);
 
-    if (error) throw error;
+    if (invError) throw invError;
 
-    // 2. SI NO HAY específica, recién ahí cargar la plantilla general
-    // Importante: No se deben mezclar. O es específica o es plantilla.
-    if (!data || data.length === 0) {
-      const { data: template, error: templateError } = await supabase
+    if (!inventoryData || inventoryData.length === 0) {
+      const { data: template } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
         .eq("business_id", business_id)
         .is("date", null);
-      
-      if (templateError) throw templateError;
-      data = template || [];
+      inventoryData = template || [];
     }
 
-    // 3. Normalizar turno
+    // 2. Obtener las reservas confirmadas para restar del inventario
+    const { data: appts, error: apptError } = await supabase
+      .from("appointments")
+      .select("assigned_table_capacity, time")
+      .eq("business_id", business_id)
+      .eq("date", date)
+      .eq("status", "confirmed");
+
+    if (apptError) throw apptError;
+
+    // 3. Normalizar Turno
     const normalizedShift = shift 
       ? shift.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
       : "";
 
-    // 4. Filtrar por Turno (Día/Noche)
-    let filtered = data;
-    if (normalizedShift === "dia") {
-      filtered = data.filter((r: any) => r.start_time <= "16:00");
-    } else if (normalizedShift === "noche") {
-      filtered = data.filter((r: any) => r.start_time > "16:00");
-    }
+    // 4. Filtrar inventario Y reservas por el turno seleccionado
+    const filteredInv = inventoryData.filter((r: any) => {
+      if (normalizedShift === "dia") return r.start_time <= "16:00";
+      if (normalizedShift === "noche") return r.start_time > "16:00";
+      return true;
+    });
 
-    // 5. Agrupar por capacidad (Asegurarse de no duplicar registros)
+    const filteredAppts = (appts || []).filter((a: any) => {
+      if (normalizedShift === "dia") return a.time <= "16:00";
+      if (normalizedShift === "noche") return a.time > "16:00";
+      return true;
+    });
+
+    // 5. Calcular mesas disponibles: Total - Ocupadas
     const map = new Map<number, number>();
-    filtered.forEach((row: any) => {
-      // Si hay múltiples registros de la misma capacidad para el mismo turno, se suman
+    
+    // Sumar totales configurados
+    filteredInv.forEach((row: any) => {
       const current = map.get(row.capacity) || 0;
       map.set(row.capacity, current + row.quantity);
     });
 
+    // Restar reservas ocupadas
+    filteredAppts.forEach((appt: any) => {
+      const current = map.get(appt.assigned_table_capacity) || 0;
+      if (current > 0) {
+        map.set(appt.assigned_table_capacity, current - 1);
+      }
+    });
+
     const tables = Array.from(map.entries()).map(([capacity, quantity]) => ({
       capacity,
-      quantity,
+      quantity: Math.max(0, quantity), // Nunca devolver menos de 0
     }));
 
     return NextResponse.json({ success: true, tables });
