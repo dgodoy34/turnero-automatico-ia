@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Consultar el inventario para la fecha y el comercio
+    // 1. Intentar traer la configuración ESPECÍFICA para esa fecha
     let { data, error } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
@@ -21,21 +21,25 @@ export async function GET(req: Request) {
 
     if (error) throw error;
 
-    // 2. Si no hay datos para esa fecha, cargar la plantilla (date is null)
+    // 2. SI NO HAY específica, recién ahí cargar la plantilla general
+    // Importante: No se deben mezclar. O es específica o es plantilla.
     if (!data || data.length === 0) {
-      const { data: template } = await supabase
+      const { data: template, error: templateError } = await supabase
         .from("restaurant_table_inventory")
         .select("*")
         .eq("business_id", business_id)
         .is("date", null);
+      
+      if (templateError) throw templateError;
       data = template || [];
     }
 
-    // 3. Filtrar por Turno (Lógica Día/Noche)
+    // 3. Normalizar turno
     const normalizedShift = shift 
       ? shift.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
       : "";
 
+    // 4. Filtrar por Turno (Día/Noche)
     let filtered = data;
     if (normalizedShift === "dia") {
       filtered = data.filter((r: any) => r.start_time <= "16:00");
@@ -43,9 +47,10 @@ export async function GET(req: Request) {
       filtered = data.filter((r: any) => r.start_time > "16:00");
     }
 
-    // 4. Agrupar por capacidad (Sumar quantity de registros iguales)
+    // 5. Agrupar por capacidad (Asegurarse de no duplicar registros)
     const map = new Map<number, number>();
     filtered.forEach((row: any) => {
+      // Si hay múltiples registros de la misma capacidad para el mismo turno, se suman
       const current = map.get(row.capacity) || 0;
       map.set(row.capacity, current + row.quantity);
     });
