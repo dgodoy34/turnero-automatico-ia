@@ -3,6 +3,8 @@ import { getSession, setState, setDNI, setTemp, clearTemp } from "@/lib/conversa
 import { createReservation } from "@/lib/createReservation";
 import { interpretMessage } from "@/lib/ai";
 import { hotelFlow } from "@/lib/hotel/hotelFlow";
+import { NextResponse } from "next/server";
+
 
 console.log("🔥🔥🔥 ESTE ES EL WEBHOOK NUEVO 🔥🔥🔥");
 
@@ -91,22 +93,69 @@ async function sendReply(to: string, reply: string) {
   console.log("📥 RESPUESTA WHATSAPP:", data);
 }
 export async function GET(req: Request) {
-  const url = new URL(req.url);
+  try {
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("business_id");
+    const date = searchParams.get("date");
+    const shift = searchParams.get("shift");
 
-  const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
-  const challenge = url.searchParams.get("hub.challenge");
+    if (!businessId) {
+      return NextResponse.json(
+        { success: false, error: "business_id requerido" },
+        { status: 400 }
+      );
+    }
 
-  if (
-    mode === "subscribe" &&
-    token === process.env.WHATSAPP_VERIFY_TOKEN
-  ) {
-    console.log("✅ WEBHOOK VERIFICADO");
-    return new Response(challenge, { status: 200 });
+    let query = supabase
+      .from("appointments")
+      .select(`
+        id, reservation_code, client_dni, date, time,
+        start_time, end_time, people, assigned_table_capacity,
+        tables_used, notes, status, created_at,
+        clients!appointments_client_dni_fkey ( dni, name, phone, email )
+      `)
+      .eq("business_id", businessId)
+      .eq("status", "confirmed");
+
+    // 🔥 Filtro por fecha exacta
+    if (date) {
+      query = query.eq("date", date);
+    }
+
+    // 🔥 Filtro por turno (robusto a acentos)
+    if (shift) {
+      const normalized = shift
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      if (normalized === "dia") {
+        // Día: 12:00 a 16:59
+        query = query.gte("time", "12:00:00").lt("time", "17:00:00");
+      } else if (normalized === "noche") {
+        // Noche: 17:00 a 23:59
+        query = query.gte("time", "17:00:00").lte("time", "23:59:59");
+      }
+    }
+
+    const { data, error } = await query
+      .order("date", { ascending: false })
+      .order("time", { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      appointments: data ?? [],
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
   }
-
-  return new Response("Forbidden", { status: 403 });
 }
+
 
 export async function POST(req: Request) {
 

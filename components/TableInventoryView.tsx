@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type TableType = {
   capacity: number;
-  quantity: number; // Ahora representa las mesas LIBRES reales
+  quantity: number; 
 };
 
 type Props = {
@@ -14,28 +14,42 @@ type Props = {
 };
 
 export default function TableInventoryView({ date, shift, businessId }: Props) {
-  const [tables, setTables] = useState<TableType[]>([]);
+  // 1. Declaración correcta de los estados
+  const [tables, setTables] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]); // Corregido: ya no dará error
   const [loading, setLoading] = useState(false);
 
+  // 2. useEffect separado de la lógica de carga
   useEffect(() => {
     loadData();
   }, [businessId, date, shift]);
 
+  // 3. Función loadData cerrada correctamente
   async function loadData() {
     if (!businessId || !date) return;
     setLoading(true);
     try {
-      const url = `/api/table-inventory?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}&shift=${encodeURIComponent(shift)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      setTables(data.tables || []);
+      const tablesUrl = `/api/table-inventory?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}&shift=${encodeURIComponent(shift)}`;
+      const apptUrl = `/api/appointments?business_id=${encodeURIComponent(businessId)}&date=${encodeURIComponent(date)}&shift=${encodeURIComponent(shift)}`;
+
+      const [tablesRes, apptRes] = await Promise.all([
+        fetch(tablesUrl),
+        fetch(apptUrl),
+      ]);
+
+      const tablesData = await tablesRes.json();
+      const apptData = await apptRes.json();
+
+      setTables(tablesData.tables || []);
+      setAppointments(apptData.appointments || []); // Ahora sí existe
     } catch (error) {
       console.error("Error:", error);
     } finally {
       setLoading(false);
     }
-  }
+  } // <--- AQUÍ se cierra loadData
 
+  // 4. El RETURN ahora pertenece al componente principal
   return (
     <div className="bg-white rounded-xl shadow p-6">
       <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -67,4 +81,4 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
       </div>
     </div>
   );
-}
+} // <--- AQUÍ se cierra el componente TableInventoryView
