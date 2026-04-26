@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Obtener el inventario base (Prioridad: Fecha específica > Plantilla)
+    // 1. Obtener la capacidad TOTAL (Config diaria o Plantilla)
     let { data: inventoryData, error: invError } = await supabase
       .from("restaurant_table_inventory")
       .select("*")
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
       inventoryData = template || [];
     }
 
-    // 2. Obtener las reservas confirmadas para restar del inventario
+    // 2. Obtener las RESERVAS del día para saber qué está ocupado
     const { data: appts, error: apptError } = await supabase
       .from("appointments")
       .select("assigned_table_capacity, time")
@@ -40,12 +40,12 @@ export async function GET(req: Request) {
 
     if (apptError) throw apptError;
 
-    // 3. Normalizar Turno
+    // 3. Normalizar el turno
     const normalizedShift = shift 
       ? shift.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
       : "";
 
-    // 4. Filtrar inventario Y reservas por el turno seleccionado
+    // 4. FILTRADO POR TURNO: Aplicar la misma lógica horaria a ambos
     const filteredInv = inventoryData.filter((r: any) => {
       if (normalizedShift === "dia") return r.start_time <= "16:00";
       if (normalizedShift === "noche") return r.start_time > "16:00";
@@ -58,16 +58,16 @@ export async function GET(req: Request) {
       return true;
     });
 
-    // 5. Calcular mesas disponibles: Total - Ocupadas
+    // 5. CÁLCULO: (Total de mesas) - (Reservas del turno)
     const map = new Map<number, number>();
     
-    // Sumar totales configurados
+    // Sumamos capacidad total configurada
     filteredInv.forEach((row: any) => {
       const current = map.get(row.capacity) || 0;
       map.set(row.capacity, current + row.quantity);
     });
 
-    // Restar reservas ocupadas
+    // Restamos cada reserva que ya existe
     filteredAppts.forEach((appt: any) => {
       const current = map.get(appt.assigned_table_capacity) || 0;
       if (current > 0) {
@@ -77,13 +77,12 @@ export async function GET(req: Request) {
 
     const tables = Array.from(map.entries()).map(([capacity, quantity]) => ({
       capacity,
-      quantity: Math.max(0, quantity), // Nunca devolver menos de 0
+      quantity: Math.max(0, quantity), 
     }));
 
     return NextResponse.json({ success: true, tables });
 
   } catch (error: any) {
-    console.error("❌ API Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
