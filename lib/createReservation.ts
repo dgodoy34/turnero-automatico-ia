@@ -274,30 +274,22 @@ if (people <= 2) {
     // En tu createReservation.ts, el paso 8 debe ser así:
 // BUSCÁ ESTA PARTE EN TU createReservation.ts Y MODIFICÁ ESTAS LÍNEAS:
 // Función auxiliar para normalizar la hora (ponerla al final de tu archivo o afuera de createReservation)
-const normalizeTime = (t: string) => {
-  if (!t) return "00:00:00";
-  let [h, m] = t.split(':');
-  if (!m) m = "00"; // Si puso "22", lo convierte en "22:00"
-  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}:00`;
-};
-
-// ... dentro de createReservation ...
+const normalize = (t: string) => t.split(':').length === 2 ? `${t}:00` : t;
 
 const { data: rpcData, error: rpcError } = await supabase.rpc('crear_reserva_segura', {
   p_business_id: business_id,
-  p_dni: source === "walkin" ? "WALKIN" : dni,
-  p_name: client_name || "Cliente",
-  p_phone: client_phone || "0000000000",
+  p_dni: dni,
+  p_name: client_name || 'Cliente',
+  p_phone: client_phone || '000000',
   p_date: date,
-  p_time: normalizeTime(time).slice(0, 5), // Mandamos "22:00" para la columna de texto
-  p_start_time: normalizeTime(start_time),   // Mandamos "22:00:00" para la columna TIME
-  p_end_time: normalizeTime(end_time),       // Mandamos "23:30:00" para la columna TIME
+  p_time: time.slice(0, 5),
+  p_start_time: normalize(start_time), // Asegura HH:MM:SS
+  p_end_time: normalize(end_time),     // Asegura HH:MM:SS
   p_people: people,
   p_assigned_capacity: assignedCapacity,
   p_reservation_code: reservationCode,
-  p_source: source || "manual"
+  p_source: source || 'whatsapp'
 });
-
     // 9. MANEJO DE ERRORES DE LA RPC
     if (rpcError) {
       console.error("❌ Error técnico en RPC:", rpcError);
