@@ -219,7 +219,7 @@ export async function createReservation({
         end_time,
         assigned_table_capacity: assignedCapacity,
         status: "confirmed",
-        dni,
+        client_dni: dni,
         people,
         reservation_code: code,
       })
