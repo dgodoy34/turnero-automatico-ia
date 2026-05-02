@@ -430,7 +430,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
 // ==================== CREACIÓN NUEVA ====================
-     
+
 console.log("→ Camino de CREACIÓN NUEVA");
 
 const result = await createReservation({
@@ -443,13 +443,11 @@ const result = await createReservation({
 
 if (!result.success) {
 
-  // 🔥 FIX CLAVE: guardar contexto SIEMPRE
+  // 🔥 limpiar estado SIEMPRE
   await setTemp(from, {
     ...temp,
-    date: temp.date,
-    time: temp.time,
-    people: temp.people,
-    dni: temp.dni,
+    is_modifying: false,
+    reservation_id: null
   });
 
   if (result.type === "ALTERNATIVES") {
@@ -473,7 +471,6 @@ if (!result.success) {
 
   } else {
 
-    // 🔥 NO resetear flujo
     await setState(from, "POST_RESERVATION_MENU");
 
     reply = `❌ ${result.message}
@@ -493,14 +490,14 @@ ${getMenu()}`;
     is_modifying: false,
   });
 
+  await setState(from, "POST_RESERVATION_MENU");
+
   reply = `🎉 ¡Reserva confirmada!\n\n` +
           `📅 *Día:* ${reservation.date}\n` +
           `⏰ *Hora:* ${reservation.time}\n` +
           `👥 *Personas:* ${reservation.people}\n` +
           `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
           getMenu();
-
-  await setState(from, "POST_RESERVATION_MENU");
 }
 
 await sendReply(from, reply);
@@ -520,17 +517,27 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         await setState(from, "ADD_NOTE");
       } 
       else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
-        reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
 
-        await setTemp(from, {
-          ...(session.temp_data || {}),
-          is_modifying: true,
-          reservation_id: session.temp_data?.reservation_id,
-          reservation_code: session.temp_data?.reservation_code || session.temp_data?.last_reservation_code
-        });
+  if (!session.temp_data?.reservation_id) {
+    reply = "⚠️ No hay una reserva para modificar.\n\nPodemos hacer una nueva 👍";
+    
+    await setState(from, "INIT");
+    await clearTemp(from);
+    
+    await sendReply(from, reply);
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }
 
-        await setState(from, "MODIFY_RESERVATION");
-      } 
+  reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
+
+  await setTemp(from, {
+    ...(session.temp_data || {}),
+    is_modifying: true,
+    reservation_id: session.temp_data.reservation_id
+  });
+
+  await setState(from, "MODIFY_RESERVATION");
+}
       else if (msg.includes("listo") || msg.includes("finalizar") || msg === "4") {
         reply = "Perfecto 👍 Gracias por tu reserva. ¡Te esperamos!";
         await setState(from, "INIT");
