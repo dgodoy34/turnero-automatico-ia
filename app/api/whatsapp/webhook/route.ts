@@ -430,63 +430,82 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
 // ==================== CREACIÓN NUEVA ====================
-      console.log("→ Camino de CREACIÓN NUEVA");
+     
+console.log("→ Camino de CREACIÓN NUEVA");
 
-      const result = await createReservation({
-        business_id: businessId,
-        dni: temp.dni!,
-        date: temp.date!,
-        time: temp.time!,
-        people: Number(temp.people!),
-      });
+const result = await createReservation({
+  business_id: businessId,
+  dni: temp.dni!,
+  date: temp.date!,
+  time: temp.time!,
+  people: Number(temp.people!),
+});
 
-      if (!result.success) {
-        if (result.type === "ALTERNATIVES") {
-          // Guardamos las alternativas en el temp_data para que el bot las recuerde
-          await setTemp(from, { 
-            ...temp, 
-            alternatives: result.alternatives 
-          });
-          await setState(from, "NO_MORE_SLOTS");
-          
-          const botones = result.alternatives && result.alternatives.length > 0
-            ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
-            : "No hay más turnos hoy.";
+if (!result.success) {
 
-          reply = `❌ *${result.message}*\n\n` +
-                  `Pero tengo estos horarios disponibles:\n` +
-                  `${botones}\n` +
-                  `4️⃣ Elegir otro día 📅\n` +
-                  `5️⃣ Finalizar`;
-        } else {
-          await setState(from, "POST_RESERVATION_MENU");
-          reply = `${result.message || "Error al crear la reserva."}
+  // 🔥 FIX CLAVE: guardar contexto SIEMPRE
+  await setTemp(from, {
+    ...temp,
+    date: temp.date,
+    time: temp.time,
+    people: temp.people,
+    dni: temp.dni,
+  });
 
-       ${getMenu()}`;
-        }
-      } else {
-        const reservation = result.reservation;
+  if (result.type === "ALTERNATIVES") {
 
-        await setTemp(from, {
-          reservation_code: reservation.reservation_code,
-          reservation_id: reservation.id,
-          is_modifying: false,
-        });
+    await setTemp(from, { 
+      ...temp, 
+      alternatives: result.alternatives 
+    });
 
-        reply = `🎉 ¡Reserva confirmada!\n\n` +
-                `📅 *Día:* ${reservation.date}\n` +
-                `⏰ *Hora:* ${reservation.time}\n` +
-                `👥 *Personas:* ${reservation.people}\n` +
-                `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
-                getMenu();
+    await setState(from, "NO_MORE_SLOTS");
+    
+    const botones = result.alternatives && result.alternatives.length > 0
+      ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
+      : "No hay más turnos hoy.";
 
-        await setState(from, "POST_RESERVATION_MENU");
-      }
+    reply = `❌ *${result.message}*\n\n` +
+            `Pero tengo estos horarios disponibles:\n` +
+            `${botones}\n` +
+            `4️⃣ Elegir otro día 📅\n` +
+            `5️⃣ Finalizar`;
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
-    } // <-- Aquí termina el IF de CONFIRM_RESERVATION
+  } else {
 
+    // 🔥 NO resetear flujo
+    await setState(from, "POST_RESERVATION_MENU");
+
+    reply = `❌ ${result.message}
+
+¿Qué querés hacer ahora?
+
+${getMenu()}`;
+  }
+
+} else {
+
+  const reservation = result.reservation;
+
+  await setTemp(from, {
+    reservation_code: reservation.reservation_code,
+    reservation_id: reservation.id,
+    is_modifying: false,
+  });
+
+  reply = `🎉 ¡Reserva confirmada!\n\n` +
+          `📅 *Día:* ${reservation.date}\n` +
+          `⏰ *Hora:* ${reservation.time}\n` +
+          `👥 *Personas:* ${reservation.people}\n` +
+          `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
+          getMenu();
+
+  await setState(from, "POST_RESERVATION_MENU");
+}
+
+await sendReply(from, reply);
+return new Response("EVENT_RECEIVED", { status: 200 });
+    }
     // =====================================
     // 3. MENÚ POST RESERVA - PRESERVA ID
     // =====================================
