@@ -475,8 +475,6 @@ if (!result.success) {
 
     reply = `❌ ${result.message}
 
-¿Qué querés hacer ahora?
-
 ${getMenu()}`;
   }
 
@@ -519,14 +517,19 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       else if (msg.includes("modificar") || msg.includes("cambiar") || msg === "3") {
 
   if (!session.temp_data?.reservation_id) {
-    reply = "⚠️ No hay una reserva para modificar.\n\nPodemos hacer una nueva 👍";
-    
-    await setState(from, "INIT");
-    await clearTemp(from);
-    
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
-  }
+
+  reply = `⚠️ No hay una reserva para modificar.
+
+¿Qué querés hacer?
+
+1️⃣ Crear nueva reserva  
+2️⃣ Finalizar`;
+
+  await setState(from, "NO_RESERVATION_MENU");
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
   reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
 
@@ -871,6 +874,36 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
+
+    //-------------------------------------------------------------------------------------------------
+    
+    else if (session.state === "NO_RESERVATION_MENU") {
+  const msg = lower.trim();
+
+  if (msg === "1" || msg.includes("crear")) {
+
+    await clearTemp(from);
+
+    reply = "Perfecto 👍 ¿Para qué día querés la reserva?";
+    await setState(from, "ASK_DATE");
+
+  } 
+  else if (msg === "2" || msg.includes("finalizar")) {
+
+    reply = "Perfecto 👍 Gracias por contactarnos. ¡Te esperamos!";
+    await setState(from, "INIT");
+    await clearTemp(from);
+
+  } 
+  else {
+    reply = "Elegí una opción:\n\n1️⃣ Crear nueva reserva\n2️⃣ Finalizar";
+  }
+
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+    
 
     // =====================================
     // FALLBACK
