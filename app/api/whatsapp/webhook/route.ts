@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 
 console.log("🔥🔥🔥 ESTE ES EL WEBHOOK NUEVO 🔥🔥🔥");
 
-const processedMessages = new Set<string>();
+
 
 function getMenu() {
   return (
@@ -164,7 +164,9 @@ export async function POST(req: Request) {
   try {
 
     const raw = await req.text();
-    console.log("📩 RAW:", raw);
+    if (process.env.NODE_ENV !== "production") {
+  console.log("📩 RAW:", raw);
+}
 
     let body;
 
@@ -189,45 +191,52 @@ export async function POST(req: Request) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
-    for (const message of value.messages) {
+   const message = value.messages[0];
 
-      if (!message?.id) {
-        console.log("⚠️ Mensaje sin ID");
-        continue;
-      }
+// 🔒 validar ID
+if (!message?.id) {
+  console.log("⚠️ Mensaje sin ID");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      const messageId = message.id;
+const messageId = message.id;
 
-      const { data: exists } = await supabase
-        .from("processed_messages")
-        .select("id")
-        .eq("id", messageId)
-        .maybeSingle();
+// 🔒 anti duplicado DB
+const { data: exists } = await supabase
+  .from("processed_messages")
+  .select("id")
+  .eq("id", messageId)
+  .maybeSingle();
 
-      if (exists) {
-        continue;
-      }
+if (exists) {
+  console.log("⚠️ Duplicado:", messageId);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      await supabase.from("processed_messages").insert({
-        id: messageId,
-      });
+// guardar procesado
+await supabase.from("processed_messages").insert({
+  id: messageId,
+});
 
-      console.log("✅ Mensaje nuevo:", messageId);
+console.log("✅ Mensaje nuevo:", messageId);
 
-      if (!message.from) {
-        console.log("⚠️ Sin FROM");
-        continue; // 🔥 FIX
-      }
+// 🔒 validar FROM
+if (!message.from) {
+  console.log("⚠️ Sin FROM");
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      if (message.type !== "text") {
-        console.log("⚠️ No es texto:", message.type);
-        continue; // 🔥 FIX
-      }
+// 🔒 validar tipo
+if (message.type !== "text") {
+  console.log("⚠️ No es texto:", message.type);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
 
-      const from = message.from;
-      const text = message.text.body.trim();
-      const lower = text.toLowerCase();
-      const msg = text.toLowerCase().trim();
+// datos
+const from = message.from;
+const text = message.text.body.trim();
+const lower = text.toLowerCase();
+const msg = lower.trim();
 
 // =====================================
 // 🚩 BOTÓN DE PÁNICO: CANCELAR O REINICIAR
@@ -274,8 +283,8 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
     reply = "⚠️ No encontré tu reserva. Probá reservar nuevamente.";
     await setState(from, "INIT");
     await clearTemp(from);
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
+   sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
   }
 
   // 🔥 TRAER RESERVA ACTUAL
@@ -324,17 +333,16 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
   } 
   else {
     reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
-    await sendReply(from, reply);
-    return new Response("EVENT_RECEIVED", { status: 200 });
+   sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
   }
 
   // 🔥 LIMPIAR TODO
   await setState(from, "INIT");
   await clearTemp(from);
 
-  await sendReply(from, reply);
-
-  return new Response("EVENT_RECEIVED", { status: 200 });
+  sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
 }
     // =====================================
     // 2. CONFIRM_RESERVATION (ROBUSTO)
@@ -347,8 +355,8 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
 
       if (!isYes) {
         reply = "Respondé *SI* para confirmar 👍 o *CANCELAR* ❌";
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+       sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       // ==================== MODIFICACIÓN ====================
@@ -372,8 +380,8 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
         if (!temp.date || !temp.time || !temp.people) {
           reply = "Error: Faltan datos de la reserva. Intentá nuevamente.";
           await setState(from, "POST_RESERVATION_MENU");
-          await sendReply(from, reply);
-          return new Response("EVENT_RECEIVED", { status: 200 });
+       sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
         }
 
         const formattedStart = temp.time.includes(":") ? temp.time : `${temp.time}:00`;
@@ -398,8 +406,8 @@ if (!result.success) {
 ${getMenu()}`;
 
   await setState(from, "POST_RESERVATION_MENU");
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
+       sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
 // 🔥 SI FUNCIONÓ → BORRAR LA ANTERIOR
@@ -424,7 +432,7 @@ reply = `✅ Reserva modificada correctamente
 ${getMenu()}`;
 
 await setState(from, "POST_RESERVATION_MENU");
-await sendReply(from, reply);
+       sendReply(from, reply).catch(console.error);
 return new Response("EVENT_RECEIVED", { status: 200 });
        
       }
@@ -498,7 +506,7 @@ ${getMenu()}`;
           getMenu();
 }
 
-await sendReply(from, reply);
+       sendReply(from, reply).catch(console.error);
 return new Response("EVENT_RECEIVED", { status: 200 });
     }
     // =====================================
@@ -527,8 +535,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
 
   await setState(from, "NO_RESERVATION_MENU");
 
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
+       sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
   reply = "¿Qué te gustaría cambiar? (fecha, hora o personas)";
@@ -550,8 +558,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         reply = "Perdón 😅 no te entendí.\n\n" + getMenu();
       }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+       sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     // =====================================
@@ -571,7 +579,7 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       } else {
         reply = "No entendí 🤔\n\nPodés escribir:\n👉 fecha\n👉 hora\n👉 personas";
       }
-      await sendReply(from, reply);
+        sendReply(from, reply).catch(console.error);
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
@@ -607,8 +615,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       if (!reservationId) {
         reply = "No encontré la reserva 😕";
         await setState(from, "POST_RESERVATION_MENU");
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+        sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       const { error } = await supabase
@@ -621,8 +629,9 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         : `✅ Fecha actualizada a ${newDate}\n\n` + getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
+      
     }
 
     else if (session.state === "MODIFY_PEOPLE") {
@@ -631,15 +640,15 @@ return new Response("EVENT_RECEIVED", { status: 200 });
 
       if (isNaN(people) || people <= 0) {
         reply = "Cantidad inválida 😕";
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+        sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       if (!reservationId) {
         reply = "No encontré la reserva 😕";
         await setState(from, "POST_RESERVATION_MENU");
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+        sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       const { error } = await supabase
@@ -652,8 +661,9 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         : `✅ Personas actualizadas a ${people}\n\n` + getMenu();
 
       await setState(from, "POST_RESERVATION_MENU");
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
+      
     }
 
     // =====================================
@@ -678,8 +688,9 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       await setState(from, "POST_RESERVATION_MENU");
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
+      
     }
 
     // =====================================
@@ -732,8 +743,9 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         reply = "Hola 😊 ¿Querés hacer una reserva nueva, consultar una existente o modificar una?";
       }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
+      
     }
 
     // =====================================
@@ -758,8 +770,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
           if (/^\d{1,2}$/.test(time)) time = `${time}:00`;
           else {
             reply = "Hora inválida 😕 Ej: 21 o 21:00";
-            await sendReply(from, reply);
-            return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
           }
         }
         await setTemp(from, { ...(session.temp_data || {}), time });
@@ -778,8 +790,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     else if (session.state === "ASK_DNI") {
       if (!/^\d{7,8}$/.test(text)) {
         reply = "El DNI debe tener 7 u 8 números.";
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
       await setDNI(from, text);
@@ -871,8 +883,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
         reply = "Por favor, elegí una de las opciones del menú (1 al 5).";
       }
 
-      await sendReply(from, reply);
-      return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
     }
 
     //-------------------------------------------------------------------------------------------------
@@ -899,8 +911,8 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     reply = "Elegí una opción:\n\n1️⃣ Crear nueva reserva\n2️⃣ Finalizar";
   }
 
-  await sendReply(from, reply);
-  return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
 }
 
     
@@ -909,19 +921,17 @@ return new Response("EVENT_RECEIVED", { status: 200 });
     // FALLBACK
     // =====================================
     if (!reply) {
-      reply = "No entendí 😕";
-    }
+  reply = "No entendí 😕";
+}
 
-    await sendReply(from, reply);
-      }
-
-    return new Response("EVENT_RECEIVED", { status: 200 });
+     sendReply(from, reply).catch(console.error);
+return new Response("EVENT_RECEIVED", { status: 200 });
 
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
     return new Response("EVENT_RECEIVED", { status: 200 });
   }
-}
 
+}
 
 
