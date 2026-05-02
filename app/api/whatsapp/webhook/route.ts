@@ -411,46 +411,48 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
         people: Number(temp.people!),
       });
 
-      if (!result.success) {
-        if (result.type === "ALTERNATIVES") {
-          // Guardamos las alternativas en el temp_data para que el bot las recuerde
-          await setTemp(from, { 
-            ...temp, 
-            alternatives: result.alternatives 
-          });
-          await setState(from, "NO_MORE_SLOTS");
-          
-          const botones = result.alternatives && result.alternatives.length > 0
-            ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
-            : "No hay más turnos hoy.";
+     if (!result.success) {
+  if (result.type === "ALTERNATIVES") {
+    await setTemp(from, { 
+      ...temp, 
+      alternatives: result.alternatives 
+    });
+    await setState(from, "NO_MORE_SLOTS");
+    
+    const botones = result.alternatives && result.alternatives.length > 0
+      ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
+      : "No hay más turnos hoy.";
 
-          reply = `❌ *${result.message}*\n\n` +
-                  `Pero tengo estos horarios disponibles:\n` +
-                  `${botones}\n` +
-                  `4️⃣ Elegir otro día 📅\n` +
-                  `5️⃣ Finalizar`;
-        } else {
-          await setState(from, "INIT");
-          reply = result.message || "Error al crear la reserva.";
-        }
-      } else {
-        const reservation = result.reservation;
+    reply = `❌ *${result.message}*\n\n` +
+            `Pero tengo estos horarios disponibles:\n` +
+            `${botones}\n` +
+            `4️⃣ Elegir otro día 📅\n` +
+            `5️⃣ Finalizar`;
+  } else {
+    await setState(from, "POST_RESERVATION_MENU");
 
-        await setTemp(from, {
-          reservation_code: reservation.reservation_code,
-          reservation_id: reservation.id,
-          is_modifying: false,
-        });
+    reply = `❌ ${result.message || "Error al crear la reserva."}
 
-        reply = `🎉 ¡Reserva confirmada!\n\n` +
-                `📅 *Día:* ${reservation.date}\n` +
-                `⏰ *Hora:* ${reservation.time}\n` +
-                `👥 *Personas:* ${reservation.people}\n` +
-                `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
-                getMenu();
+${getMenu()}`;
+  }
+} else {
+  const reservation = result.reservation;
 
-        await setState(from, "POST_RESERVATION_MENU");
-      }
+  await setTemp(from, {
+    reservation_code: reservation.reservation_code,
+    reservation_id: reservation.id,
+    is_modifying: false,
+  });
+
+  reply = `🎉 ¡Reserva confirmada!\n\n` +
+          `📅 *Día:* ${reservation.date}\n` +
+          `⏰ *Hora:* ${reservation.time}\n` +
+          `👥 *Personas:* ${reservation.people}\n` +
+          `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
+          getMenu();
+
+  await setState(from, "POST_RESERVATION_MENU");
+}
 
       await sendReply(from, reply);
       return new Response("EVENT_RECEIVED", { status: 200 });
