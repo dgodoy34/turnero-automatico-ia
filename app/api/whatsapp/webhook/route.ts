@@ -380,24 +380,53 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
         const startDateTime = new Date(`${temp.date}T${formattedStart}:00`);
         const endDateTime = new Date(startDateTime.getTime() + 90 * 60000);
 
-        const { error } = await supabase
-          .from("appointments")
-          .update({
-            date: temp.date,
-            time: formattedStart,
-            start_time: formattedStart,
-            end_time: endDateTime.toTimeString().slice(0, 5),
-            people: Number(temp.people),
-          })
-          .eq("id", temp.reservation_id);
+//--------------------------------------------------------------------------------------------------        
 
-        reply = error 
-          ? "Error al modificar la reserva 😕" 
-          : `✅ Reserva modificada correctamente\n\n📅 ${temp.date}\n⏰ ${formattedStart}\n👥 ${temp.people}\n\n` + getMenu();
+       console.log("→ MODIFICACIÓN REAL");
 
-        await setState(from, "POST_RESERVATION_MENU");
-        await sendReply(from, reply);
-        return new Response("EVENT_RECEIVED", { status: 200 });
+const result = await createReservation({
+  business_id: businessId,
+  dni: temp.dni!,
+  date: temp.date!,
+  time: temp.time!,
+  people: Number(temp.people!),
+});
+
+if (!result.success) {
+  reply = `❌ ${result.message}
+
+${getMenu()}`;
+
+  await setState(from, "POST_RESERVATION_MENU");
+  await sendReply(from, reply);
+  return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+// 🔥 SI FUNCIONÓ → BORRAR LA ANTERIOR
+await supabase
+  .from("appointments")
+  .delete()
+  .eq("id", temp.reservation_id);
+
+// actualizar temp
+await setTemp(from, {
+  reservation_code: result.reservation.reservation_code,
+  reservation_id: result.reservation.id,
+  is_modifying: false,
+});
+
+reply = `✅ Reserva modificada correctamente
+
+📅 ${result.reservation.date}
+⏰ ${result.reservation.time}
+👥 ${result.reservation.people}
+
+${getMenu()}`;
+
+await setState(from, "POST_RESERVATION_MENU");
+await sendReply(from, reply);
+return new Response("EVENT_RECEIVED", { status: 200 });
+       
       }
 
 // ==================== CREACIÓN NUEVA ====================
@@ -430,12 +459,10 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
                   `4️⃣ Elegir otro día 📅\n` +
                   `5️⃣ Finalizar`;
         } else {
-          await setState(from, "INIT");
+          await setState(from, "POST_RESERVATION_MENU");
           reply = `${result.message || "Error al crear la reserva."}
 
-¿Qué querés hacer ahora?
-
-${getMenu()}`;
+       ${getMenu()}`;
         }
       } else {
         const reservation = result.reservation;
