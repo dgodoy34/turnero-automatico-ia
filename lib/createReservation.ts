@@ -189,68 +189,92 @@ if (people <= 2) {
     }
 
    // ======================================
-    // 6. Calcular Disponibilidad de Mesas (Sincronizado con Inventario)
-    // ======================================
-    
-    // Determinamos el turno basado en la hora de la reserva (siguiendo tu lógica de route.ts)
-    // Si la reserva es <= 16:00 es Día, sino Noche.
-    const isNight = start_time > "16:00";
+// 6. Calcular Disponibilidad de Mesas (CORREGIDO)
+// ======================================
 
-    // 6a. Filtrar inventario por turno
-    const filteredInventory = tableInventory.filter((item) => {
-      if (!item.start_time) return true; // Si no tiene hora, es válida siempre
-      const itemIsNight = item.start_time > "16:00";
-      return isNight === itemIsNight;
-    });
+// Determinamos el turno basado en la hora de la reserva
+const isNight = start_time > "16:00";
 
-    const tables: number[] = [];
-    filteredInventory.forEach((t) => {
-      for (let i = 0; i < t.quantity; i++) {
-        tables.push(t.capacity);
-      }
-    });
+// 6a. Filtrar inventario por turno
+const filteredInventory = tableInventory.filter((item) => {
+  if (!item.start_time) return true;
+  const itemIsNight = item.start_time > "16:00";
+  return isNight === itemIsNight;
+});
 
-    // 6b. Consultar solapamientos reales (Lógica de intersección de intervalos)
-    const { data: overlappingTables } = await supabase
-      .from("appointments")
-      .select("assigned_table_capacity")
-      .eq("business_id", business_id)
-      .eq("date", date)
-      .neq("status", "cancelled")
-      .filter('start_time', 'lt', end_time)  // Empieza antes de que yo termine
-      .filter('end_time', 'gt', start_time); // Termina después de que yo empiece
+// Expandimos mesas (ej: 5 mesas de 4 → [4,4,4,4,4])
+const tables: number[] = [];
+filteredInventory.forEach((t) => {
+  for (let i = 0; i < t.quantity; i++) {
+    tables.push(t.capacity);
+  }
+});
 
-    const usedCapacities = overlappingTables?.map((r) => r.assigned_table_capacity) || [];
-    const availableTables = [...tables];
+// 6b. Buscar reservas que se solapan
+const { data: overlappingTables } = await supabase
+  .from("appointments")
+  .select("assigned_table_capacity")
+  .eq("business_id", business_id)
+  .eq("date", date)
+  .neq("status", "cancelled")
+  .filter("start_time", "lt", end_time)
+  .filter("end_time", "gt", start_time);
 
-    // Restamos las mesas que están siendo ocupadas EN ESE MOMENTO
-    usedCapacities.forEach((cap) => {
-      const index = availableTables.indexOf(cap);
-      if (index !== -1) availableTables.splice(index, 1);
-    });
+// Mesas ocupadas
+const usedCapacities =
+  overlappingTables?.map((r) => r.assigned_table_capacity) || [];
 
-    availableTables.sort((a, b) => a - b);
-    
-    let assignedCapacity = null;
-    if (people <= 2) assignedCapacity = availableTables.find((t) => t >= 2) || null;
-    else if (people <= 4) assignedCapacity = availableTables.find((t) => t >= 4) || null;
-    else assignedCapacity = availableTables.find((t) => t >= 6) || null;
+// Copia de mesas disponibles
+const availableTables = [...tables];
 
-    if (!assignedCapacity) {
-      const availableSlots = generateTimeSlots(open_time, close_time, interval);
-      // Buscamos 3 horarios después de la hora que pidió
-      const alternatives = availableSlots.filter((t) => t > start_time).slice(0, 3);
+// Restamos ocupadas
+usedCapacities.forEach((cap) => {
+  const index = availableTables.indexOf(cap);
+  if (index !== -1) {
+    availableTables.splice(index, 1);
+  }
+});
 
-      return {
-        success: false,
-        type: "ALTERNATIVES", // 👈 CLAVE: Esto le avisa al Webhook que use el menú de @img2
-        message: alternatives.length > 0 
-          ? `No hay mesas disponibles a las ${start_time}.`
-          : "Lo sentimos, no hay disponibilidad para esa cantidad de personas.",
-        // @ts-ignore
-        alternatives: alternatives 
-      };
-    }
+// Ordenamos
+availableTables.sort((a, b) => a - b);
+
+// ======================================
+// 🔥 ASIGNACIÓN CORRECTA (FIX REAL)
+// ======================================
+
+let assignedCapacity: number | null = null;
+
+// ⚠️ SOLO MATCH EXACTO (NO >=)
+if (people <= 2) {
+  assignedCapacity = availableTables.find((t) => t === 2) || null;
+} else if (people <= 4) {
+  assignedCapacity = availableTables.find((t) => t === 4) || null;
+} else {
+  assignedCapacity = availableTables.find((t) => t === 6) || null;
+}
+
+// ======================================
+// 🚫 SI NO HAY MESA → RECHAZAR
+// ======================================
+
+if (!assignedCapacity) {
+  const availableSlots = generateTimeSlots(open_time, close_time, interval);
+
+  const alternatives = availableSlots
+    .filter((t) => t > start_time)
+    .slice(0, 3);
+
+  return {
+    success: false,
+    type: "ALTERNATIVES",
+    message:
+      alternatives.length > 0
+        ? `No hay mesas disponibles a las ${start_time}.`
+        : "Lo sentimos, no hay disponibilidad para esa cantidad de personas.",
+    // @ts-ignore
+    alternatives: alternatives,
+  };
+}
     // 7. Generar Código de Reserva
     const year = new Date(date).getFullYear().toString().slice(2);
     const monthDay = date.slice(5, 7) + date.slice(8, 10);
