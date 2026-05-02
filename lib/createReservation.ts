@@ -215,6 +215,7 @@ export async function createReservation({
       .insert({
         business_id,
         date,
+         time: start_time,
         start_time,
         end_time,
         assigned_table_capacity: assignedCapacity,
