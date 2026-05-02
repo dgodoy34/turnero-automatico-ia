@@ -66,7 +66,7 @@ const restaurantId = useRestaurant();
 
     const res = await fetch("/api/appointments", {
   headers: {
-    "x-restaurant-id": restaurantId!
+    "x-business-id": restaurantId || ""
   }
 })
     const data = await res.json();
@@ -77,13 +77,13 @@ const restaurantId = useRestaurant();
   }
 
 async function loadSchedules() {
-  if (!restaurantId) return;
+ if (!restaurantId) return;
 
-  const res = await fetch(`/api/table-schedule?date=${selectedDate}`, {
-    headers: {
-      "x-restaurant-id": restaurantId
-    }
-  });
+const res = await fetch(`/api/table-schedule?date=${selectedDate}`, {
+  headers: {
+    "x-business-id": restaurantId
+  }
+});
 
   const json = await res.json();
 
@@ -189,10 +189,10 @@ await loadAll();
   }
 }
   async function updateAppointmentStatus(id:number,status:AppointmentStatus){
-
+    if (!restaurantId) return;
     await fetch("/api/appointments", {
   headers: {
-    "x-restaurant-id": restaurantId!,
+    "x-business-id": restaurantId,
     "Content-Type":"application/json"
   },
   method:"PUT",
@@ -212,10 +212,12 @@ await loadAll();
 
     if(!confirm("Eliminar reserva?")) return;
 
+    if (!restaurantId) return;
+
     await fetch(`/api/appointments?id=${id}`, {
   method: "DELETE",
   headers: {
-    "x-restaurant-id": restaurantId!
+    "x-business-id": restaurantId
   }
 });
   
