@@ -75,19 +75,23 @@ export default function Mesas() {
         </div>
       ) : null}
 
-      <TableInventoryView
-        date={date}
-        shift={selectedShift}
-        businessId={businessId ?? ""}
-      />
+      {businessId && (
+  <TableInventoryView
+    date={date}
+    shift={selectedShift}
+    businessId={businessId}
+  />
+)}
 
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="font-semibold mb-4 text-xl">Plano de mesas</h2>
-        <TableFloorView
-          date={date}
-          shift={selectedShift}
-          businessId={businessId ?? ""}
-        />
+        {businessId && (
+  <TableFloorView
+    date={date}
+    shift={selectedShift}
+    businessId={businessId}
+  />
+)}
       </div>
     </div>
   );
