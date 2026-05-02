@@ -131,38 +131,64 @@ export async function createReservation({
     // ======================================
     const isNight = start_time > "16:00";
 
-    const filteredInventory = tableInventory.filter((item: any) => {
-      if (!item.start_time) return true;
-      return (item.start_time > "16:00") === isNight;
-    });
+const filteredInventory = tableInventory.filter((item: any) => {
+  if (!item.start_time) return true;
+  return (item.start_time > "16:00") === isNight;
+});
 
-    const tables: number[] = [];
+// 🔥 expandir mesas
+const tables: number[] = [];
 
-    filteredInventory.forEach((t: any) => {
-      for (let i = 0; i < t.quantity; i++) {
-        tables.push(t.capacity);
-      }
-    });
+filteredInventory.forEach((t: any) => {
+  for (let i = 0; i < t.quantity; i++) {
+    tables.push(t.capacity);
+  }
+});
 
-    const { data: overlapping } = await supabase
-      .from("appointments")
-      .select("assigned_table_capacity")
-      .eq("business_id", business_id)
-      .eq("date", date)
-      .neq("status", "cancelled")
-      .filter("start_time", "lt", end_time)
-      .filter("end_time", "gt", start_time);
+// 🔥 reservas que se solapan
+const { data: overlapping } = await supabase
+  .from("appointments")
+  .select("assigned_table_capacity")
+  .eq("business_id", business_id)
+  .eq("date", date)
+  .neq("status", "cancelled")
+  .filter("start_time", "lt", end_time)
+  .filter("end_time", "gt", start_time);
 
-    const used = overlapping?.map((r: any) => r.assigned_table_capacity) || [];
+// ======================================
+// 🔥 FIX REAL (conteo correcto)
+// ======================================
 
-    const available = [...tables];
+// total por capacidad
+const totalByCapacity: Record<number, number> = {};
+tables.forEach((t) => {
+  totalByCapacity[t] = (totalByCapacity[t] || 0) + 1;
+});
 
-    used.forEach((cap) => {
-      const i = available.indexOf(cap);
-      if (i !== -1) available.splice(i, 1);
-    });
+// usadas por capacidad
+const usedByCapacity: Record<number, number> = {};
+(overlapping || []).forEach((r: any) => {
+  const cap = r.assigned_table_capacity;
+  usedByCapacity[cap] = (usedByCapacity[cap] || 0) + 1;
+});
 
-    available.sort((a, b) => a - b);
+// disponibles reales
+const available: number[] = [];
+
+Object.keys(totalByCapacity).forEach((capStr) => {
+  const cap = Number(capStr);
+  const total = totalByCapacity[cap] || 0;
+  const used = usedByCapacity[cap] || 0;
+
+  const free = total - used;
+
+  for (let i = 0; i < free; i++) {
+    available.push(cap);
+  }
+});
+
+// ordenar
+available.sort((a, b) => a - b);
 
     // ======================================
     // 7. ASIGNACIÓN SIN COMBINAR
