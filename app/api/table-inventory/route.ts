@@ -12,24 +12,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Obtener la capacidad TOTAL (Config diaria o Plantilla)
-   let { data: inventoryData, error: invError } = await supabase
-  .from("restaurant_table_inventory")
-  .select("*")
-  .eq("business_id", business_id)
-  .or(`date.eq.${date},date.is.null`);
+    // =========================
+    // 1. INVENTARIO (día específico + fallback template)
+    // =========================
+    let { data: inventoryData, error: invError } = await supabase
+      .from("restaurant_table_inventory")
+      .select("*")
+      .eq("business_id", business_id)
+      .or(`date.eq.${date},date.is.null`);
+
     if (invError) throw invError;
 
-    if (!inventoryData || inventoryData.length === 0) {
-      const { data: template } = await supabase
-        .from("restaurant_table_inventory")
-        .select("*")
-        .eq("business_id", business_id)
-        .is("date", null);
-      inventoryData = template || [];
-    }
+    if (!inventoryData) inventoryData = [];
 
-    // 2. Obtener las RESERVAS del día para saber qué está ocupado
+    // =========================
+    // 2. RESERVAS
+    // =========================
     const { data: appts, error: apptError } = await supabase
       .from("appointments")
       .select("assigned_table_capacity, time")
@@ -39,12 +37,16 @@ export async function GET(req: Request) {
 
     if (apptError) throw apptError;
 
-    // 3. Normalizar el turno
-    const normalizedShift = shift 
-      ? shift.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
+    // =========================
+    // 3. NORMALIZAR TURNO
+    // =========================
+    const normalizedShift = shift
+      ? shift.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
       : "";
 
-    // 4. FILTRADO POR TURNO: Aplicar la misma lógica horaria a ambos
+    // =========================
+    // 4. FILTRAR POR TURNO
+    // =========================
     const filteredInv = inventoryData.filter((r: any) => {
       if (normalizedShift === "dia") return r.start_time <= "16:00";
       if (normalizedShift === "noche") return r.start_time > "16:00";
@@ -57,16 +59,34 @@ export async function GET(req: Request) {
       return true;
     });
 
-    // 5. CÁLCULO: (Total de mesas) - (Reservas del turno)
-    const map = new Map<number, number>();
-    
-    // Sumamos capacidad total configurada
+    // =========================
+    // 🔥 5. ELIMINAR DUPLICADOS (CLAVE DEL FIX)
+    // =========================
+    const uniqueMap = new Map<string, number>();
+
     filteredInv.forEach((row: any) => {
-      const current = map.get(row.capacity) || 0;
-      map.set(row.capacity, current + row.quantity);
+      const key = `${row.capacity}-${row.start_time}`;
+
+      // 👉 evitar sumar duplicados (día + template)
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, row.quantity);
+      }
     });
 
-    // Restamos cada reserva que ya existe
+    // =========================
+    // 🔥 6. AGRUPAR POR CAPACITY
+    // =========================
+    const map = new Map<number, number>();
+
+    uniqueMap.forEach((quantity, key) => {
+      const capacity = Number(key.split("-")[0]);
+      const current = map.get(capacity) || 0;
+      map.set(capacity, current + quantity);
+    });
+
+    // =========================
+    // 7. RESTAR RESERVAS
+    // =========================
     filteredAppts.forEach((appt: any) => {
       const current = map.get(appt.assigned_table_capacity) || 0;
       if (current > 0) {
@@ -74,9 +94,12 @@ export async function GET(req: Request) {
       }
     });
 
+    // =========================
+    // 8. RESULTADO FINAL
+    // =========================
     const tables = Array.from(map.entries()).map(([capacity, quantity]) => ({
       capacity,
-      quantity: Math.max(0, quantity), 
+      quantity: Math.max(0, quantity),
     }));
 
     return NextResponse.json({ success: true, tables });
