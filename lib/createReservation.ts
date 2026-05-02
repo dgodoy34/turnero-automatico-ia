@@ -236,24 +236,23 @@ available.sort((a, b) => a - b);
 // ======================================
 // 🔒 8.5 PROTECCIÓN CONTRA DUPLICADOS (WEBHOOK)
 // ======================================
-const { data: existing } = await supabase
+const { count } = await supabase
   .from("appointments")
-  .select("id")
+  .select("id", { count: "exact", head: true })
   .eq("business_id", business_id)
-  .eq("client_dni", dni)
   .eq("date", date)
   .eq("start_time", start_time)
-  .eq("status", "confirmed")
-  .maybeSingle();
+  .eq("assigned_table_capacity", assignedCapacity)
+  .eq("status", "confirmed");
 
-if (existing) {
-  console.log("⚠️ Reserva duplicada evitada");
+const totalForCapacity = tables.filter(t => t === assignedCapacity).length;
+
+if ((count ?? 0) >= totalForCapacity) {
   return {
-    success: true,
-    message: "Reserva ya confirmada.",
+    success: false,
+    message: "Lo siento, esa mesa ya fue tomada recién. Probá otro horario.",
   };
 }
-
 // ======================================
 // 9. INSERT + PROTECCIÓN REAL
 // ======================================
@@ -294,21 +293,21 @@ const { data: inserted, error: insertError } = await supabase
 // 🔥 ERROR HANDLER REAL
 // ======================================
 if (insertError) {
-  console.error("❌ INSERT ERROR:", insertError);
+  console.log("❌ INSERT ERROR:", insertError);
 
-  if (insertError.message.includes("unique_table_booking")) {
+  // 🔥 ESTE ES EL FIX REAL
+  if (insertError.code === "23505") {
     return {
       success: false,
-      message: "Lo siento, esa mesa ya fue tomada recién. Probá otro horario.",
+      message: "Lo siento, esa mesa se acaba de reservar recién. Probá otro horario.",
     };
   }
 
   return {
     success: false,
-    message: insertError.message,
+    message: insertError.message || "Error al crear la reserva",
   };
 }
-
 // ======================================
 // 10. OK
 // ======================================

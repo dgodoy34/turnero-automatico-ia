@@ -163,7 +163,6 @@ export async function POST(req: Request) {
 
   try {
 
-    // 🔥 FIX REAL: leer como texto
     const raw = await req.text();
     console.log("📩 RAW:", raw);
 
@@ -178,53 +177,57 @@ export async function POST(req: Request) {
 
     console.log("📩 BODY PARSED:", JSON.stringify(body, null, 2));
 
-    // 🔥 EXTRAER VALUE SEGURO
-const value = body?.entry?.[0]?.changes?.[0]?.value;
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
 
-if (!value) {
-  console.log("⚠️ Sin value");
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+    if (!value) {
+      console.log("⚠️ Sin value");
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
 
-// 🔥 VALIDAR MENSAJES
-if (!value.messages || value.messages.length === 0) {
-  console.log("⚠️ Evento sin mensaje (status/update)");
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+    if (!value.messages || value.messages.length === 0) {
+      console.log("⚠️ Evento sin mensaje (status/update)");
+      return new Response("EVENT_RECEIVED", { status: 200 });
+    }
 
-const message = value.messages[0];
+    for (const message of value.messages) {
 
-// 🔒 VALIDAR ID
-if (!message?.id) {
-  console.log("⚠️ Mensaje sin ID");
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+      if (!message?.id) {
+        console.log("⚠️ Mensaje sin ID");
+        continue;
+      }
 
-const messageId = message.id;
+      const messageId = message.id;
 
-// 🔥 ANTI DUPLICADOS
-if (processedMessages.has(messageId)) {
-  console.log("⛔ DUPLICADO IGNORADO:", messageId);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+      const { data: exists } = await supabase
+        .from("processed_messages")
+        .select("id")
+        .eq("id", messageId)
+        .maybeSingle();
 
-processedMessages.add(messageId);
+      if (exists) {
+        continue;
+      }
 
-// 🔒 VALIDAR REMITENTE
-if (!message.from) {
-  console.log("⚠️ Sin FROM");
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
+      await supabase.from("processed_messages").insert({
+        id: messageId,
+      });
 
-// 🔥 OPCIONAL (recomendado)
-if (message.type !== "text") {
-  console.log("⚠️ No es texto:", message.type);
-  return new Response("EVENT_RECEIVED", { status: 200 });
-}
-    const from = message.from;
-    const text = message.text.body.trim();
-    const lower = text.toLowerCase();
-    const msg = text.toLowerCase().trim();
+      console.log("✅ Mensaje nuevo:", messageId);
+
+      if (!message.from) {
+        console.log("⚠️ Sin FROM");
+        continue; // 🔥 FIX
+      }
+
+      if (message.type !== "text") {
+        console.log("⚠️ No es texto:", message.type);
+        continue; // 🔥 FIX
+      }
+
+      const from = message.from;
+      const text = message.text.body.trim();
+      const lower = text.toLowerCase();
+      const msg = text.toLowerCase().trim();
 
 // =====================================
 // 🚩 BOTÓN DE PÁNICO: CANCELAR O REINICIAR
@@ -820,14 +823,13 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
     }
 
     await sendReply(from, reply);
+      }
+
     return new Response("EVENT_RECEIVED", { status: 200 });
 
   } catch (err) {
     console.error("❌ ERROR GENERAL:", err);
-    return new Response(
-      JSON.stringify({ reply: lastReply }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response("EVENT_RECEIVED", { status: 200 });
   }
 }
 
