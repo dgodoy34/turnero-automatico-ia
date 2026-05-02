@@ -208,49 +208,69 @@ export async function createReservation({
       .padStart(4, "0")}`;
 
     // ======================================
-    // 9. INSERT + PROTECCIÓN
-    // ======================================
-    const { data, error } = await supabase
-      .from("appointments")
-      .insert({
-        business_id,
-        date,
-         time: start_time,
-        start_time,
-        end_time,
-        assigned_table_capacity: assignedCapacity,
-        status: "confirmed",
-        client_dni: dni,
-        people,
-        reservation_code: code,
-      })
-      .select()
-      .single();
+// 9. INSERT + PROTECCIÓN
+// ======================================
+const { data: inserted, error: insertError } = await supabase
+  .from("appointments")
+  .insert({
+    business_id,
+    date,
 
-    if (error) {
-      if (error.message.includes("unique_table_booking")) {
-        return {
-          success: false,
-          message: "Lo siento, esa mesa ya fue tomada recién. Probá otro horario.",
-        };
-      }
+    // 🔥 REQUIRED (según tu DB)
+    time: start_time,
+    service: "Reserva",
 
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+    // horarios
+    start_time,
+    end_time,
 
-    // ======================================
-    // 10. OK
-    // ======================================
+    // mesa
+    assigned_table_capacity: assignedCapacity,
+
+    // cliente
+    client_dni: dni,
+    name: client_name || "Cliente",
+    phone: client_phone || "",
+
+    // datos reserva
+    people,
+    status: "confirmed",
+    reservation_code: code,
+    source: source || "web",
+
+    // opcionales
+    notes: null,
+  })
+  .select()
+  .single();
+
+// ======================================
+// 🔥 MANEJO DE ERROR BIEN HECHO
+// ======================================
+if (insertError) {
+  console.error("❌ INSERT ERROR:", insertError);
+
+  if (insertError.message.includes("unique_table_booking")) {
     return {
-      success: true,
-      reservation: data,
+      success: false,
+      message: "Lo siento, esa mesa ya fue tomada recién. Probá otro horario.",
     };
-
-  } catch (err) {
-    console.error(err);
-    return { success: false, message: "Error inesperado" };
   }
+
+  return {
+    success: false,
+    message: insertError.message, // 👈 FIX
+  };
 }
+
+// ======================================
+// 10. OK
+// ======================================
+return {
+  success: true,
+  reservation: inserted, // 👈 FIX
+};
+} catch (error) {
+  console.error("Error creating reservation:", error);
+  return { success: false, message: "Error interno del servidor" };
+}}
