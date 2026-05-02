@@ -151,7 +151,7 @@ const { data: overlapping } = await supabase
   .select("assigned_table_capacity")
   .eq("business_id", business_id)
   .eq("date", date)
-  .neq("status", "cancelled")
+  .eq("status", "confirmed")
   .filter("start_time", "lt", end_time)
   .filter("end_time", "gt", start_time);
 
@@ -180,7 +180,7 @@ Object.keys(totalByCapacity).forEach((capStr) => {
   const total = totalByCapacity[cap] || 0;
   const used = usedByCapacity[cap] || 0;
 
-  const free = total - used;
+  const free = Math.max(0, total - used);
 
   for (let i = 0; i < free; i++) {
     available.push(cap);
@@ -233,8 +233,29 @@ available.sort((a, b) => a - b);
       .toString()
       .padStart(4, "0")}`;
 
-    // ======================================
-// 9. INSERT + PROTECCIÓN
+// ======================================
+// 🔒 8.5 PROTECCIÓN CONTRA DUPLICADOS (WEBHOOK)
+// ======================================
+const { data: existing } = await supabase
+  .from("appointments")
+  .select("id")
+  .eq("business_id", business_id)
+  .eq("client_dni", dni)
+  .eq("date", date)
+  .eq("start_time", start_time)
+  .eq("status", "confirmed")
+  .maybeSingle();
+
+if (existing) {
+  console.log("⚠️ Reserva duplicada evitada");
+  return {
+    success: true,
+    message: "Reserva ya confirmada.",
+  };
+}
+
+// ======================================
+// 9. INSERT + PROTECCIÓN REAL
 // ======================================
 const { data: inserted, error: insertError } = await supabase
   .from("appointments")
@@ -242,7 +263,7 @@ const { data: inserted, error: insertError } = await supabase
     business_id,
     date,
 
-    // 🔥 REQUIRED (según tu DB)
+    // 🔥 columnas obligatorias
     time: start_time,
     service: "Reserva",
 
@@ -258,20 +279,19 @@ const { data: inserted, error: insertError } = await supabase
     name: client_name || "Cliente",
     phone: client_phone || "",
 
-    // datos reserva
+    // reserva
     people,
     status: "confirmed",
     reservation_code: code,
     source: source || "web",
 
-    // opcionales
     notes: null,
   })
   .select()
   .single();
 
 // ======================================
-// 🔥 MANEJO DE ERROR BIEN HECHO
+// 🔥 ERROR HANDLER REAL
 // ======================================
 if (insertError) {
   console.error("❌ INSERT ERROR:", insertError);
@@ -285,7 +305,7 @@ if (insertError) {
 
   return {
     success: false,
-    message: insertError.message, // 👈 FIX
+    message: insertError.message,
   };
 }
 
@@ -294,9 +314,13 @@ if (insertError) {
 // ======================================
 return {
   success: true,
-  reservation: inserted, // 👈 FIX
+  reservation: inserted,
 };
-} catch (error) {
-  console.error("Error creating reservation:", error);
-  return { success: false, message: "Error interno del servidor" };
-}}
+  } catch (error) {
+    console.error("❌ CATCH ERROR:", error);
+    return {
+      success: false,
+      message: "Error al crear la reserva",
+    };
+  }
+}
