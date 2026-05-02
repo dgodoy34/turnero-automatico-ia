@@ -45,14 +45,17 @@ export async function GET(req: Request) {
 
     const business_id = await resolveBusinessId(req);
 
-    if (!date || !business_id) {
+    if (!business_id) {
       return NextResponse.json(
-        { success: false, error: "Missing params" },
+        { success: false, error: "Missing business_id" },
         { status: 400 }
       );
     }
 
-    console.log("👉 DATE:", date);
+    // 🔥 fallback automático
+    const safeDate = date || new Date().toISOString().split("T")[0];
+
+    console.log("👉 DATE:", safeDate);
     console.log("👉 BUSINESS:", business_id);
 
     // 🔥 RESERVAS
@@ -60,21 +63,21 @@ export async function GET(req: Request) {
       .from("appointments")
       .select("*")
       .eq("business_id", business_id)
-      .eq("date", date);
+      .eq("date", safeDate)
 
     // 🔥 INVENTARIO
     const { data: inventory } = await supabase
       .from("restaurant_table_inventory")
       .select("capacity, quantity")
       .eq("business_id", business_id)
-      .eq("date", date);
+      .or(`date.eq.${safeDate},date.is.null`)
 
     // 🔥 SCHEDULE
     const { data: schedules } = await supabase
       .from("restaurant_table_schedule")
       .select("start_time, end_time")
       .eq("business_id", business_id)
-      .eq("date", date);
+      .or(`date.eq.${safeDate},date.is.null`)
 
     return NextResponse.json({
       success: true,

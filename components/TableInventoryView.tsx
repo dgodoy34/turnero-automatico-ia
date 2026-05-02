@@ -21,8 +21,9 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
 
   // 2. useEffect separado de la lógica de carga
   useEffect(() => {
-    loadData();
-  }, [businessId, date, shift]);
+  if (!businessId || !date) return;
+  loadData();
+}, [businessId, date, shift]);
 
   // 3. Función loadData cerrada correctamente
   async function loadData() {
@@ -38,10 +39,22 @@ export default function TableInventoryView({ date, shift, businessId }: Props) {
       ]);
 
       const tablesData = await tablesRes.json();
-      const apptData = await apptRes.json();
+const apptData = await apptRes.json();
 
-      setTables(tablesData.tables || []);
-      setAppointments(apptData.appointments || []); // Ahora sí existe
+// 🔥 VALIDACIÓN REAL
+if (!tablesRes.ok || !tablesData.success) {
+  console.error("❌ Inventory error:", tablesData);
+  setTables([]);
+} else {
+  setTables(tablesData.tables || []);
+}
+
+if (!apptRes.ok || !apptData.success) {
+  console.error("❌ Appointments error:", apptData);
+  setAppointments([]);
+} else {
+  setAppointments(apptData.appointments || []);
+}
     } catch (error) {
       console.error("Error:", error);
     } finally {

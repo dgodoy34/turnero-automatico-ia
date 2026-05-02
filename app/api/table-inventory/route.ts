@@ -18,7 +18,6 @@ export async function GET(req: Request) {
   .select("*")
   .eq("business_id", business_id)
   .or(`date.eq.${date},date.is.null`);
-
     if (invError) throw invError;
 
     if (!inventoryData || inventoryData.length === 0) {

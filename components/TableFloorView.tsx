@@ -30,13 +30,23 @@ export default function TableFloorView({ date, shift, businessId }: Props) {
       fetch(`/api/appointments?date=${date}&shift=${shift}&business_id=${businessId}`)
     ]);
 
-    const tablesData = await tablesRes.json();
-    const apptData = await apptRes.json();
+  const tablesData = await tablesRes.json();
+const apptData = await apptRes.json();
 
-    setTables(tablesData.tables || []);
-    setAppointments(apptData.appointments || []);
+if (!tablesRes.ok || !tablesData.success) {
+  console.error("❌ Inventory error:", tablesData);
+  setTables([]);
+} else {
+  setTables(tablesData.tables || []);
+}
+
+if (!apptRes.ok || !apptData.success) {
+  console.error("❌ Appointments error:", apptData);
+  setAppointments([]);
+} else {
+  setAppointments(apptData.appointments || []);
+}
   }
-
   useEffect(() => {
     loadData();
   }, [date, shift, businessId]);
