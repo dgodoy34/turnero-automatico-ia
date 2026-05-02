@@ -13,11 +13,11 @@ export async function GET(req: Request) {
     }
 
     // 1. Obtener la capacidad TOTAL (Config diaria o Plantilla)
-    let { data: inventoryData, error: invError } = await supabase
-      .from("restaurant_table_inventory")
-      .select("*")
-      .eq("business_id", business_id)
-      .eq("date", date);
+   let { data: inventoryData, error: invError } = await supabase
+  .from("restaurant_table_inventory")
+  .select("*")
+  .eq("business_id", business_id)
+  .or(`date.eq.${date},date.is.null`);
 
     if (invError) throw invError;
 
