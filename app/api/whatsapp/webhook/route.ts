@@ -88,10 +88,12 @@ async function sendReply(to: string, reply: string) {
     }
   );
 
-  const data = await res.text(); // 👈 IMPORTANTE para debug
+  const data = await res.text(); // 👈 dejamos text para ver TODO
 
   console.log("📥 RESPUESTA WHATSAPP:", data);
 }
+
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
