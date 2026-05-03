@@ -95,6 +95,7 @@ async function sendReply(to: string, reply: string) {
     console.error("❌ ERROR EN SEND:", err);
   }
 }
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
