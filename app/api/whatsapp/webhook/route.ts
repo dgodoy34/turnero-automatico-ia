@@ -77,7 +77,7 @@ async function sendReply(to: string, reply: string) {
   console.log("📤 ENVIANDO A WHATSAPP:", JSON.stringify(payload, null, 2));
 
   const res = await fetch(
-    `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    `https://graph.facebook.com/v21.0/951606691377016/messages`,
     {
       method: "POST",
       headers: {
