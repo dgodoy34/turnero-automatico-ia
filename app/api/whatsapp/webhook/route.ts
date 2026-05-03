@@ -65,35 +65,36 @@ const today = getTodayISO(timezone);
 let lastReply = "";
 
 async function sendReply(to: string, reply: string) {
-  lastReply = reply;
+  try {
+    const payload = {
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: reply },
+    };
 
-  const payload = {
-    messaging_product: "whatsapp",
-    to,
-    type: "text",
-    text: { body: reply },
-  };
+    console.log("📤 ENVIANDO A WHATSAPP:", JSON.stringify(payload, null, 2));
 
-  console.log("📤 ENVIANDO A WHATSAPP:", JSON.stringify(payload, null, 2));
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
 
-  const res = await fetch(
-    `https://graph.facebook.com/v21.0/951606691377016/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+    const text = await res.text();
 
-  const data = await res.text(); // 👈 dejamos text para ver TODO
+    console.log("📥 RESPUESTA WHATSAPP:", text);
 
-  console.log("📥 RESPUESTA WHATSAPP:", data);
+  } catch (err) {
+    console.error("❌ ERROR EN SEND:", err);
+  }
 }
-
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
