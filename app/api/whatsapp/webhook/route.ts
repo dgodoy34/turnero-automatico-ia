@@ -259,11 +259,13 @@ if (msg === "cancelar" || msg === "inicio" || msg === "hola") {
 
     let reply = "";
 
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("id")
-      .eq("phone_number_id", process.env.WHATSAPP_PHONE_NUMBER_ID)
-      .single();
+    const phoneId = value.metadata?.phone_number_id;
+
+const { data: restaurant } = await supabase
+  .from("restaurants")
+  .select("id")
+  .eq("phone_number_id", phoneId)
+  .single();
 
     if (!restaurant) {
       console.error("❌ Restaurante no encontrado");
@@ -438,7 +440,6 @@ return new Response("EVENT_RECEIVED", { status: 200 });
       }
 
 // ==================== CREACIÓN NUEVA ====================
-
 console.log("→ Camino de CREACIÓN NUEVA");
 
 const result = await createReservation({
@@ -451,11 +452,11 @@ const result = await createReservation({
 
 if (!result.success) {
 
-  // 🔥 limpiar estado SIEMPRE
+  // 🔥 NO romper flujo si venís de modificación
   await setTemp(from, {
     ...temp,
-    is_modifying: false,
-    reservation_id: null
+    is_modifying: temp.is_modifying === true ? true : false,
+    reservation_id: temp.is_modifying ? temp.reservation_id : null
   });
 
   if (result.type === "ALTERNATIVES") {
@@ -466,20 +467,24 @@ if (!result.success) {
     });
 
     await setState(from, "NO_MORE_SLOTS");
-    
-    const botones = result.alternatives && result.alternatives.length > 0
+
+    const botones = result.alternatives?.length
       ? result.alternatives.map((t: string, i: number) => `${i + 1}️⃣ ${t}`).join("\n")
       : "No hay más turnos hoy.";
 
-    reply = `❌ *${result.message}*\n\n` +
-            `Pero tengo estos horarios disponibles:\n` +
-            `${botones}\n` +
-            `4️⃣ Elegir otro día 📅\n` +
-            `5️⃣ Finalizar`;
+    reply = `❌ ${result.message}
+
+${botones}
+4️⃣ Elegir otro día 📅
+5️⃣ Finalizar`;
 
   } else {
 
-    await setState(from, "POST_RESERVATION_MENU");
+    // 🔥 CLAVE: respetar flujo si estaba modificando
+    await setState(
+      from,
+      temp.is_modifying ? "MODIFY_RESERVATION" : "POST_RESERVATION_MENU"
+    );
 
     reply = `❌ ${result.message}
 
@@ -498,17 +503,21 @@ ${getMenu()}`;
 
   await setState(from, "POST_RESERVATION_MENU");
 
-  reply = `🎉 ¡Reserva confirmada!\n\n` +
-          `📅 *Día:* ${reservation.date}\n` +
-          `⏰ *Hora:* ${reservation.time}\n` +
-          `👥 *Personas:* ${reservation.people}\n` +
-          `🔑 *Código:* ${reservation.reservation_code}\n\n` + 
-          getMenu();
+  reply = `🎉 ¡Reserva confirmada!
+
+📅 ${reservation.date}
+⏰ ${reservation.time}
+👥 ${reservation.people}
+🔑 ${reservation.reservation_code}
+
+${getMenu()}`;
 }
 
+// 🔥 ESTO SIEMPRE VA AL FINAL DEL BLOQUE
        sendReply(from, reply).catch(console.error);
 return new Response("EVENT_RECEIVED", { status: 200 });
-    }
+}
+  
     // =====================================
     // 3. MENÚ POST RESERVA - PRESERVA ID
     // =====================================
